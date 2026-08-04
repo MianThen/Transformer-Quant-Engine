@@ -447,11 +447,73 @@ bool test_cvar() {
   return ok;
 }
 
+bool test_tail_risk_backtest() {
+  bool ok = true;
+  const std::vector<engine_common::TimestampNs> timestamps{1, 2, 3, 4, 5, 6, 7, 8};
+  const std::vector<double> returns{0.1, -0.2, 0.0, -0.6, 0.3, -0.8, 0.1, -0.1};
+  const std::vector<double> var_loss(timestamps.size(), 0.4);
+  const std::vector<double> es_loss(timestamps.size(), 0.7);
+  portfolio_math::TailRiskBacktestProblemView problem{
+      timestamps, returns, var_loss, es_loss, 0.75, 8, 503,
+  };
+  const auto result = portfolio_math::backtest_tail_risk(problem);
+  ok &= check(result.status == portfolio_math::TailRiskBacktestStatus::OK &&
+                  result.effective_observations == 8 &&
+                  result.exception_count == 2 && result.es_violation_count == 1,
+              "VaR/ES joint backtest counts exceptions");
+  ok &= check(near(result.exception_rate, 0.25) &&
+                  near(result.es_violation_rate, 0.125) &&
+                  near(result.mean_exceedance_loss, 0.3) &&
+                  near(result.mean_es_excess_loss, 0.1),
+              "VaR/ES joint backtest tail diagnostics");
+  ok &= check(result.transition_00 == 3 && result.transition_01 == 2 &&
+                  result.transition_10 == 2 && result.transition_11 == 0 &&
+                  result.input_hash != 0 && result.artifact_hash != 0 &&
+                  std::isfinite(result.kupiec_p_value) &&
+                  std::isfinite(result.christoffersen_p_value),
+              "VaR/ES joint backtest independence diagnostics");
+  portfolio_math::TailRiskArtifactSpec artifact_spec;
+  artifact_spec.reference_price_quality = "PROXY";
+  artifact_spec.promotion_eligible = true;
+  const auto serialized = portfolio_math::serialize_tail_risk_backtest_artifact(
+      result, artifact_spec);
+  ok &= check(serialized.find("\"role\":\"tail_risk_backtest\"") !=
+                  std::string::npos &&
+                  serialized.find("\"transition_01\":2") !=
+                      std::string::npos &&
+                  serialized.find("\"promotion_eligible\":false") !=
+                      std::string::npos,
+              "VaR/ES joint backtest artifact closes proxy promotion");
+  auto future_timestamps = timestamps;
+  future_timestamps.back() = 9;
+  problem.realization_timestamps = future_timestamps;
+  ok &= check(portfolio_math::backtest_tail_risk(problem).status ==
+                  portfolio_math::TailRiskBacktestStatus::INVALID_INPUT,
+              "future realized return closes VaR/ES backtest");
+  problem.realization_timestamps = timestamps;
+  auto invalid_es = es_loss;
+  invalid_es.front() = 0.3;
+  problem.expected_shortfall_loss = invalid_es;
+  ok &= check(portfolio_math::backtest_tail_risk(problem).status ==
+                  portfolio_math::TailRiskBacktestStatus::INVALID_INPUT,
+              "ES below VaR closes VaR/ES backtest");
+  problem.expected_shortfall_loss = es_loss;
+  problem.realized_returns = std::span<const double>(returns.data(), 2);
+  problem.realization_timestamps = std::span<const engine_common::TimestampNs>(
+      timestamps.data(), 2);
+  problem.value_at_risk_loss = std::span<const double>(var_loss.data(), 2);
+  problem.expected_shortfall_loss = std::span<const double>(es_loss.data(), 2);
+  ok &= check(portfolio_math::backtest_tail_risk(problem).status ==
+                  portfolio_math::TailRiskBacktestStatus::INSUFFICIENT_OBSERVATIONS,
+              "short VaR/ES backtest closes with insufficient observations");
+  return ok;
+}
+
 } // namespace
 
 int main() {
   if (!(test_covariance() && test_nonlinear_monte_carlo_oracle() &&
-        test_risk_budget() && test_cvar()))
+        test_risk_budget() && test_cvar() && test_tail_risk_backtest()))
     return 1;
   std::printf("test_portfolio_math: all checks passed\n");
   return 0;

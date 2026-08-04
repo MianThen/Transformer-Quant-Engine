@@ -4,6 +4,7 @@
 #include <bit>
 #include <cmath>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -217,6 +218,207 @@ std::string serialize_tail_risk_artifact(
         output << "null";
     }
     output << ",\"manifest\":{\"source_dataset_fingerprint\":\""
+           << json_escape(artifact_spec.source_dataset_fingerprint)
+           << "\",\"portfolio_weights_sha256\":\""
+           << json_escape(artifact_spec.portfolio_weights_sha256)
+           << "\",\"return_panel_policy_hash\":\""
+           << json_escape(artifact_spec.return_panel_policy_hash)
+           << "\",\"reference_price_quality\":\""
+           << json_escape(artifact_spec.reference_price_quality)
+           << "\",\"promotion_eligible\":"
+           << (promotion ? "true" : "false") << ",\"limitations\":[";
+    for (std::size_t index = 0; index < artifact_spec.limitations.size(); ++index) {
+        if (index != 0) output << ',';
+        output << '"' << json_escape(artifact_spec.limitations[index]) << '"';
+    }
+    output << "]}}";
+    return output.str();
+}
+
+namespace {
+
+double bernoulli_log_likelihood(std::uint32_t successes,
+                                std::uint32_t trials, double probability) {
+    if (trials == 0) return 0.0;
+    if (!(probability >= 0.0 && probability <= 1.0)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    const std::uint32_t failures = trials - successes;
+    if ((probability == 0.0 && successes != 0) ||
+        (probability == 1.0 && failures != 0)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    double result = 0.0;
+    if (successes != 0) result += static_cast<double>(successes) * std::log(probability);
+    if (failures != 0) result += static_cast<double>(failures) * std::log1p(-probability);
+    return result;
+}
+
+double chi_square_one_p_value(double statistic) {
+    if (!std::isfinite(statistic) || statistic < 0.0) return 0.0;
+    return std::erfc(std::sqrt(statistic * 0.5));
+}
+
+}  // namespace
+
+TailRiskBacktestResult backtest_tail_risk(
+    const TailRiskBacktestProblemView& problem) {
+    TailRiskBacktestResult result;
+    result.confidence_level = problem.confidence_level;
+    const std::size_t observation_count = problem.realized_returns.size();
+    if (!(problem.confidence_level >= 0.5 && problem.confidence_level < 1.0) ||
+        problem.available_at <= 0 || problem.config_hash == 0 ||
+        observation_count < 3 ||
+        problem.realization_timestamps.size() != observation_count ||
+        problem.value_at_risk_loss.size() != observation_count ||
+        problem.expected_shortfall_loss.size() != observation_count) {
+        result.status = observation_count < 3
+            ? TailRiskBacktestStatus::INSUFFICIENT_OBSERVATIONS
+            : TailRiskBacktestStatus::INVALID_INPUT;
+        return result;
+    }
+    std::uint64_t input_hash = kFnvOffset;
+    hash_value(input_hash, problem.config_hash);
+    hash_value(input_hash, std::bit_cast<std::uint64_t>(problem.confidence_level));
+    for (std::size_t index = 0; index < observation_count; ++index) {
+        if (problem.realization_timestamps[index] <= 0 ||
+            (index != 0 && problem.realization_timestamps[index] <=
+                problem.realization_timestamps[index - 1]) ||
+            problem.realization_timestamps[index] > problem.available_at ||
+            !std::isfinite(problem.realized_returns[index]) ||
+            !std::isfinite(problem.value_at_risk_loss[index]) ||
+            !std::isfinite(problem.expected_shortfall_loss[index]) ||
+            problem.expected_shortfall_loss[index] <
+                problem.value_at_risk_loss[index]) {
+            result.status = TailRiskBacktestStatus::INVALID_INPUT;
+            return result;
+        }
+        hash_value(input_hash, static_cast<std::uint64_t>(
+            problem.realization_timestamps[index]));
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(
+            problem.realized_returns[index]));
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(
+            problem.value_at_risk_loss[index]));
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(
+            problem.expected_shortfall_loss[index]));
+    }
+
+    constexpr double kTolerance = 1e-12;
+    double exceedance_sum = 0.0;
+    double es_excess_sum = 0.0;
+    std::vector<bool> exceptions(observation_count, false);
+    for (std::size_t index = 0; index < observation_count; ++index) {
+        const double loss = -problem.realized_returns[index];
+        if (loss > problem.value_at_risk_loss[index] + kTolerance) {
+            exceptions[index] = true;
+            ++result.exception_count;
+            exceedance_sum += loss - problem.value_at_risk_loss[index];
+        }
+        if (loss > problem.expected_shortfall_loss[index] + kTolerance) {
+            ++result.es_violation_count;
+            es_excess_sum += loss - problem.expected_shortfall_loss[index];
+        }
+    }
+    for (std::size_t index = 1; index < exceptions.size(); ++index) {
+        if (!exceptions[index - 1] && !exceptions[index]) ++result.transition_00;
+        if (!exceptions[index - 1] && exceptions[index]) ++result.transition_01;
+        if (exceptions[index - 1] && !exceptions[index]) ++result.transition_10;
+        if (exceptions[index - 1] && exceptions[index]) ++result.transition_11;
+    }
+    result.effective_observations = static_cast<std::uint32_t>(observation_count);
+    result.exception_rate = static_cast<double>(result.exception_count) /
+        static_cast<double>(observation_count);
+    result.es_violation_rate = static_cast<double>(result.es_violation_count) /
+        static_cast<double>(observation_count);
+    result.mean_exceedance_loss = result.exception_count == 0
+        ? 0.0 : exceedance_sum / static_cast<double>(result.exception_count);
+    result.mean_es_excess_loss = result.es_violation_count == 0
+        ? 0.0 : es_excess_sum / static_cast<double>(result.es_violation_count);
+
+    const double expected_exception_probability = 1.0 - problem.confidence_level;
+    const double null_log_likelihood = bernoulli_log_likelihood(
+        result.exception_count, result.effective_observations,
+        expected_exception_probability);
+    const double observed_probability = result.exception_rate;
+    const double unrestricted_log_likelihood = bernoulli_log_likelihood(
+        result.exception_count, result.effective_observations,
+        observed_probability);
+    const double kupiec_statistic = 2.0 * std::max(
+        0.0, unrestricted_log_likelihood - null_log_likelihood);
+    result.kupiec_lr = std::isfinite(kupiec_statistic)
+        ? kupiec_statistic : std::numeric_limits<double>::infinity();
+    result.kupiec_p_value = chi_square_one_p_value(result.kupiec_lr);
+
+    const std::uint32_t transition_count = result.transition_00 +
+        result.transition_01 + result.transition_10 + result.transition_11;
+    const std::uint32_t transition_ones = result.transition_01 + result.transition_11;
+    const double iid_probability = transition_count == 0
+        ? 0.0 : static_cast<double>(transition_ones) /
+            static_cast<double>(transition_count);
+    const std::uint32_t from_zero = result.transition_00 + result.transition_01;
+    const std::uint32_t from_one = result.transition_10 + result.transition_11;
+    const double probability_01 = from_zero == 0
+        ? 0.0 : static_cast<double>(result.transition_01) /
+            static_cast<double>(from_zero);
+    const double probability_11 = from_one == 0
+        ? 0.0 : static_cast<double>(result.transition_11) /
+            static_cast<double>(from_one);
+    const double iid_log_likelihood = bernoulli_log_likelihood(
+        transition_ones, transition_count, iid_probability);
+    const double independent_log_likelihood =
+        bernoulli_log_likelihood(result.transition_01, from_zero, probability_01) +
+        bernoulli_log_likelihood(result.transition_11, from_one, probability_11);
+    const double christoffersen_statistic = 2.0 * std::max(
+        0.0, independent_log_likelihood - iid_log_likelihood);
+    result.christoffersen_lr = std::isfinite(christoffersen_statistic)
+        ? christoffersen_statistic : std::numeric_limits<double>::infinity();
+    result.christoffersen_p_value = chi_square_one_p_value(result.christoffersen_lr);
+    result.status = TailRiskBacktestStatus::OK;
+    result.input_hash = input_hash;
+    result.artifact_hash = input_hash;
+    hash_value(result.artifact_hash, result.exception_count);
+    hash_value(result.artifact_hash, result.es_violation_count);
+    hash_value(result.artifact_hash,
+               std::bit_cast<std::uint64_t>(result.kupiec_lr));
+    hash_value(result.artifact_hash,
+               std::bit_cast<std::uint64_t>(result.christoffersen_lr));
+    return result;
+}
+
+std::string serialize_tail_risk_backtest_artifact(
+    const TailRiskBacktestResult& result,
+    const TailRiskArtifactSpec& artifact_spec) {
+    const bool proxy = artifact_spec.reference_price_quality == "PROXY" ||
+        artifact_spec.reference_price_quality == "ARRIVAL_PROXY";
+    const bool promotion = artifact_spec.promotion_eligible &&
+        reference_price_ready(artifact_spec.reference_price_quality) && !proxy &&
+        result.status == TailRiskBacktestStatus::OK;
+    std::ostringstream output;
+    output << "{\"schema_version\":1,\"role\":\"tail_risk_backtest\""
+           << ",\"status\":" << static_cast<int>(result.status)
+           << ",\"confidence_level\":" << json_number(result.confidence_level)
+           << ",\"effective_observations\":" << result.effective_observations
+           << ",\"exception_count\":" << result.exception_count
+           << ",\"es_violation_count\":" << result.es_violation_count
+           << ",\"transition_00\":" << result.transition_00
+           << ",\"transition_01\":" << result.transition_01
+           << ",\"transition_10\":" << result.transition_10
+           << ",\"transition_11\":" << result.transition_11
+           << ",\"exception_rate\":" << json_number(result.exception_rate)
+           << ",\"es_violation_rate\":" << json_number(result.es_violation_rate)
+           << ",\"mean_exceedance_loss\":"
+           << json_number(result.mean_exceedance_loss)
+           << ",\"mean_es_excess_loss\":"
+           << json_number(result.mean_es_excess_loss)
+           << ",\"kupiec_lr\":" << json_number(result.kupiec_lr)
+           << ",\"kupiec_p_value\":" << json_number(result.kupiec_p_value)
+           << ",\"christoffersen_lr\":"
+           << json_number(result.christoffersen_lr)
+           << ",\"christoffersen_p_value\":"
+           << json_number(result.christoffersen_p_value)
+           << ",\"input_hash\":" << result.input_hash
+           << ",\"artifact_hash\":" << result.artifact_hash
+           << ",\"manifest\":{\"source_dataset_fingerprint\":\""
            << json_escape(artifact_spec.source_dataset_fingerprint)
            << "\",\"portfolio_weights_sha256\":\""
            << json_escape(artifact_spec.portfolio_weights_sha256)

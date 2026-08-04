@@ -105,6 +105,45 @@ struct TailRiskArtifactSpec {
     std::vector<std::string> limitations;
 };
 
+enum class TailRiskBacktestStatus : std::uint8_t {
+    OK,
+    INVALID_INPUT,
+    INSUFFICIENT_OBSERVATIONS,
+    NUMERICAL_FAILURE,
+};
+
+struct TailRiskBacktestProblemView {
+    std::span<const engine_common::TimestampNs> realization_timestamps;
+    std::span<const double> realized_returns;
+    std::span<const double> value_at_risk_loss;
+    std::span<const double> expected_shortfall_loss;
+    double confidence_level{0.0};
+    engine_common::TimestampNs available_at{0};
+    std::uint64_t config_hash{0};
+};
+
+struct TailRiskBacktestResult {
+    TailRiskBacktestStatus status{TailRiskBacktestStatus::INVALID_INPUT};
+    double confidence_level{0.0};
+    std::uint32_t effective_observations{0};
+    std::uint32_t exception_count{0};
+    std::uint32_t es_violation_count{0};
+    std::uint32_t transition_00{0};
+    std::uint32_t transition_01{0};
+    std::uint32_t transition_10{0};
+    std::uint32_t transition_11{0};
+    double exception_rate{0.0};
+    double es_violation_rate{0.0};
+    double mean_exceedance_loss{0.0};
+    double mean_es_excess_loss{0.0};
+    double kupiec_lr{0.0};
+    double kupiec_p_value{1.0};
+    double christoffersen_lr{0.0};
+    double christoffersen_p_value{1.0};
+    std::uint64_t input_hash{0};
+    std::uint64_t artifact_hash{0};
+};
+
 [[nodiscard]] bool valid_tail_risk_spec(const TailRiskSpec& spec) noexcept;
 
 [[nodiscard]] TailRiskEstimate estimate_tail_risk(
@@ -112,6 +151,13 @@ struct TailRiskArtifactSpec {
 
 [[nodiscard]] std::string serialize_tail_risk_artifact(
     const TailRiskEstimate& estimate, const TailRiskSpec& spec,
+    const TailRiskArtifactSpec& artifact_spec);
+
+[[nodiscard]] TailRiskBacktestResult backtest_tail_risk(
+    const TailRiskBacktestProblemView& problem);
+
+[[nodiscard]] std::string serialize_tail_risk_backtest_artifact(
+    const TailRiskBacktestResult& result,
     const TailRiskArtifactSpec& artifact_spec);
 
 }  // namespace portfolio_math
