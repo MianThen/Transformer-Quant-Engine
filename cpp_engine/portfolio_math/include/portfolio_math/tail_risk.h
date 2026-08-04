@@ -81,6 +81,8 @@ struct TailRiskEstimate {
     TailRiskStatus status{TailRiskStatus::INVALID_INPUT};
     TailRiskEstimatorKind estimator{
         TailRiskEstimatorKind::EMPIRICAL_ROCKAFELLAR_URYASEV};
+    TailScenarioModelKind scenario_model{
+        TailScenarioModelKind::PORTFOLIO_RETURN_SERIES};
     double confidence_level{0.0};
     std::optional<double> value_at_risk_loss;
     std::optional<double> expected_shortfall_loss;
@@ -92,6 +94,19 @@ struct TailRiskEstimate {
     std::optional<double> evt_threshold;
     std::optional<double> gpd_shape;
     std::optional<double> gpd_scale;
+    std::optional<double> garch_mean;
+    std::optional<double> garch_omega;
+    std::optional<double> garch_alpha;
+    std::optional<double> garch_beta;
+    std::optional<double> garch_forecast_variance;
+    std::optional<double> garch_stationarity_margin;
+    std::optional<double> standardized_residual_mean;
+    std::optional<double> standardized_residual_variance;
+    std::optional<double> residual_ljung_box;
+    std::optional<double> squared_residual_ljung_box;
+    std::optional<double> arch_lm_statistic;
+    std::optional<double> maximum_standardized_residual;
+    double missing_fraction{0.0};
     std::uint64_t input_hash{0};
     std::uint64_t artifact_hash{0};
 };
@@ -147,6 +162,15 @@ struct TailRiskBacktestResult {
 [[nodiscard]] bool valid_tail_risk_spec(const TailRiskSpec& spec) noexcept;
 
 [[nodiscard]] TailRiskEstimate estimate_tail_risk(
+    const TailRiskProblemView& problem);
+
+[[nodiscard]] TailRiskEstimate estimate_garch_fhs_tail_risk(
+    const TailRiskProblemView& problem);
+
+[[nodiscard]] TailRiskEstimate estimate_garch_fhs_evt_tail_risk(
+    const TailRiskProblemView& problem);
+
+[[nodiscard]] TailRiskEstimate estimate_expectile_tail_risk(
     const TailRiskProblemView& problem);
 
 [[nodiscard]] std::string serialize_tail_risk_artifact(

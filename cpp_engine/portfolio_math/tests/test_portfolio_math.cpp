@@ -1,8 +1,10 @@
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <limits>
 #include <random>
+#include <string>
 #include <vector>
 
 #include "portfolio_math/covariance.h"
@@ -509,11 +511,189 @@ bool test_tail_risk_backtest() {
   return ok;
 }
 
+bool test_garch_fhs() {
+  bool ok = true;
+  constexpr std::size_t observation_count = 256;
+  std::vector<double> returns;
+  std::vector<engine_common::TimestampNs> timestamps;
+  returns.reserve(observation_count);
+  timestamps.reserve(observation_count);
+  std::uint64_t state = 88172645463325252ULL;
+  double variance = 0.0001;
+  constexpr double mean = 0.0002;
+  constexpr double omega = 0.000002;
+  constexpr double alpha = 0.08;
+  constexpr double beta = 0.88;
+  for (std::size_t index = 0; index < observation_count; ++index) {
+    double normal_approximation = 0.0;
+    for (int draw = 0; draw < 3; ++draw) {
+      state = state * 2862933555777941757ULL + 3037000493ULL;
+      const double uniform = static_cast<double>(state >> 11) /
+          static_cast<double>(1ULL << 53);
+      normal_approximation += uniform;
+    }
+    const double standardized = 2.0 * normal_approximation - 3.0;
+    const double value = mean + std::sqrt(variance) * standardized;
+    returns.push_back(value);
+    timestamps.push_back(static_cast<engine_common::TimestampNs>(index + 1));
+    const double epsilon = value - mean;
+    variance = omega + alpha * epsilon * epsilon + beta * variance;
+  }
+  const std::vector<engine_common::SymbolId> symbols{17};
+  const std::vector<double> weights{1.0};
+  portfolio_math::TailRiskProblemView problem;
+  problem.decision_at = static_cast<engine_common::TimestampNs>(observation_count);
+  problem.symbols = symbols;
+  problem.history_timestamps = timestamps;
+  problem.fixed_portfolio_weights = weights;
+  problem.portfolio_return_history = returns;
+  problem.spec.estimator = portfolio_math::TailRiskEstimatorKind::
+      GARCH_FILTERED_HISTORICAL_SIMULATION;
+  problem.spec.confidence_level = 0.95;
+  problem.spec.mean_model_spec_hash = 701;
+  problem.spec.volatility_model_spec_hash = 702;
+  problem.spec.config_hash = 703;
+  const auto result = portfolio_math::estimate_garch_fhs_tail_risk(problem);
+  ok &= check(result.status == portfolio_math::TailRiskStatus::OK &&
+                  result.estimator == portfolio_math::TailRiskEstimatorKind::
+                      GARCH_FILTERED_HISTORICAL_SIMULATION &&
+                  result.scenario_model == portfolio_math::TailScenarioModelKind::
+                      PORTFOLIO_RETURN_SERIES,
+              "GARCH-FHS status and identity");
+  ok &= check(result.value_at_risk_loss && result.expected_shortfall_loss &&
+                  result.return_cvar &&
+                  result.garch_omega && result.garch_alpha && result.garch_beta &&
+                  result.garch_stationarity_margin &&
+                  *result.garch_omega > 0.0 && *result.garch_alpha >= 0.0 &&
+                  *result.garch_beta >= 0.0 &&
+                  *result.garch_stationarity_margin > 0.0 &&
+                  *result.expected_shortfall_loss >= *result.value_at_risk_loss,
+              "GARCH-FHS positivity and ES ordering");
+  ok &= check(result.standardized_residual_mean &&
+                  result.standardized_residual_variance &&
+                  result.residual_ljung_box && result.squared_residual_ljung_box &&
+                  result.arch_lm_statistic && result.maximum_standardized_residual &&
+                  std::abs(*result.standardized_residual_mean) < 0.25 &&
+                  *result.standardized_residual_variance > 0.25 &&
+                  *result.standardized_residual_variance < 2.5 &&
+                  std::isfinite(*result.residual_ljung_box) &&
+                  std::isfinite(*result.squared_residual_ljung_box),
+              "GARCH-FHS standardized residual diagnostics");
+  const auto replay = portfolio_math::estimate_tail_risk(problem);
+  ok &= check(replay.status == portfolio_math::TailRiskStatus::OK &&
+                  replay.artifact_hash == result.artifact_hash &&
+                  near(*replay.return_cvar, *result.return_cvar),
+              "GARCH-FHS deterministic replay");
+  portfolio_math::TailRiskArtifactSpec artifact_spec;
+  artifact_spec.reference_price_quality = "PROXY";
+  artifact_spec.promotion_eligible = true;
+  const auto artifact = portfolio_math::serialize_tail_risk_artifact(
+      result, problem.spec, artifact_spec);
+  ok &= check(artifact.find("\"garch\"") != std::string::npos &&
+                  artifact.find("\"stationarity_margin\"") != std::string::npos &&
+                  artifact.find("\"promotion_eligible\":false") !=
+                      std::string::npos,
+              "GARCH-FHS diagnostics artifact and proxy gate");
+  auto future_problem = problem;
+  future_problem.decision_at = static_cast<engine_common::TimestampNs>(
+      observation_count - 1);
+  ok &= check(portfolio_math::estimate_garch_fhs_tail_risk(future_problem).status ==
+                  portfolio_math::TailRiskStatus::INVALID_INPUT,
+              "GARCH-FHS future observation closes replay");
+  auto invalid_spec = problem;
+  invalid_spec.spec.mean_model_spec_hash = 0;
+  ok &= check(portfolio_math::estimate_garch_fhs_tail_risk(invalid_spec).status ==
+                  portfolio_math::TailRiskStatus::INVALID_INPUT,
+              "GARCH-FHS unfrozen mean model closes replay");
+  auto unsupported_vector = problem;
+  unsupported_vector.spec.scenario_model =
+      portfolio_math::TailScenarioModelKind::ASSET_VECTOR_SYNCHRONIZED;
+  unsupported_vector.spec.synchronized_residual_rows = true;
+  ok &= check(portfolio_math::estimate_garch_fhs_tail_risk(unsupported_vector).status ==
+                  portfolio_math::TailRiskStatus::INVALID_INPUT,
+              "GARCH-FHS unsupported vector path closes replay");
+  auto missing_problem = problem;
+  std::vector<double> missing_returns = returns;
+  missing_returns[observation_count / 2] = std::numeric_limits<double>::quiet_NaN();
+  missing_problem.portfolio_return_history = missing_returns;
+  ok &= check(portfolio_math::estimate_garch_fhs_tail_risk(missing_problem).status ==
+                  portfolio_math::TailRiskStatus::INVALID_INPUT,
+              "GARCH-FHS missing return closes replay");
+  auto evt_problem = problem;
+  evt_problem.spec.estimator = portfolio_math::TailRiskEstimatorKind::
+      GARCH_FHS_POT_GPD;
+  evt_problem.spec.evt_minimum_exceedances = 12;
+  evt_problem.spec.evt_threshold_quantile_min = 0.75;
+  evt_problem.spec.evt_threshold_quantile_max = 0.90;
+  evt_problem.spec.evt_shape_upper_guard = 0.99;
+  evt_problem.spec.evt_threshold_spec_hash = 704;
+  evt_problem.spec.config_hash = 705;
+  const auto evt = portfolio_math::estimate_garch_fhs_evt_tail_risk(evt_problem);
+  ok &= check(evt.status == portfolio_math::TailRiskStatus::OK &&
+                  evt.estimator == portfolio_math::TailRiskEstimatorKind::
+                      GARCH_FHS_POT_GPD && evt.evt_threshold && evt.gpd_shape &&
+                  evt.gpd_scale && evt.evt_exceedance_count >= 12 &&
+                  evt.value_at_risk_loss && evt.expected_shortfall_loss &&
+                  *evt.expected_shortfall_loss >= *evt.value_at_risk_loss,
+              "GARCH-FHS POT-GPD finite tail output");
+  const auto evt_replay = portfolio_math::estimate_tail_risk(evt_problem);
+  ok &= check(evt_replay.status == portfolio_math::TailRiskStatus::OK &&
+                  evt_replay.artifact_hash == evt.artifact_hash,
+              "GARCH-FHS POT-GPD deterministic replay");
+  const auto evt_artifact = portfolio_math::serialize_tail_risk_artifact(
+      evt, evt_problem.spec, artifact_spec);
+  ok &= check(evt_artifact.find("\"evt\"") != std::string::npos &&
+                  evt_artifact.find("\"shape\"") != std::string::npos,
+              "GARCH-FHS POT-GPD artifact diagnostics");
+  auto insufficient_evt = evt_problem;
+  insufficient_evt.spec.evt_minimum_exceedances = 1000;
+  ok &= check(portfolio_math::estimate_garch_fhs_evt_tail_risk(insufficient_evt).status ==
+                  portfolio_math::TailRiskStatus::INSUFFICIENT_TAIL,
+              "GARCH-FHS POT-GPD insufficient tail closes replay");
+  auto expectile_problem = problem;
+  expectile_problem.spec.estimator = portfolio_math::TailRiskEstimatorKind::
+      EXPECTILE_DIRECT;
+  expectile_problem.spec.expectile_level = 0.95;
+  expectile_problem.spec.expectile_feature_spec_hash = 706;
+  expectile_problem.spec.training_only_tail_calibration = true;
+  expectile_problem.spec.mean_model_spec_hash = 0;
+  expectile_problem.spec.volatility_model_spec_hash = 0;
+  expectile_problem.spec.evt_minimum_exceedances = 0;
+  expectile_problem.spec.evt_threshold_quantile_min = 0.0;
+  expectile_problem.spec.evt_threshold_quantile_max = 0.0;
+  expectile_problem.spec.evt_shape_upper_guard = 0.0;
+  expectile_problem.spec.evt_threshold_spec_hash = 0;
+  expectile_problem.spec.config_hash = 707;
+  const auto expectile = portfolio_math::estimate_expectile_tail_risk(
+      expectile_problem);
+  ok &= check(expectile.status == portfolio_math::TailRiskStatus::OK &&
+                  expectile.expectile_loss && expectile.calibrated_expectile_level &&
+                  std::isfinite(*expectile.expectile_loss) &&
+                  near(*expectile.calibrated_expectile_level, 0.95),
+              "direct expectile training calibration");
+  const auto expectile_replay = portfolio_math::estimate_tail_risk(expectile_problem);
+  ok &= check(expectile_replay.status == portfolio_math::TailRiskStatus::OK &&
+                  expectile_replay.artifact_hash == expectile.artifact_hash,
+              "direct expectile deterministic replay");
+  const auto expectile_artifact = portfolio_math::serialize_tail_risk_artifact(
+      expectile, expectile_problem.spec, artifact_spec);
+  ok &= check(expectile_artifact.find("\"expectile_loss\"") != std::string::npos,
+              "direct expectile artifact diagnostics");
+  auto mapped_expectile = expectile_problem;
+  mapped_expectile.spec.estimator = portfolio_math::TailRiskEstimatorKind::
+      EXPECTILE_TAYLOR_MAPPED_ES;
+  ok &= check(portfolio_math::estimate_tail_risk(mapped_expectile).status ==
+                  portfolio_math::TailRiskStatus::INVALID_INPUT,
+              "unfrozen Taylor expectile mapping closes replay");
+  return ok;
+}
+
 } // namespace
 
 int main() {
   if (!(test_covariance() && test_nonlinear_monte_carlo_oracle() &&
-        test_risk_budget() && test_cvar() && test_tail_risk_backtest()))
+        test_risk_budget() && test_cvar() && test_tail_risk_backtest() &&
+        test_garch_fhs()))
     return 1;
   std::printf("test_portfolio_math: all checks passed\n");
   return 0;

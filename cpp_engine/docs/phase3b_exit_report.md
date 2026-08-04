@@ -10,9 +10,13 @@
 | Kupiec exception diagnostics | PASS | 异常率、LR、p-value 和 hash |
 | Christoffersen transition diagnostics | PASS | 00/01/10/11 转移计数、LR、p-value |
 | Proxy artifact promotion gate | PASS | `reference_price_quality=PROXY` 强制 false |
-| GARCH-FHS synthetic recovery | NOT RUN | 下一阶梯 |
-| POT-GPD threshold/shape/ES gate | NOT RUN | FHS 单独通过后才允许 |
-| Expectile calibration/Taylor mapping | NOT RUN | 独立候选 |
+| GARCH-FHS single-portfolio synthetic recovery | PASS | `test_portfolio_math`：GARCH 参数约束、残差诊断、确定性 residual replay |
+| GARCH-FHS future/missing/unsupported-path guards | PASS | `test_portfolio_math`：future timestamp、NaN、未冻结 spec、asset-vector fail closed |
+| GARCH-FHS asset-vector synchronized replay | NOT RUN | 当前只交付单组合 portfolio-return oracle |
+| POT-GPD threshold/shape/finite-ES gate | PASS | `test_portfolio_math`：阈值、超额样本、shape guard、有限 ES、确定性 replay |
+| POT-GPD asset-vector synchronized splice | NOT RUN | 当前只交付单组合 portfolio-return oracle |
+| Direct Expectile single-portfolio training solve | PASS | `test_portfolio_math`：加权 ALS/二分、future/invalid mapping guard、artifact hash |
+| Taylor-mapped Expectile-ES | NOT RUN | 映射规范尚未冻结，当前 fail closed |
 | 三个 purged OOS tail-risk 窗口 | NOT RUN | 尚无正式 OOS 报告 |
 
 ## 判定
@@ -23,8 +27,8 @@
   "phase_exit_eligible": false,
   "promotion_eligible": false,
   "evidence_level": "RESEARCH_PROXY",
-  "blocking_reason": "missing_garch_evt_expectile_oos_evidence"
+  "blocking_reason": "missing_expectile_factor_oos_and_production_data_evidence"
 }
 ```
 
-本报告只确认经验固定组合尾部风险和联合回测的可重放合同，不声称已经完成条件波动率、极值理论、Expectile 或生产经济晋级。
+本报告确认经验固定组合尾部风险和单组合 GARCH-FHS 过滤/replay 合同已可重放；不声称已经完成资产向量相关性、极值理论、Expectile、三个 purged OOS 窗口或生产经济晋级。
