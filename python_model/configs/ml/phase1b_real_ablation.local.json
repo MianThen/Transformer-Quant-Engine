@@ -1,0 +1,93 @@
+{
+  "enabled": true,
+  "seed": 20260724,
+  "lookback": 64,
+  "data": {
+    "source": "data/research/phase1b_real_ohlcv_2020plus.parquet",
+    "dataset_output": "data/research/phase1b_real_dataset.npz",
+    "point_in_time_required": true,
+    "random_split_allowed": false
+  },
+  "label_v2": {
+    "horizon_bars": 5,
+    "execution_lag_bars": 1,
+    "direction_threshold": 0.0,
+    "direction_temperature": 0.0025
+  },
+  "ranking_score": {
+    "mode": "raw_return",
+    "production_top_k": 20,
+    "risk_floor": 0.0001,
+    "cost_proxy_bps": 0.0,
+    "winsor_lower_quantile": 0.01,
+    "winsor_upper_quantile": 0.99,
+    "rank_temperature": 1.0,
+    "lambda_rank": 0.1,
+    "target_tie_policy": "symbol_ascending"
+  },
+  "ranking": {
+    "loss_variant": "legacy",
+    "cross_sections_per_batch": 1,
+    "return_weight": 1.0,
+    "direction_weight": 0.25,
+    "volatility_weight": 0.25,
+    "quantile_weight": 0.25
+  },
+  "split": {
+    "train_fraction": 0.7,
+    "validation_fraction": 0.15,
+    "test_fraction": 0.15,
+    "purge_timestamps": 6,
+    "embargo_timestamps": 5
+  },
+  "model": {
+    "d_model": 64,
+    "nhead": 4,
+    "num_layers": 3,
+    "dim_feedforward": 128,
+    "dropout": 0.1
+  },
+  "training": {
+    "dataset": "data/research/phase1b_real_dataset.npz",
+    "output": "runs/phase1b-single",
+    "epochs": 50,
+    "batch_size": 256,
+    "learning_rate": 0.0003,
+    "cpu_threads": 1,
+    "device": "cpu"
+  },
+  "phase1b_ablation": {
+    "enabled": true,
+    "output": "runs/phase1b-real-ablation-v2",
+    "variants": ["legacy", "listmle", "lambda"],
+    "train_timestamps": 504,
+    "validation_timestamps": 126,
+    "test_timestamps": 126,
+    "step_timestamps": 126,
+    "purge_timestamps": 6,
+    "embargo_timestamps": 5,
+    "window_count": 3,
+    "parallel_workers": 6,
+    "promotion_gate": {
+      "minimum_ndcg_improvement": 0.0,
+      "minimum_utility_spread_ratio": 1.0,
+      "maximum_turnover_increase": 0.0
+    }
+  },
+  "kendall_ablation": {
+    "enabled": true,
+    "fixed_report": "runs/phase1b-real-ablation-v2/paired_report.json",
+    "output": "runs/phase1b-kendall-real",
+    "frozen_ranking_loss": "legacy",
+    "initial_log_variance": 0.0,
+    "regularizer": 0.5,
+    "minimum_log_variance": -6.0,
+    "maximum_log_variance": 6.0,
+    "parallel_workers": 3,
+    "promotion_gate": {
+      "minimum_ndcg_improvement": 0.0,
+      "minimum_utility_spread_ratio": 1.0,
+      "maximum_turnover_increase": 0.0
+    }
+  }
+}

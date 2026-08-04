@@ -34,6 +34,23 @@ bool test_covariance() {
   linear_spec.config_hash = 12;
   ok &= check(portfolio_math::valid_risk_preprocessor_spec(linear_spec),
               "frozen LW-LIN-CC spec");
+  auto rmt_spec = linear_spec;
+  rmt_spec.official_estimator =
+      portfolio_math::CovarianceEstimator::RMT_CONSTANT_RESIDUAL;
+  rmt_spec.covariance_loss = portfolio_math::CovarianceLossProfile::NOT_APPLICABLE;
+  rmt_spec.concentration_ratio_guard = 0.02;
+  rmt_spec.eigenvalue_floor = 1e-12;
+  rmt_spec.rmt_spec_hash = 14;
+  ok &= check(portfolio_math::valid_risk_preprocessor_spec(rmt_spec),
+              "RMT spec contract");
+  rmt_spec.rmt_spec_hash = 0;
+  ok &= check(!portfolio_math::valid_risk_preprocessor_spec(rmt_spec),
+              "RMT requires frozen spec hash");
+  rmt_spec.rmt_spec_hash = 14;
+  rmt_spec.official_estimator =
+      portfolio_math::CovarianceEstimator::RMT_TARGETED_SHRINKAGE;
+  ok &= check(portfolio_math::valid_risk_preprocessor_spec(rmt_spec),
+              "targeted RMT spec contract");
   auto quest_spec = linear_spec;
   quest_spec.official_estimator =
       portfolio_math::CovarianceEstimator::LEDOIT_WOLF_NONLINEAR_QUEST;

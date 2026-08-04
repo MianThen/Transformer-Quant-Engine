@@ -1,0 +1,79 @@
+{
+  "enabled": true,
+  "seed": 20260724,
+  "lookback": 64,
+  "data": {
+    "source": "data/research/phase1e_pit_120_2020plus.parquet",
+    "dataset_output": "data/research/phase1e_pit_120_dataset.npz",
+    "point_in_time_required": true,
+    "random_split_allowed": false
+  },
+  "label_v2": {
+    "horizon_bars": 5,
+    "execution_lag_bars": 1,
+    "direction_threshold": 0.0,
+    "direction_temperature": 0.0025
+  },
+  "ranking_score": {
+    "mode": "raw_return",
+    "production_top_k": 20,
+    "risk_floor": 0.0001,
+    "cost_proxy_bps": 0.0,
+    "winsor_lower_quantile": 0.01,
+    "winsor_upper_quantile": 0.99,
+    "rank_temperature": 1.0,
+    "lambda_rank": 0.1,
+    "target_tie_policy": "symbol_ascending"
+  },
+  "ranking": {
+    "loss_variant": "legacy",
+    "cross_sections_per_batch": 1,
+    "return_weight": 1.0,
+    "direction_weight": 0.25,
+    "volatility_weight": 0.25,
+    "quantile_weight": 0.25
+  },
+  "split": {
+    "train_fraction": 0.7,
+    "validation_fraction": 0.15,
+    "test_fraction": 0.15,
+    "purge_timestamps": 6,
+    "embargo_timestamps": 5
+  },
+  "model": {
+    "d_model": 64,
+    "nhead": 4,
+    "num_layers": 3,
+    "dim_feedforward": 128,
+    "dropout": 0.1
+  },
+  "training": {
+    "dataset": "data/research/phase1e_pit_120_dataset.npz",
+    "output": "runs/phase2b-oos-real",
+    "epochs": 50,
+    "batch_size": 256,
+    "learning_rate": 0.0003,
+    "cpu_threads": 1,
+    "device": "cpu"
+  },
+  "phase2b_oos": {
+    "enabled": true,
+    "data_audit": "data/research/phase1e_pit_120_audit.json",
+    "output": "runs/phase2b-oos-real",
+    "baseline_root": "runs/phase1e-diagnostics-real",
+    "train_timestamps": 504,
+    "validation_timestamps": 126,
+    "test_timestamps": 126,
+    "purge_timestamps": 6,
+    "embargo_timestamps": 5,
+    "ranking_cutoff": 20,
+    "noise_rates": [0.05, 0.1, 0.2],
+    "noise_seed": 20260804,
+    "variants": ["none", "direction_apl", "latent_fgm", "feature_pgd"],
+    "epsilon": 0.01,
+    "beta": 0.5,
+    "pgd_steps": 3,
+    "parallel_workers": 6,
+    "promotion_allowed": false
+  }
+}

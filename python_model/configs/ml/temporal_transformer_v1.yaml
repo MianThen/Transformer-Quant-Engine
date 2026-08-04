@@ -23,8 +23,65 @@
     "train_fraction": 0.70,
     "validation_fraction": 0.15,
     "test_fraction": 0.15,
-    "purge_timestamps": 5,
+    "purge_timestamps": 6,
     "embargo_timestamps": 5
   },
-  "export": {"format": "onnx", "opset": 17, "provider": "CPUExecutionProvider"}
+  "label_v2": {
+    "horizon_bars": 5,
+    "execution_lag_bars": 1,
+    "direction_threshold": 0.0,
+    "direction_temperature": 0.0025
+  },
+  "ranking_score": {
+    "mode": "raw_return",
+    "production_top_k": 20,
+    "risk_floor": 0.0001,
+    "cost_proxy_bps": 0.0,
+    "winsor_lower_quantile": 0.01,
+    "winsor_upper_quantile": 0.99,
+    "rank_temperature": 1.0,
+    "lambda_rank": 0.1,
+    "target_tie_policy": "symbol_ascending"
+  },
+  "ranking": {
+    "loss_variant": "legacy",
+    "cross_sections_per_batch": 1,
+    "return_weight": 1.0,
+    "direction_weight": 0.25,
+    "volatility_weight": 0.25,
+    "quantile_weight": 0.25
+  },
+  "gradient_optimization": {
+    "mode": "none"
+  },
+  "robust_training": {
+    "mode": "none",
+    "hypothesis_id": null,
+    "epsilon": 0.01,
+    "beta": 0.5,
+    "pgd_steps": 3,
+    "pgd_step_size": null,
+    "apl_alpha": 1.0,
+    "apl_beta": 1.0,
+    "apl_label_clip": 0.0001,
+    "production_eval": false
+  },
+  "phase1b_ablation": {
+    "enabled": false,
+    "output": "CONFIGURE_ON_TRAINING_HOST",
+    "variants": ["legacy", "listmle", "lambda"],
+    "train_timestamps": 504,
+    "validation_timestamps": 126,
+    "test_timestamps": 126,
+    "step_timestamps": 126,
+    "purge_timestamps": 6,
+    "embargo_timestamps": 5,
+    "window_count": 3,
+    "promotion_gate": {
+      "minimum_ndcg_improvement": 0.0,
+      "minimum_utility_spread_ratio": 1.0,
+      "maximum_turnover_increase": 0.0
+    }
+  },
+  "export": {"format": "onnx", "opset": 18, "provider": "CPUExecutionProvider"}
 }

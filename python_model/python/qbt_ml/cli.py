@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import importlib
 import json
 import shutil
@@ -15,8 +16,23 @@ from .export.manifest import (
     ModelManifest, OUTPUT_NAMES, sha256_file, validate_artifact,
 )
 from .features import build_bar_v1
-from .labels import LabelSpec, build_next_open_labels
-from .leakage import audit_dataset, audit_feature_time_invariance, dataset_fingerprint
+from .labels import (
+    LabelSpecV2,
+    RankingScoreMode,
+    RankingScoreSpecV1,
+    build_label_v2,
+)
+
+
+def _array_sha256(value: np.ndarray) -> str:
+    array = np.ascontiguousarray(value)
+    return hashlib.sha256(array.tobytes(order="C")).hexdigest()
+
+
+def _canonical_sha256(value: dict) -> str:
+    return hashlib.sha256(json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
 
 
 def _load_config(path: str | Path) -> dict:
@@ -42,26 +58,11 @@ def _require_enabled(config: dict) -> None:
 def _read_table(path: str | Path):
     import pandas as pd
     path = Path(path)
-    if path.is_dir():
-        import pyarrow.parquet as pq
-        files = sorted(path.rglob("*.parquet"))
-        if not files:
-            raise ValueError(f"数据目录不含 Parquet: {path}")
-        return pd.concat(
-            [pq.ParquetFile(file).read().to_pandas() for file in files],
-            ignore_index=True,
-        )
     if path.suffix.lower() == ".csv":
         return pd.read_csv(path, dtype={"symbol": "string"})
     if path.suffix.lower() in {".parquet", ".pq"}:
         return pd.read_parquet(path)
     raise ValueError("训练数据仅支持 CSV、Parquet 或 PQ")
-
-
-def _enrich_phase_e(config: dict, output_override: str | None) -> Path:
-    from .data import enrich_phase_e
-
-    return enrich_phase_e(config, output_override)
 
 
 def _load_json_object(path: str | Path | None) -> dict:
@@ -77,6 +78,36 @@ def _reject_unknown_keys(value: dict, allowed: set[str], label: str) -> None:
     unknown = sorted(set(value) - allowed)
     if unknown:
         raise ValueError(f"{label} 包含不支持的字段: {', '.join(unknown)}")
+
+
+def _phase1b_specs(config: dict) -> tuple[LabelSpecV2, RankingScoreSpecV1]:
+    ranking = config.get("ranking_score", {})
+    if not isinstance(ranking, dict):
+        raise ValueError("ranking_score 配置必须是对象")
+    score_spec = RankingScoreSpecV1(
+        mode=RankingScoreMode(ranking.get("mode", "raw_return")),
+        production_top_k=int(ranking.get("production_top_k", 20)),
+        risk_floor=float(ranking.get("risk_floor", 1e-4)),
+        cost_proxy_bps=float(ranking.get("cost_proxy_bps", 0.0)),
+        winsor_lower_quantile=float(ranking.get("winsor_lower_quantile", 0.01)),
+        winsor_upper_quantile=float(ranking.get("winsor_upper_quantile", 0.99)),
+        rank_temperature=float(ranking.get("rank_temperature", 1.0)),
+        lambda_rank=float(ranking.get("lambda_rank", 0.1)),
+        target_tie_policy=str(ranking.get("target_tie_policy", "symbol_ascending")),
+    )
+    labels = config.get("label_v2", {})
+    if not isinstance(labels, dict):
+        raise ValueError("label_v2 配置必须是对象")
+    label_spec = LabelSpecV2(
+        horizon_bars=int(labels.get(
+            "horizon_bars", config.get("label_horizon_bars", 5)
+        )),
+        execution_lag_bars=int(labels.get("execution_lag_bars", 1)),
+        direction_threshold=float(labels.get("direction_threshold", 0.0)),
+        direction_temperature=float(labels.get("direction_temperature", 0.0025)),
+        ranking=score_spec,
+    )
+    return label_spec, score_spec
 
 
 def _backtest_artifact(
@@ -100,14 +131,12 @@ def _backtest_artifact(
         raise RuntimeError("制品回测要求 cpp_engine 使用 ONNX Runtime 后端")
 
     config = _load_json_object(config_path)
-    _reject_unknown_keys(
-        config, {"policy", "risk", "runtime", "execution", "fees"}, "回测配置"
-    )
+    _reject_unknown_keys(config, {"policy", "risk", "runtime", "execution"}, "回测配置")
     sections = {}
     allowed = {
         "policy": {
             "max_positions", "max_position_weight", "minimum_expected_return",
-            "minimum_confidence",
+            "minimum_ranking_score", "minimum_confidence",
         },
         "risk": {"kill_switch", "require_trusted_market", "max_order_quantity"},
         "runtime": {
@@ -127,47 +156,12 @@ def _backtest_artifact(
         _reject_unknown_keys(section, keys, name)
         sections[name] = section
 
-    fees = config.get("fees", {})
-    if not isinstance(fees, dict):
-        raise ValueError("fees 配置必须是对象")
-    _reject_unknown_keys(fees, {"point_in_time", "schedules"}, "fees")
-    schedules = fees.get("schedules", [])
-    if not isinstance(schedules, list):
-        raise ValueError("fees.schedules 必须是数组")
-    if schedules and fees.get("point_in_time") is not True:
-        raise ValueError("使用费率表时必须声明 fees.point_in_time=true")
-
     execution = engine_module.ExecutionConfig()
     for name, value in sections["execution"].items():
         setattr(execution, name, value)
     engine = engine_module.BacktestEngine(
         initial_cash, engine_module.FillTiming.NEXT_OPEN, execution
     )
-    if schedules:
-        if not hasattr(engine_module, "FeeSchedule"):
-            raise RuntimeError("当前 cpp_engine 缺少 point-in-time FeeSchedule 绑定")
-        allowed_fee_keys = {
-            "effective_from", "effective_to", "commission_rate",
-            "min_commission", "stamp_tax_rate", "transfer_fee_rate",
-        }
-        engine_schedules = []
-        for item in schedules:
-            if not isinstance(item, dict):
-                raise ValueError("fees.schedules 每项必须是对象")
-            _reject_unknown_keys(item, allowed_fee_keys, "fee schedule")
-            missing = sorted({
-                "effective_from", "commission_rate", "min_commission",
-                "stamp_tax_rate",
-            } - set(item))
-            if missing:
-                raise ValueError("fee schedule 缺少字段: " + ", ".join(missing))
-            engine_schedules.append(engine_module.FeeSchedule(
-                int(item["effective_from"]), item.get("effective_to"),
-                float(item["commission_rate"]), float(item["min_commission"]),
-                float(item["stamp_tax_rate"]),
-                float(item.get("transfer_fee_rate", 0.0)),
-            ))
-        engine.set_fee_schedules(engine_schedules)
     if not hasattr(engine, "set_model_strategy"):
         raise RuntimeError("当前 cpp_engine 缺少模型策略绑定；请重新构建 ML 扩展")
     engine.set_model_strategy(
@@ -218,47 +212,6 @@ def _backtest_artifact(
     if last_timestamp is None:
         raise ValueError("回测行情不能为空")
     engine.finalize(last_timestamp)
-    equity_curve = list(engine.get_equity_curve()) if hasattr(
-        engine, "get_equity_curve"
-    ) else []
-    equity_values = np.asarray(
-        [float(point.equity) for point in equity_curve], dtype=np.float64
-    )
-    returns = (
-        equity_values[1:] / equity_values[:-1] - 1.0
-        if len(equity_values) >= 2 and np.all(equity_values[:-1] > 0)
-        else np.asarray([], dtype=np.float64)
-    )
-    tail_count = max(1, int(np.ceil(len(returns) * 0.05))) if len(returns) else 0
-    cvar_95 = float(np.sort(returns)[:tail_count].mean()) if tail_count else None
-    trades = list(engine.get_trade_history()) if hasattr(
-        engine, "get_trade_history"
-    ) else []
-    traded_notional = sum(
-        abs(float(trade.quantity) * float(trade.price)) for trade in trades
-    )
-    average_equity = float(equity_values.mean()) if len(equity_values) else initial_cash
-    turnover = traded_notional / average_equity if average_equity > 0 else None
-    positions = list(engine.get_positions()) if hasattr(engine, "get_positions") else []
-    last_rows = table.drop_duplicates("symbol", keep="last").set_index("symbol")
-    symbol_contributions = {}
-    for position in positions:
-        symbol = str(position.symbol)
-        if symbol not in last_rows.index:
-            continue
-        market_value_pnl = float(position.quantity) * (
-            float(last_rows.loc[symbol, "close"]) - float(position.avg_cost)
-        )
-        symbol_contributions[symbol] = (
-            float(position.realized_pnl) + market_value_pnl
-        ) / initial_cash
-    industry_contributions = {}
-    if "industry" in last_rows.columns:
-        for symbol, contribution in symbol_contributions.items():
-            industry = str(last_rows.loc[symbol, "industry"])
-            industry_contributions[industry] = (
-                industry_contributions.get(industry, 0.0) + contribution
-            )
     result = {
         "model_id": manifest.model_id,
         "model_version": manifest.model_version,
@@ -272,15 +225,7 @@ def _backtest_artifact(
         "equity": float(engine.get_equity()),
         "total_return": float(engine.get_total_return()),
         "sharpe_ratio": float(engine.get_sharpe_ratio()),
-        "sharpe": float(engine.get_sharpe_ratio()),
         "max_drawdown": float(engine.get_max_drawdown()),
-        "turnover": turnover,
-        "cvar_95": cvar_95,
-        "symbol_contributions": symbol_contributions,
-        "industry_contributions": industry_contributions,
-        "net_of_cost": bool(schedules),
-        "fee_schedule_count": len(schedules),
-        "slippage_bps": float(getattr(execution, "slippage_bps", 0.0)),
         "orders": int(engine.get_order_count()),
         "trades": int(engine.get_trade_count()),
     }
@@ -301,54 +246,10 @@ def _build_dataset(config: dict, output_override: str | None) -> Path:
     output = output_override or data.get("dataset_output")
     if not source or "CONFIGURE_" in str(source) or not output:
         raise ValueError("必须配置 data.source 和 data.dataset_output")
-    if data.get("point_in_time_required") is not True:
-        raise ValueError("V1.1 数据集必须显式声明 data.point_in_time_required=true")
-    lineage = {}
-    for name in ("calendar_id", "universe_id"):
-        value = config.get(name)
-        if not value or "CONFIGURE_" in str(value):
-            raise ValueError(f"V1.1 数据集必须配置 {name}")
-        lineage[name] = str(value)
-    source_path = Path(source)
-    enrichment_report = None
-    if source_path.is_dir() and (source_path / "enrichment_report.json").is_file():
-        enrichment_report = json.loads(
-            (source_path / "enrichment_report.json").read_text(encoding="utf-8")
-        )
-        if enrichment_report.get("model_evaluation_status") != "READY":
-            raise ValueError("Phase E 富化数据未达到模型评估就绪状态")
-        configured_mode = data.get("execution_reference_mode")
-        if configured_mode and configured_mode != enrichment_report.get(
-            "execution_reference_mode"
-        ):
-            raise ValueError("训练配置与富化数据 execution_reference_mode 不一致")
     table = _read_table(source)
-    adjustment_mode = str(config.get("price_adjustment_mode", "raw_unadjusted"))
-    if adjustment_mode == "pit_adjusted_signal_raw_execution":
-        adjustment_fields = {
-            "signal_open", "signal_high", "signal_low", "signal_close",
-            "adjustment_factor",
-        }
-        missing_adjustment = sorted(adjustment_fields - set(table.columns))
-        if missing_adjustment:
-            raise ValueError(
-                "正式训练数据缺少 PIT 复权字段: " + ", ".join(missing_adjustment)
-            )
-    provenance_columns = {"universe_asof", "reference_data_known_at_max"}
-    missing_provenance = provenance_columns - set(table.columns)
-    if missing_provenance:
-        raise ValueError(
-            "point-in-time 数据缺少审计字段: " + ", ".join(sorted(missing_provenance))
-        )
-    provenance = table.sort_values(
-        ["timestamp", "symbol"], kind="stable"
-    ).reset_index(drop=True)
-    time_audit = audit_feature_time_invariance(table, build_bar_v1)
     frame = build_bar_v1(table)
-    label_spec = LabelSpec.next_open(int(config.get("label_horizon_bars", 5)))
-    labels = build_next_open_labels(
-        table, label_spec.horizon_bars, label_spec=label_spec
-    )
+    label_spec, ranking_spec = _phase1b_specs(config)
+    labels = build_label_v2(table, label_spec)
     windows = build_windows(frame, int(config.get("lookback", 64)))
     aligned = labels.iloc[windows.row_indices].reset_index(drop=True)
     selected = (aligned["label_valid"].to_numpy(dtype=bool) &
@@ -359,241 +260,91 @@ def _build_dataset(config: dict, output_override: str | None) -> Path:
     selected_indices = selected_indices[order]
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    selected_labels = aligned.iloc[selected_indices]
-    signal_asof = selected_labels["signal_asof"].to_numpy(np.int64)
-    source_rows = provenance.iloc[windows.row_indices].reset_index(drop=True).iloc[selected_indices]
-    arrays = {
-        "features": windows.features[selected_indices],
-        "valid_mask": windows.valid_mask[selected_indices],
-        "timestamps": windows.timestamps[selected_indices],
-        "symbols": windows.symbols[selected_indices].astype(str),
-        "expected_return": selected_labels["expected_return"].to_numpy(np.float32),
-        "direction": selected_labels["direction"].to_numpy(np.float32),
-        "realized_volatility": selected_labels["realized_volatility"].to_numpy(np.float32),
-        "signal_asof": signal_asof,
-        "feature_source_max_timestamp": signal_asof.copy(),
-        "label_entry_timestamp": selected_labels["label_entry_timestamp"].to_numpy(np.int64),
-        "label_exit_timestamp": selected_labels["label_exit_timestamp"].to_numpy(np.int64),
-        "universe_asof": source_rows["universe_asof"].to_numpy(np.int64),
-        "reference_data_known_at_max": source_rows[
-            "reference_data_known_at_max"
-        ].to_numpy(np.int64),
-        "feature_schema_json": np.asarray(BAR_V1.canonical_json),
-        "feature_schema_sha256": np.asarray(BAR_V1.sha256),
-        "feature_code_sha256": np.asarray(sha256_file(
-            Path(__file__).resolve().parent / "features" / "bar_v1.py"
-        )),
-        "label_spec_json": np.asarray(label_spec.canonical_json),
-        "label_spec_sha256": np.asarray(label_spec.sha256),
-        "calendar_id": np.asarray(lineage["calendar_id"]),
-        "frequency": np.asarray(str(config.get("frequency", "1d"))),
-        "price_adjustment_mode": np.asarray(adjustment_mode),
-        "universe_id": np.asarray(lineage["universe_id"]),
-        "point_in_time_required": np.asarray(True),
-        "execution_reference_status": np.asarray(
-            "UNDECLARED" if enrichment_report is None
-            else enrichment_report["execution_promotion_status"]
-        ),
-        "execution_reference_mode": np.asarray(
-            "undeclared" if enrichment_report is None
-            else enrichment_report["execution_reference_mode"]
-        ),
-        "execution_source_fingerprint": np.asarray(
-            "" if enrichment_report is None
-            else enrichment_report["source_fingerprint_sha256"]
-        ),
-        "prefix_invariance_pass": np.asarray(time_audit["prefix_invariance_pass"]),
-        "future_mutation_pass": np.asarray(time_audit["future_mutation_pass"]),
-    }
-    arrays["dataset_fingerprint"] = np.asarray(dataset_fingerprint(arrays))
-    report = audit_dataset(arrays)
-    report.require_pass()
-    np.savez_compressed(output, **arrays)
-    report.write(output.with_suffix(".leakage_report.json"))
+    np.savez_compressed(
+        output,
+        features=windows.features[selected_indices],
+        valid_mask=windows.valid_mask[selected_indices],
+        timestamps=windows.timestamps[selected_indices],
+        symbols=windows.symbols[selected_indices].astype(str),
+        expected_return=aligned.iloc[selected_indices]["expected_return"].to_numpy(np.float32),
+        direction=aligned.iloc[selected_indices]["direction"].to_numpy(np.float32),
+        realized_volatility=aligned.iloc[selected_indices]["realized_volatility"].to_numpy(np.float32),
+        downside_semivol=aligned.iloc[selected_indices]["downside_semivol"].to_numpy(np.float32),
+        risk_adjusted_return=aligned.iloc[selected_indices]["risk_adjusted_return"].to_numpy(np.float32),
+        rank_utility=aligned.iloc[selected_indices]["rank_utility"].to_numpy(np.float32),
+        rank_relevance=aligned.iloc[selected_indices]["rank_relevance"].to_numpy(np.float32),
+        label_spec_json=np.asarray(label_spec.canonical_json),
+        label_spec_sha256=np.asarray(label_spec.sha256),
+        ranking_score_spec_json=np.asarray(ranking_spec.canonical_json),
+        ranking_score_spec_sha256=np.asarray(ranking_spec.sha256),
+        feature_schema_json=np.asarray(BAR_V1.canonical_json),
+        feature_schema_sha256=np.asarray(BAR_V1.sha256),
+    )
     return output
 
 
-def _detect_leakage(
-    config: dict,
-    dataset_path: str | None,
-    output_override: str | None,
-) -> Path:
-    _require_enabled(config)
-    configured = config.get("data", {}).get("dataset") or config.get("dataset")
-    dataset_path = dataset_path or configured
-    if not dataset_path:
-        raise ValueError("Leakage Detection 必须提供 dataset")
-    with np.load(dataset_path, allow_pickle=False) as data:
-        arrays = {name: data[name] for name in data.files}
-    split = None
-    split_config = config.get("split")
-    if split_config:
-        from .training.walk_forward import chronological_timestamp_split
-        split = chronological_timestamp_split(
-            arrays["timestamps"],
-            train_fraction=float(split_config.get("train_fraction", 0.70)),
-            validation_fraction=float(split_config.get("validation_fraction", 0.15)),
-            test_fraction=float(split_config.get("test_fraction", 0.15)),
-            purge_timestamps=int(split_config.get("purge_timestamps", 5)),
-            embargo_timestamps=int(split_config.get("embargo_timestamps", 5)),
+def _phase2b_audit(dataset_path: str | Path, output_path: str | Path) -> Path:
+    """Materialize deterministic Phase 2B noise and stress-set artifacts."""
+    from .training.robust_training import build_stress_sets, direction_noise_audit
+
+    dataset = Path(dataset_path)
+    output = Path(output_path)
+    if not dataset.exists():
+        raise FileNotFoundError(dataset)
+    output.mkdir(parents=True, exist_ok=True)
+    with np.load(dataset, allow_pickle=False) as values:
+        if "features" not in values or "valid_mask" not in values or "direction" not in values:
+            raise ValueError("Phase 2B audit 需要 features、valid_mask、direction")
+        features = values["features"].astype(np.float32, copy=False)
+        valid_mask = values["valid_mask"].astype(np.uint8, copy=False)
+        direction = values["direction"].astype(np.float32, copy=False)
+        feature_names = (
+            BAR_V1.feature_names
+            if features.shape[2] == len(BAR_V1.feature_names)
+            else tuple(f"feature_{index}" for index in range(features.shape[2]))
         )
-    report = audit_dataset(arrays, split=split)
-    output = Path(output_override or config.get("output", "analysis/leakage"))
-    report_path = output if output.suffix == ".json" else output / "leakage_report.json"
-    report.write(report_path)
-    report.require_pass()
-    return report_path
-
-
-def _walk_forward(
-    config: dict,
-    dataset_path: str | None,
-    output_override: str | None,
-) -> Path:
-    from .evaluation import run_walk_forward_baseline
-
-    _require_enabled(config)
-    dataset_path = dataset_path or config.get("dataset")
-    output = output_override or config.get("output")
-    if not dataset_path or "CONFIGURE_" in str(dataset_path) or not output:
-        raise ValueError("Walk-forward 必须配置 dataset 和 output")
-    return run_walk_forward_baseline(config, dataset_path, output)
-
-
-def _walk_forward_transformer(
-    config: dict,
-    dataset_path: str | None,
-    output_override: str | None,
-) -> Path:
-    from .evaluation import run_transformer_walk_forward
-
-    _require_enabled(config)
-    dataset_path = dataset_path or config.get("dataset")
-    output = output_override or config.get("output")
-    if not dataset_path or "CONFIGURE_" in str(dataset_path) or not output:
-        raise ValueError("Transformer Walk-forward 必须配置 dataset 和 output")
-    return run_transformer_walk_forward(config, dataset_path, output)
-
-
-def _walk_forward_deep_baselines(
-    config: dict,
-    dataset_path: str | None,
-    output_override: str | None,
-) -> Path:
-    from .evaluation import run_deep_baseline_suite
-
-    _require_enabled(config)
-    dataset_path = dataset_path or config.get("dataset")
-    output = output_override or config.get("output")
-    if not dataset_path or "CONFIGURE_" in str(dataset_path) or not output:
-        raise ValueError("Deep Baseline Suite 必须配置 dataset 和 output")
-    return run_deep_baseline_suite(config, dataset_path, output)
-
-
-def _ablate_features(
-    config: dict,
-    dataset_path: str | None,
-    output_override: str | None,
-) -> Path:
-    from .evaluation import run_feature_ablation
-
-    _require_enabled(config)
-    dataset_path = dataset_path or config.get("dataset")
-    output = output_override or config.get("output")
-    if not dataset_path or "CONFIGURE_" in str(dataset_path) or not output:
-        raise ValueError("Feature Ablation 必须配置 dataset 和 output")
-    return run_feature_ablation(config, dataset_path, output)
-
-
-def _ablate_transformer_features(
-    config: dict,
-    dataset_path: str | None,
-    output_override: str | None,
-) -> Path:
-    from .evaluation import run_transformer_feature_ablation
-
-    _require_enabled(config)
-    dataset_path = dataset_path or config.get("dataset")
-    output = output_override or config.get("output")
-    if not dataset_path or "CONFIGURE_" in str(dataset_path) or not output:
-        raise ValueError("Transformer Feature Ablation 必须配置 dataset 和 output")
-    return run_transformer_feature_ablation(config, dataset_path, output)
-
-
-def _benchmark_models(
-    config: dict,
-    dataset_path: str | None,
-    output_override: str | None,
-) -> Path:
-    from .evaluation import run_model_benchmark
-
-    _require_enabled(config)
-    dataset_path = dataset_path or config.get("dataset")
-    output = output_override or config.get("output")
-    if not dataset_path or "CONFIGURE_" in str(dataset_path) or not output:
-        raise ValueError("Model Benchmark 必须配置 dataset 和 output")
-    return run_model_benchmark(config, dataset_path, output)
-
-
-def _promotion_review(config: dict, output_override: str | None) -> Path:
-    from .evaluation import run_promotion_review
-
-    _require_enabled(config)
-    output = output_override or config.get("output")
-    if not output:
-        raise ValueError("Promotion Review 必须配置 output")
-    return run_promotion_review(config, output)
-
-
-def _portfolio_benchmark(
-    config: dict,
-    dataset_path: str | None,
-    benchmark_path: str | None,
-    bars_path: str | None,
-    output_override: str | None,
-) -> Path:
-    from .evaluation import run_cpp_portfolio_benchmark
-
-    _require_enabled(config)
-    dataset_path = dataset_path or config.get("dataset")
-    benchmark_path = benchmark_path or config.get("model_benchmark")
-    bars_path = bars_path or config.get("bars")
-    output = output_override or config.get("output")
-    values = (dataset_path, benchmark_path, bars_path, output)
-    if any(not value or "CONFIGURE_" in str(value) for value in values):
-        raise ValueError(
-            "C++ Portfolio Benchmark 必须配置 dataset/model_benchmark/bars/output"
-        )
-    return run_cpp_portfolio_benchmark(
-        config, dataset_path, benchmark_path, bars_path, output
+    stress_sets = build_stress_sets(
+        features, valid_mask, feature_names=feature_names,
     )
+    audit = direction_noise_audit(direction)
+    (output / "direction_noise_audit.json").write_text(
+        json.dumps(audit, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    stress_manifest = {
+        "schema_version": 1,
+        "kind": "phase2b_stress_sets",
+        "source_dataset_sha256": sha256_file(dataset),
+        "feature_schema_sha256": (
+            BAR_V1.sha256 if feature_names == BAR_V1.feature_names else None
+        ),
+        "sets": {},
+    }
+    for name, value in stress_sets.items():
+        destination = output / f"stress_{name}.npz"
+        np.savez_compressed(
+            destination, features=value["features"], valid_mask=value["valid_mask"],
+        )
+        stress_manifest["sets"][name] = {
+            "path": destination.name,
+            "sha256": sha256_file(destination),
+            "metadata": value["metadata"],
+        }
+    stress_manifest["manifest_sha256"] = _canonical_sha256(stress_manifest)
+    (output / "stress_manifest.json").write_text(
+        json.dumps(stress_manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return output
 
 
-def _portfolio_ablation(
+def _train(
     config: dict,
     dataset_path: str | None,
-    ablation_path: str | None,
-    bars_path: str | None,
     output_override: str | None,
+    *,
+    _split_override=None,
 ) -> Path:
-    from .evaluation import run_cpp_portfolio_ablation
-
-    _require_enabled(config)
-    dataset_path = dataset_path or config.get("dataset")
-    ablation_path = ablation_path or config.get("feature_ablation")
-    bars_path = bars_path or config.get("bars")
-    output = output_override or config.get("output")
-    values = (dataset_path, ablation_path, bars_path, output)
-    if any(not value or "CONFIGURE_" in str(value) for value in values):
-        raise ValueError(
-            "C++ Portfolio Ablation 必须配置 dataset/feature_ablation/bars/output"
-        )
-    return run_cpp_portfolio_ablation(
-        config, dataset_path, ablation_path, bars_path, output
-    )
-
-
-def _train(config: dict, dataset_path: str | None, output_override: str | None) -> Path:
     _require_enabled(config)
     try:
         import torch
@@ -601,28 +352,68 @@ def _train(config: dict, dataset_path: str | None, output_override: str | None) 
     except ImportError as exc:
         raise RuntimeError("训练机需要安装项目的 ml 可选依赖") from exc
     from .models.temporal_transformer import TemporalTransformerConfig, TemporalTransformerV1
-    from .models import LogisticBaseline
-    from .training.train import multitask_loss_components, seed_everything
-    from .training.sampler import CrossSectionBatchSampler
+    from .training.ranking import CrossSectionBatchSampler, ranking_oos_metrics
+    from .training.gradient_methods import (
+        GRADIENT_TASKS,
+        GradientConflictRecorder,
+        GradientDiagnosticSpecV1,
+        GradNormController,
+        GradNormSpecV1,
+        PCGradSpecV1,
+        backward_pcgrad,
+        shared_named_parameters,
+    )
+    from .training.train import (
+        KENDALL_TASKS,
+        KendallTaskWeights,
+        multitask_loss,
+        multitask_loss_components,
+        seed_everything,
+    )
+    from .training.robust_training import (
+        apl_direction_loss,
+        feature_pgd_perturbation,
+        latent_fgm_loss,
+        validate_robust_training_config,
+    )
     from .training.walk_forward import chronological_timestamp_split
 
     training = config.get("training", {})
+    cpu_threads = int(training.get("cpu_threads", 0))
+    if cpu_threads < 0:
+        raise ValueError("training.cpu_threads 不能为负数")
+    if cpu_threads:
+        torch.set_num_threads(cpu_threads)
     dataset_path = dataset_path or training.get("dataset")
     output = output_override or training.get("output")
     device = training.get("device")
     if not dataset_path or not output or not device or "CONFIGURE_" in str(device):
         raise ValueError("必须配置 training.dataset、training.output 和 training.device")
     with np.load(dataset_path, allow_pickle=False) as data:
-        dataset_arrays = {name: data[name] for name in data.files}
         features = data["features"].astype(np.float32, copy=False)
         valid_mask = data["valid_mask"].astype(np.uint8, copy=False)
         expected_return = data["expected_return"].astype(np.float32, copy=False)
         direction = data["direction"].astype(np.float32, copy=False)
         realized_volatility = data["realized_volatility"].astype(np.float32, copy=False)
+        rank_utility = data["rank_utility"].astype(np.float32, copy=False) \
+            if "rank_utility" in data else None
+        rank_relevance = data["rank_relevance"].astype(np.float32, copy=False) \
+            if "rank_relevance" in data else None
+        symbols = data["symbols"].astype(str)
         timestamps = data["timestamps"]
         schema_hash = str(data["feature_schema_sha256"])
+        label_spec_hash = str(data["label_spec_sha256"]) \
+            if "label_spec_sha256" in data else "legacy-v1"
+        ranking_spec_hash = str(data["ranking_score_spec_sha256"]) \
+            if "ranking_score_spec_sha256" in data else "legacy-v1"
     split_config = config.get("split", {})
-    split = chronological_timestamp_split(
+    label_spec, _ = _phase1b_specs(config)
+    minimum_purge = label_spec.horizon_bars + label_spec.execution_lag_bars
+    if int(split_config.get("purge_timestamps", 0)) < minimum_purge:
+        raise ValueError(
+            f"purge_timestamps 至少为 label horizon + execution lag = {minimum_purge}"
+        )
+    split = _split_override or chronological_timestamp_split(
         timestamps,
         train_fraction=float(split_config.get("train_fraction", 0.70)),
         validation_fraction=float(split_config.get("validation_fraction", 0.15)),
@@ -630,177 +421,771 @@ def _train(config: dict, dataset_path: str | None, output_override: str | None) 
         purge_timestamps=int(split_config.get("purge_timestamps", 0)),
         embargo_timestamps=int(split_config.get("embargo_timestamps", 0)),
     )
-    normalizer_fit_end = np.asarray(dataset_arrays["signal_asof"])[split.train].max()
-    leakage_report = audit_dataset(
-        dataset_arrays, split=split, normalizer_fit_end=normalizer_fit_end
+
+    symbol_mapping = {
+        symbol: index for index, symbol in enumerate(sorted(set(symbols.tolist())))
+    }
+    symbol_tie_breaker = np.asarray(
+        [symbol_mapping[symbol] for symbol in symbols], dtype=np.int64
     )
-    leakage_report.require_pass()
+    ranking_config = config.get("ranking", {})
+    ranking_variant = str(ranking_config.get("loss_variant", "none"))
+    if ranking_variant not in {"none", "legacy", "listmle", "lambda"}:
+        raise ValueError("ranking.loss_variant 必须为 none/legacy/listmle/lambda")
+    if ranking_variant != "none" and (rank_utility is None or rank_relevance is None):
+        raise ValueError("ranking loss 需要使用 LabelSpec V2 重建数据集")
+    if ranking_variant != "none" and int(
+        ranking_config.get("cross_sections_per_batch", 1)
+    ) != 1:
+        raise ValueError("Phase 1B V1 要求每个训练 batch 恰好一个 timestamp")
+    _, ranking_score_spec = _phase1b_specs(config)
+    loss_kwargs = {
+        "ranking_variant": ranking_variant,
+        "ranking_cutoff": ranking_score_spec.production_top_k,
+        "rank_temperature": ranking_score_spec.rank_temperature,
+        "ranking_score_mode": ranking_score_spec.mode.value,
+        "risk_floor": ranking_score_spec.risk_floor,
+        "rank_weight": ranking_score_spec.lambda_rank if ranking_variant != "none" else 0.0,
+        "return_weight": float(ranking_config.get("return_weight", 1.0)),
+        "direction_weight": float(ranking_config.get("direction_weight", 0.25)),
+        "volatility_weight": float(ranking_config.get("volatility_weight", 0.25)),
+        "quantile_weight": float(ranking_config.get("quantile_weight", 0.25)),
+    }
+    weighting_config = config.get("multitask_weighting", {})
+    if not isinstance(weighting_config, dict):
+        raise ValueError("multitask_weighting 必须是对象")
+    weighting_mode = str(weighting_config.get("mode", "fixed"))
+    if weighting_mode not in {"fixed", "kendall"}:
+        raise ValueError("multitask_weighting.mode 必须为 fixed/kendall")
+    if weighting_mode == "kendall" and str(
+        weighting_config.get("frozen_ranking_loss", "")
+    ) != ranking_variant:
+        raise ValueError("Kendall 必须显式绑定已冻结的 ranking loss")
+    gradient_config = config.get("gradient_optimization", {})
+    if not isinstance(gradient_config, dict):
+        raise ValueError("gradient_optimization 必须是对象")
+    _reject_unknown_keys(gradient_config, {
+        "mode", "hypothesis_id", "cadence_steps", "seed",
+        "zero_norm_epsilon", "alpha", "update_every_steps",
+        "weight_learning_rate", "accumulation_steps", "amp_enabled",
+        "loss_scale", "fold", "regime",
+    }, "gradient_optimization")
+    gradient_mode = str(gradient_config.get("mode", "none"))
+    if gradient_mode not in {"none", "diagnostics", "pcgrad", "gradnorm"}:
+        raise ValueError(
+            "gradient_optimization.mode 必须为 none/diagnostics/pcgrad/gradnorm"
+        )
+    if gradient_mode != "none":
+        if weighting_mode != "fixed" or ranking_variant != "legacy":
+            raise ValueError("Phase 1E 仅允许 legacy rank + fixed weights")
+        frozen_weights = {
+            "return_weight": 1.0,
+            "direction_weight": 0.25,
+            "volatility_weight": 0.25,
+            "quantile_weight": 0.25,
+            "rank_weight": 0.1,
+        }
+        if any(loss_kwargs[key] != value for key, value in frozen_weights.items()):
+            raise ValueError("Phase 1E 必须保持冻结冠军 scalar weights")
+        if int(gradient_config.get("accumulation_steps", 1)) != 1:
+            raise ValueError("当前训练入口仅支持 accumulation_steps=1")
+        if bool(gradient_config.get("amp_enabled", False)):
+            raise ValueError("当前训练入口尚未启用 AMP")
+        if float(gradient_config.get("loss_scale", 1.0)) != 1.0:
+            raise ValueError("非 AMP 训练的 loss_scale 必须为 1.0")
+    hypothesis_id = str(gradient_config.get("hypothesis_id", ""))
+    if gradient_mode in {"pcgrad", "gradnorm"} and not hypothesis_id:
+        raise ValueError("PCGrad/GradNorm challenger 必须提供新 hypothesis_id")
+    robust_config = config.get("robust_training", {})
+    if not isinstance(robust_config, dict):
+        raise ValueError("robust_training 必须是对象")
+    dataset_feature_names = (
+        BAR_V1.feature_names
+        if features.shape[2] == len(BAR_V1.feature_names)
+        else tuple(f"feature_{index}" for index in range(features.shape[2]))
+    )
+    robust_spec = validate_robust_training_config(
+        robust_config, feature_names=dataset_feature_names,
+    )
+    if robust_spec.mode != "none" and gradient_mode != "none":
+        raise ValueError("Phase 2B 候选必须与 Phase 1E 梯度 challenger 分开实验")
 
     def tensors_for(indices):
         return TensorDataset(
             torch.from_numpy(features[indices]), torch.from_numpy(valid_mask[indices]),
-            torch.from_numpy(timestamps[indices]),
             torch.from_numpy(expected_return[indices]), torch.from_numpy(direction[indices]),
             torch.from_numpy(realized_volatility[indices]),
+            torch.from_numpy(
+                rank_utility[indices] if rank_utility is not None else expected_return[indices]
+            ),
+            torch.from_numpy(
+                rank_relevance[indices] if rank_relevance is not None
+                else np.zeros(indices.size, dtype=np.float32)
+            ),
+            torch.from_numpy(timestamps[indices].astype(np.int64, copy=False)),
+            torch.from_numpy(symbol_tie_breaker[indices]),
         )
 
     train_tensors = tensors_for(split.train)
     seed = int(config.get("seed", 20260724))
     seed_everything(seed)
     allowed = {"static_feature_count", "d_model", "nhead", "num_layers",
-               "dim_feedforward", "dropout", "normalization_clip"}
+               "dim_feedforward", "dropout"}
     model_config = TemporalTransformerConfig(
         feature_count=features.shape[2], lookback=features.shape[1],
         **{key: value for key, value in config.get("model", {}).items() if key in allowed},
     )
     model = TemporalTransformerV1(model_config).to(device)
-    train_token_mask = valid_mask[split.train].astype(bool)
-    train_tokens = features[split.train][train_token_mask]
-    if train_tokens.size == 0:
-        raise ValueError("训练窗口没有有效 token，无法拟合 normalizer")
-    normalization_mean = train_tokens.mean(axis=0, dtype=np.float64).astype(np.float32)
-    normalization_scale = train_tokens.std(axis=0, dtype=np.float64).astype(np.float32)
-    normalization_scale[normalization_scale < 1e-6] = 1.0
-    model.set_normalization(normalization_mean, normalization_scale)
+    kendall = None
+    gradient_spec = None
+    gradient_recorder = None
+    gradnorm = None
+    shared_named = None
+    mechanism_diagnostics = []
+    robust_diagnostics = []
+    if gradient_mode != "none":
+        shared_named = shared_named_parameters(model)
+    if gradient_mode == "diagnostics":
+        gradient_spec = GradientDiagnosticSpecV1(
+            cadence_steps=int(gradient_config.get("cadence_steps", 1)),
+            seed=int(gradient_config.get("seed", seed)),
+            accumulation_steps=1,
+            amp_enabled=False,
+            loss_scale=1.0,
+        )
+        gradient_recorder = GradientConflictRecorder(gradient_spec)
+    elif gradient_mode == "pcgrad":
+        gradient_spec = PCGradSpecV1(
+            seed=int(gradient_config.get("seed", seed)),
+            zero_norm_epsilon=float(gradient_config.get(
+                "zero_norm_epsilon", 1e-12
+            )),
+            accumulation_steps=1,
+            gradients_unscaled=True,
+            hypothesis_id=hypothesis_id,
+        )
+    elif gradient_mode == "gradnorm":
+        gradient_spec = GradNormSpecV1(
+            alpha=float(gradient_config.get("alpha", 1.5)),
+            rank_weight=0.1,
+            update_every_steps=int(gradient_config.get("update_every_steps", 1)),
+            hypothesis_id=hypothesis_id,
+        )
+        gradnorm = GradNormController(gradient_spec).to(device)
+    parameter_groups = [{"params": list(model.parameters())}]
+    if weighting_mode == "kendall":
+        kendall = KendallTaskWeights(
+            initial_log_variance=float(weighting_config.get(
+                "initial_log_variance", 0.0
+            )),
+            regularizer=float(weighting_config.get("regularizer", 0.5)),
+            minimum=float(weighting_config.get("minimum_log_variance", -6.0)),
+            maximum=float(weighting_config.get("maximum_log_variance", 6.0)),
+        ).to(device)
+        parameter_groups.append({"params": list(kendall.parameters()), "weight_decay": 0.0})
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=float(training.get("learning_rate", 3e-4))
+        parameter_groups, lr=float(training.get("learning_rate", 3e-4))
     )
-    timestamps_per_batch = int(training.get("timestamps_per_batch", 1))
-    loader = DataLoader(
-        train_tensors,
-        batch_sampler=CrossSectionBatchSampler(
-            timestamps[split.train], timestamps_per_batch=timestamps_per_batch,
-            shuffle=True, seed=seed,
-        ),
-    )
-    configured_weights = training.get("loss_weights", {})
-    loss_weights = {
-        "return_weight": float(configured_weights.get("return", 1.0)),
-        "direction_weight": float(configured_weights.get("direction", 0.25)),
-        "volatility_weight": float(configured_weights.get("volatility", 0.25)),
-        "quantile_weight": float(configured_weights.get("quantile", 0.25)),
-        "rank_weight": float(configured_weights.get("rank", 0.10)),
-    }
-    if any(value < 0 or not np.isfinite(value) for value in loss_weights.values()):
-        raise ValueError("loss_weights 必须为有限非负数")
-    component_names = ("return", "direction", "volatility", "quantile", "rank", "total")
+    gradnorm_optimizer = None
+    if gradnorm is not None:
+        gradnorm_optimizer = torch.optim.Adam(
+            gradnorm.parameters(),
+            lr=float(gradient_config.get("weight_learning_rate", 1e-3)),
+        )
+
+    def compute_loss(prediction, target, *, use_robust_direction=False):
+        if kendall is None and gradient_mode == "none" and not use_robust_direction:
+            return multitask_loss(prediction, target, **loss_kwargs), None, None
+        components = multitask_loss_components(
+            prediction,
+            target,
+            ranking_variant=loss_kwargs["ranking_variant"],
+            ranking_cutoff=loss_kwargs["ranking_cutoff"],
+            rank_temperature=loss_kwargs["rank_temperature"],
+            ranking_score_mode=loss_kwargs["ranking_score_mode"],
+            risk_floor=loss_kwargs["risk_floor"],
+        )
+        if use_robust_direction:
+            components["direction"] = apl_direction_loss(
+                prediction["direction_probability"], target["direction"],
+                alpha=robust_spec.apl_alpha,
+                beta=robust_spec.apl_beta,
+                label_clip=robust_spec.apl_label_clip,
+            )
+        if gradnorm is not None:
+            weighted = gradnorm.weighted_task_losses(components)
+            return gradnorm.model_loss(components), components, weighted
+        if kendall is None:
+            weighted = {
+                "return": loss_kwargs["return_weight"] * components["return"],
+                "direction": loss_kwargs["direction_weight"] * components["direction"],
+                "volatility": loss_kwargs["volatility_weight"] * components["volatility"],
+                "quantile": loss_kwargs["quantile_weight"] * components["quantile"],
+                "rank": loss_kwargs["rank_weight"] * components["rank"],
+            }
+            return (
+                weighted["return"] + weighted["direction"] +
+                weighted["volatility"] + weighted["quantile"] + weighted["rank"]
+            ), components, weighted
+        task_loss, weighted = kendall(components)
+        return task_loss + loss_kwargs["rank_weight"] * components["rank"], components, weighted
+    if ranking_variant == "none":
+        loader = DataLoader(
+            train_tensors, batch_size=int(training.get("batch_size", 256)),
+            shuffle=False, drop_last=False,
+        )
+    else:
+        loader = DataLoader(
+            train_tensors,
+            batch_sampler=CrossSectionBatchSampler(
+                timestamps[split.train],
+                cross_sections_per_batch=int(ranking_config.get(
+                    "cross_sections_per_batch", 1
+                )),
+                shuffle=False,
+                seed=int(config.get("seed", 20260724)),
+            ),
+        )
+    epoch_count = int(training.get("epochs", 50))
     history = []
+    weight_diagnostics = []
+    global_step = 0
     model.train()
-    for _ in range(int(training.get("epochs", 50))):
-        totals = {
-            name: 0.0
-            for name in component_names
+    for epoch_index in range(epoch_count):
+        total = 0.0
+        diagnostic_sums = {
+            kind: {task: 0.0 for task in KENDALL_TASKS}
+            for kind in ("raw_losses", "weighted_losses", "log_variance_gradients")
         }
-        for feature, mask, batch_timestamps, expected, target_direction, volatility in loader:
+        diagnostic_batches = 0
+        for (feature, mask, expected, target_direction, volatility, utility,
+             relevance, batch_timestamps, tie_breaker) in loader:
             feature, mask = feature.to(device), mask.to(device)
             target = {
-                "timestamps": batch_timestamps.to(device),
                 "expected_return": expected.to(device),
                 "direction": target_direction.to(device),
                 "realized_volatility": volatility.to(device),
+                "rank_utility": utility.to(device),
+                "rank_relevance": relevance.to(device),
+                "timestamp": batch_timestamps.to(device),
+                "symbol_tie_breaker": tie_breaker.to(device),
             }
             optimizer.zero_grad(set_to_none=True)
-            components = multitask_loss_components(
-                model(feature, mask), target, **loss_weights
-            )
-            loss = components["total"]
-            loss.backward()
+            clean_loss_fn = lambda prediction, clean_target: compute_loss(
+                prediction, clean_target,
+            )[0]
+            if robust_spec.mode == "direction_apl":
+                loss, components, weighted = compute_loss(
+                    model(feature, mask), target, use_robust_direction=True,
+                )
+            elif robust_spec.mode == "latent_fgm":
+                loss, robust_batch = latent_fgm_loss(
+                    model, feature, mask, target, clean_loss_fn,
+                    epsilon=robust_spec.epsilon, beta=robust_spec.beta,
+                )
+                components, weighted = None, None
+                if len(robust_diagnostics) < 256:
+                    robust_diagnostics.append(robust_batch)
+            elif robust_spec.mode == "feature_pgd":
+                clean_prediction = model(feature, mask)
+                clean_loss = clean_loss_fn(clean_prediction, target)
+                parameter_grad_state = [
+                    parameter.requires_grad for parameter in model.parameters()
+                ]
+                for parameter in model.parameters():
+                    parameter.requires_grad_(False)
+                try:
+                    adversarial_features = feature_pgd_perturbation(
+                        feature, mask,
+                        lambda perturbed: clean_loss_fn(
+                            model(perturbed, mask), target,
+                        ),
+                        epsilon=robust_spec.epsilon,
+                        steps=robust_spec.pgd_steps,
+                        step_size=robust_spec.pgd_step_size,
+                        feature_names=robust_spec.feature_names,
+                    )
+                finally:
+                    for parameter, requires_grad in zip(
+                        model.parameters(), parameter_grad_state
+                    ):
+                        parameter.requires_grad_(requires_grad)
+                adversarial_loss = clean_loss_fn(
+                    model(adversarial_features, mask), target,
+                )
+                loss = clean_loss + robust_spec.beta * adversarial_loss
+                components, weighted = None, None
+                if len(robust_diagnostics) < 256:
+                    robust_diagnostics.append({
+                        "clean_loss": float(clean_loss.detach()),
+                        "adversarial_loss": float(adversarial_loss.detach()),
+                        "feature_perturbation_linf": float(
+                            (adversarial_features - feature).abs().max().detach()
+                        ),
+                    })
+            else:
+                loss, components, weighted = compute_loss(model(feature, mask), target)
+            if gradient_recorder is not None:
+                gradient_recorder.sample(
+                    components,
+                    shared_named,
+                    {
+                        "return": loss_kwargs["return_weight"],
+                        "direction": loss_kwargs["direction_weight"],
+                        "volatility": loss_kwargs["volatility_weight"],
+                        "quantile": loss_kwargs["quantile_weight"],
+                        "rank": loss_kwargs["rank_weight"],
+                    },
+                    step=global_step,
+                    epoch=epoch_index,
+                    fold=int(gradient_config.get("fold", 0)),
+                    regime=str(gradient_config.get("regime", "ALL")),
+                )
+                loss.backward()
+            elif gradient_mode == "pcgrad":
+                mechanism_diagnostics.append(backward_pcgrad(
+                    weighted,
+                    loss,
+                    tuple(parameter for _, parameter in shared_named),
+                    gradient_spec,
+                    step=global_step,
+                ))
+            elif gradnorm is not None:
+                if global_step % gradient_spec.update_every_steps == 0:
+                    gradnorm_optimizer.zero_grad(set_to_none=True)
+                    objective, diagnostics = gradnorm.gradnorm_objective(
+                        components,
+                        tuple(parameter for _, parameter in shared_named),
+                    )
+                    weight_gradient, = torch.autograd.grad(
+                        objective, gradnorm.raw_weights, retain_graph=True
+                    )
+                    gradnorm.raw_weights.grad = weight_gradient.detach().clone()
+                    gradnorm_optimizer.step()
+                    diagnostics.update({
+                        "step": global_step,
+                        "epoch": epoch_index,
+                        "objective": float(objective.detach()),
+                        "zero_gradient_rate": sum(
+                            value <= gradient_spec.epsilon
+                            for value in diagnostics["gradient_norms"].values()
+                        ) / len(GRADIENT_TASKS[:-1]),
+                    })
+                    mechanism_diagnostics.append(diagnostics)
+                    loss = gradnorm.model_loss(components)
+                    weighted = gradnorm.weighted_task_losses(components)
+                loss.backward()
+            else:
+                loss.backward()
+            if kendall is not None:
+                for task in KENDALL_TASKS:
+                    diagnostic_sums["raw_losses"][task] += float(
+                        components[task].detach()
+                    )
+                    diagnostic_sums["weighted_losses"][task] += float(
+                        weighted[task].detach()
+                    )
+                    diagnostic_sums["log_variance_gradients"][task] += float(
+                        kendall.log_variances[task].grad.detach()
+                    )
+                diagnostic_batches += 1
             optimizer.step()
-            for name, value in components.items():
-                totals[name] += float(value.detach()) * feature.shape[0]
-        history.append({name: value / len(split.train) for name, value in totals.items()})
+            if kendall is not None:
+                kendall.clamp_()
+            if ranking_variant == "none":
+                total += float(loss.detach()) * feature.shape[0]
+            else:
+                total += float(loss.detach())
+            global_step += 1
+        epoch_loss = total / (
+            len(split.train) if ranking_variant == "none" else len(loader)
+        )
+        history.append(epoch_loss)
+        print(json.dumps({
+            "event": "training_epoch_completed",
+            "epoch": epoch_index + 1,
+            "epochs": epoch_count,
+            "fold": int(gradient_config.get("fold", 0)),
+            "gradient_mode": gradient_mode,
+            "train_loss": epoch_loss,
+        }, sort_keys=True), flush=True)
+        if kendall is not None:
+            weight_diagnostics.append({
+                **{
+                    kind: {
+                        task: values[task] / diagnostic_batches
+                        for task in KENDALL_TASKS
+                    }
+                    for kind, values in diagnostic_sums.items()
+                },
+                "log_variances": {
+                    task: float(kendall.log_variances[task].detach())
+                    for task in KENDALL_TASKS
+                },
+                "effective_weights": {
+                    task: float(torch.exp(-kendall.log_variances[task].detach()))
+                    for task in KENDALL_TASKS
+                },
+            })
 
     def evaluate(indices):
+        evaluation_dataset = tensors_for(indices)
         evaluation_loader = DataLoader(
-            tensors_for(indices),
+            evaluation_dataset,
+            batch_size=int(training.get("batch_size", 256)),
+            shuffle=False,
+            drop_last=False,
+        ) if ranking_variant == "none" else DataLoader(
+            evaluation_dataset,
             batch_sampler=CrossSectionBatchSampler(
-                timestamps[indices], timestamps_per_batch=timestamps_per_batch,
+                timestamps[indices],
+                cross_sections_per_batch=int(ranking_config.get(
+                    "cross_sections_per_batch", 1
+                )),
                 shuffle=False,
+                seed=seed,
             ),
         )
         model.eval()
-        totals = {
-            name: 0.0
-            for name in component_names
-        }
+        total = 0.0
+        score_parts = []
+        utility_parts = []
+        relevance_parts = []
+        timestamp_parts = []
+        symbol_parts = []
+        expected_parts = []
+        predicted_return_parts = []
+        direction_target_parts = []
+        direction_prediction_parts = []
+        volatility_target_parts = []
+        volatility_prediction_parts = []
+        lower_parts = []
+        upper_parts = []
+        confidence_parts = []
+        embedding_parts = []
         with torch.no_grad():
-            for feature, mask, batch_timestamps, expected, target_direction, volatility in evaluation_loader:
+            for (feature, mask, expected, target_direction, volatility, utility,
+                 relevance, batch_timestamps, tie_breaker) in evaluation_loader:
                 feature, mask = feature.to(device), mask.to(device)
                 target = {
-                    "timestamps": batch_timestamps.to(device),
                     "expected_return": expected.to(device),
                     "direction": target_direction.to(device),
                     "realized_volatility": volatility.to(device),
+                    "rank_utility": utility.to(device),
+                    "rank_relevance": relevance.to(device),
+                    "timestamp": batch_timestamps.to(device),
+                    "symbol_tie_breaker": tie_breaker.to(device),
                 }
-                components = multitask_loss_components(
-                    model(feature, mask), target, **loss_weights
+                prediction = model(feature, mask, return_embedding=True)
+                loss, _, _ = compute_loss(prediction, target)
+                if ranking_variant == "none":
+                    total += float(loss) * feature.shape[0]
+                else:
+                    total += float(loss)
+                if ranking_score_spec.mode is RankingScoreMode.RAW_RETURN:
+                    ranking_score = prediction["expected_return"]
+                else:
+                    ranking_score = prediction["expected_return"] / prediction[
+                        "expected_volatility"
+                    ].clamp_min(ranking_score_spec.risk_floor)
+                score_parts.append(ranking_score.detach().cpu().numpy())
+                utility_parts.append(utility.numpy())
+                relevance_parts.append(relevance.numpy())
+                timestamp_parts.append(batch_timestamps.numpy())
+                symbol_parts.append(symbols[indices][
+                    sum(part.size for part in symbol_parts):
+                    sum(part.size for part in symbol_parts) + batch_timestamps.numel()
+                ])
+                expected_parts.append(expected.numpy())
+                predicted_return_parts.append(
+                    prediction["expected_return"].detach().cpu().numpy()
                 )
-                for name, value in components.items():
-                    totals[name] += float(value) * feature.shape[0]
-        return {name: value / len(indices) for name, value in totals.items()}
+                direction_target_parts.append(target_direction.numpy())
+                direction_prediction_parts.append(
+                    prediction["direction_probability"].detach().cpu().numpy()
+                )
+                volatility_target_parts.append(volatility.numpy())
+                volatility_prediction_parts.append(
+                    prediction["expected_volatility"].detach().cpu().numpy()
+                )
+                lower_parts.append(prediction["lower_quantile"].detach().cpu().numpy())
+                upper_parts.append(prediction["upper_quantile"].detach().cpu().numpy())
+                confidence_parts.append(
+                    prediction["confidence"].detach().cpu().numpy()
+                )
+                embedding_parts.append(
+                    prediction["embedding"].detach().cpu().numpy()
+                )
+        evaluation_loss = total / (
+            len(indices) if ranking_variant == "none" else len(evaluation_loader)
+        )
+        all_scores = np.concatenate(score_parts)
+        all_utility = np.concatenate(utility_parts)
+        all_relevance = np.concatenate(relevance_parts)
+        all_timestamps = np.concatenate(timestamp_parts)
+        all_symbols = np.concatenate(symbol_parts)
+        ranking_metrics = ranking_oos_metrics(
+            all_scores, all_utility, all_relevance, all_timestamps, all_symbols,
+            cutoff=ranking_score_spec.production_top_k,
+        )
+        all_expected = np.concatenate(expected_parts)
+        all_predicted_return = np.concatenate(predicted_return_parts)
+        all_direction_target = np.concatenate(direction_target_parts)
+        all_direction_prediction = np.concatenate(direction_prediction_parts)
+        all_volatility_target = np.concatenate(volatility_target_parts)
+        all_volatility_prediction = np.concatenate(volatility_prediction_parts)
+        all_lower = np.concatenate(lower_parts)
+        all_upper = np.concatenate(upper_parts)
+        all_confidence = np.concatenate(confidence_parts)
+        all_embeddings = np.concatenate(embedding_parts)
+        return {
+            "loss": evaluation_loss,
+            **dataclasses.asdict(ranking_metrics),
+            "head_metrics": {
+                "return_mae": float(np.mean(np.abs(
+                    all_predicted_return - all_expected
+                ))),
+                "direction_brier": float(np.mean(np.square(
+                    all_direction_prediction - all_direction_target
+                ))),
+                "volatility_mae": float(np.mean(np.abs(
+                    all_volatility_prediction - all_volatility_target
+                ))),
+                "interval_coverage": float(np.mean(
+                    (all_expected >= all_lower) & (all_expected <= all_upper)
+                )),
+                "interval_width": float(np.mean(all_upper - all_lower)),
+            },
+            "predictions": {
+                "scores": all_scores, "utility": all_utility,
+                "relevance": all_relevance, "timestamps": all_timestamps,
+                "symbols": all_symbols,
+                "expected_return": all_predicted_return,
+                "expected_volatility": all_volatility_prediction,
+                "direction_probability": all_direction_prediction,
+                "lower_quantile": all_lower,
+                "upper_quantile": all_upper,
+                "confidence": all_confidence,
+                "embedding": all_embeddings,
+            },
+        }
 
-    validation_loss = evaluate(split.validation)
-    test_loss = evaluate(split.test)
-    validation_logits = []
-    model.eval()
-    with torch.no_grad():
-        for feature, mask, *_ in DataLoader(
-            tensors_for(split.validation),
-            batch_sampler=CrossSectionBatchSampler(
-                timestamps[split.validation], timestamps_per_batch=timestamps_per_batch,
-                shuffle=False,
-            ),
-        ):
-            validation_logits.append(
-                model(feature.to(device), mask.to(device))["direction_logits"]
-                .detach().cpu().numpy()
-            )
-    calibrator = LogisticBaseline(alpha=1.0).fit(
-        np.concatenate(validation_logits)[:, None], direction[split.validation]
-    )
-    model.set_direction_calibration(
-        calibrator.coefficients_[0], calibrator.coefficients_[1]
-    )
+    validation_metrics = evaluate(split.validation)
+    test_metrics = evaluate(split.test)
+    gradient_artifact = None
+    if gradient_recorder is not None:
+        model_contract = {
+            "model": dataclasses.asdict(model_config),
+            "feature_schema_sha256": schema_hash,
+            "label_spec_sha256": label_spec_hash,
+            "ranking_score_spec_sha256": ranking_spec_hash,
+            "ranking_loss_variant": ranking_variant,
+            "loss_weights": {
+                task: float(weighted_value)
+                for task, weighted_value in zip(GRADIENT_TASKS, (
+                    loss_kwargs["return_weight"],
+                    loss_kwargs["direction_weight"],
+                    loss_kwargs["volatility_weight"],
+                    loss_kwargs["quantile_weight"],
+                    loss_kwargs["rank_weight"],
+                ))
+            },
+        }
+        model_contract_sha256 = hashlib.sha256(json.dumps(
+            model_contract, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+        gradient_artifact = gradient_recorder.artifact(
+            shared_named,
+            model_contract_sha256=model_contract_sha256,
+            dataset_sha256=sha256_file(dataset_path),
+        )
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    label_spec_json = str(np.asarray(dataset_arrays["label_spec_json"]).item())
+    test_predictions = test_metrics.pop("predictions")
+    validation_predictions = validation_metrics.pop("predictions")
+    test_embeddings = test_predictions.pop("embedding")
+    validation_embeddings = validation_predictions.pop("embedding")
+    np.savez_compressed(output / "test_predictions.npz", **test_predictions)
+    np.savez_compressed(output / "validation_predictions.npz", **validation_predictions)
+
+    anchor_candidates = np.flatnonzero(
+        valid_mask.all(axis=1) & np.isfinite(features).all(axis=(1, 2))
+    )
+    if anchor_candidates.size < 2:
+        raise RuntimeError("embedding anchor 可用样本不足")
+    anchor_count = min(64, anchor_candidates.size)
+    anchor_indices = anchor_candidates[:anchor_count].astype(np.int64, copy=False)
+    with torch.no_grad():
+        anchor_embedding = model(
+            torch.from_numpy(features[anchor_indices]).to(device),
+            torch.from_numpy(valid_mask[anchor_indices]).to(device),
+            return_embedding=True,
+        )["embedding"].detach().cpu().numpy()
+    np.savez_compressed(
+        output / "test_embeddings.npz",
+        embeddings=test_embeddings,
+        timestamps=test_predictions["timestamps"],
+        symbols=test_predictions["symbols"],
+        anchor_embeddings=anchor_embedding,
+        anchor_timestamps=timestamps[anchor_indices].astype(np.int64, copy=False),
+        anchor_symbols=symbols[anchor_indices],
+    )
+    np.savez_compressed(
+        output / "validation_embeddings.npz",
+        embeddings=validation_embeddings,
+        timestamps=validation_predictions["timestamps"],
+        symbols=validation_predictions["symbols"],
+        anchor_embeddings=anchor_embedding,
+        anchor_timestamps=timestamps[anchor_indices].astype(np.int64, copy=False),
+        anchor_symbols=symbols[anchor_indices],
+    )
+    if gradient_artifact is not None:
+        (output / "gradient_conflict_artifact.json").write_text(
+            json.dumps(gradient_artifact, indent=2) + "\n", encoding="utf-8"
+        )
     torch.save({
         "model_config": dataclasses.asdict(model_config),
         "model_state_dict": model.cpu().state_dict(), "seed": seed,
         "feature_schema_sha256": schema_hash, "history": history,
-        "training_dataset_fingerprint": str(
-            np.asarray(dataset_arrays["dataset_fingerprint"]).item()
+        "label_spec_sha256": label_spec_hash,
+        "ranking_score_spec_sha256": ranking_spec_hash,
+        "ranking_loss_variant": ranking_variant,
+        "ranking_cutoff": ranking_score_spec.production_top_k,
+        "ranking_temperature": ranking_score_spec.rank_temperature,
+        "multitask_weighting_mode": weighting_mode,
+        "multitask_weighting_state_dict": (
+            kendall.cpu().state_dict() if kendall is not None else None
         ),
-        "label_spec_sha256": str(np.asarray(dataset_arrays["label_spec_sha256"]).item()),
-        "normalizer_fit_end": int(normalizer_fit_end),
+        "loss_weight_diagnostics": weight_diagnostics,
+        "gradient_optimization_mode": gradient_mode,
+        "gradient_optimization_hypothesis_id": hypothesis_id or None,
+        "gradient_optimization_spec": (
+            dataclasses.asdict(gradient_spec) if gradient_spec is not None else None
+        ),
+        "gradient_optimization_spec_sha256": (
+            gradient_spec.sha256 if gradient_spec is not None else None
+        ),
+        "gradient_optimization_state_dict": (
+            gradnorm.cpu().state_dict() if gradnorm is not None else None
+        ),
+        "gradient_mechanism_diagnostics": mechanism_diagnostics,
+        "robust_training_mode": robust_spec.mode,
+        "robust_training_hypothesis_id": robust_spec.hypothesis_id,
+        "robust_training_spec": dataclasses.asdict(robust_spec),
+        "robust_training_diagnostics": robust_diagnostics,
+        "gradient_conflict_report_sha256": (
+            gradient_artifact["report_sha256"] if gradient_artifact is not None else None
+        ),
         "split": {
             "train_timestamps": split.train_timestamps.tolist(),
             "validation_timestamps": split.validation_timestamps.tolist(),
             "test_timestamps": split.test_timestamps.tolist(),
         },
     }, output / "checkpoint.pt")
-    (output / "normalization.json").write_text(json.dumps({
-        "method": "mean_std",
-        "clip": model_config.normalization_clip,
-        "fit_start": int(np.asarray(dataset_arrays["signal_asof"])[split.train].min()),
-        "fit_end": int(normalizer_fit_end),
-        "mean": normalization_mean.tolist(),
-        "scale": normalization_scale.tolist(),
-    }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    (output / "calibration.json").write_text(json.dumps({
-        "method": "platt_validation_only",
-        "input": "direction_logits",
-        "intercept": float(calibrator.coefficients_[0]),
-        "slope": float(calibrator.coefficients_[1]),
-    }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    (output / "label_spec.json").write_text(label_spec_json, encoding="utf-8")
-    (output / "metrics.json").write_text(json.dumps({
+    pooling_spec = {
+        "layer_id": "shared",
+        "sequence_pooling": "last_valid_token",
+        "static_feature_merge": "after_sequence_pooling",
+    }
+    mask_spec = {
+        "input": "valid_mask",
+        "padding": "masked",
+        "causal_attention": True,
+        "empty_row_fallback": "last_position",
+    }
+    def write_embedding_manifest(split_name, embedding_values, prediction_path,
+                                 manifest_path):
+        manifest = {
+            "schema_version": 1,
+            "role": "embedding_snapshot_v1",
+            "diagnostic_only": True,
+            "encoder_family": "TemporalTransformerV1",
+            "layer_id": "shared",
+            "pooling_spec": pooling_spec,
+            "pooling_spec_sha256": _canonical_sha256(pooling_spec),
+            "mask_spec": mask_spec,
+            "mask_spec_sha256": _canonical_sha256(mask_spec),
+            "dimension": int(embedding_values.shape[1]),
+            "sample_count": int(embedding_values.shape[0]),
+            "embedding_values_sha256": _array_sha256(embedding_values),
+            "anchor_sample_count": int(anchor_embedding.shape[0]),
+            "anchor_values_sha256": _array_sha256(anchor_embedding),
+            "source_dataset_sha256": sha256_file(dataset_path),
+            "prediction_artifact_sha256": sha256_file(prediction_path),
+            "checkpoint_sha256": sha256_file(output / "checkpoint.pt"),
+            "snapshot_split": split_name,
+            "anchor_split": "dataset_stable_head",
+        }
+        manifest["manifest_sha256"] = _canonical_sha256(manifest)
+        destination = output / manifest_path
+        destination.write_text(
+            json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return manifest
+
+    validation_embedding_manifest = write_embedding_manifest(
+        "validation", validation_embeddings, output / "validation_predictions.npz",
+        "validation_embedding_manifest.json",
+    )
+    embedding_manifest = write_embedding_manifest(
+        "test", test_embeddings, output / "test_predictions.npz",
+        "embedding_manifest.json",
+    )
+    metrics_payload = {
         "train_loss": history,
-        "validation_loss": validation_loss,
-        "test_loss": test_loss,
+        "multitask_weighting_mode": weighting_mode,
+        "loss_weight_diagnostics": weight_diagnostics,
+        "gradient_optimization_mode": gradient_mode,
+        "gradient_optimization_hypothesis_id": hypothesis_id or None,
+        "gradient_optimization_spec_sha256": (
+            gradient_spec.sha256 if gradient_spec is not None else None
+        ),
+        "gradient_mechanism_diagnostics": mechanism_diagnostics,
+        "robust_training_mode": robust_spec.mode,
+        "robust_training_hypothesis_id": robust_spec.hypothesis_id,
+        "robust_training_spec": dataclasses.asdict(robust_spec),
+        "robust_training_diagnostics": robust_diagnostics,
+        "gradient_conflict_report_sha256": (
+            gradient_artifact["report_sha256"] if gradient_artifact is not None else None
+        ),
+        "validation_loss": validation_metrics["loss"],
+        "test_loss": test_metrics["loss"],
+        "validation_ndcg_at_k": validation_metrics["ndcg_at_cutoff"],
+        "test_ndcg_at_k": test_metrics["ndcg_at_cutoff"],
+        "validation_cross_sections": validation_metrics["cross_sections"],
+        "test_cross_sections": test_metrics["cross_sections"],
+        "validation_ranking": {
+            key: value for key, value in validation_metrics.items() if key != "loss"
+        },
+        "test_ranking": {
+            key: value for key, value in test_metrics.items() if key != "loss"
+        },
         "train_samples": len(split.train),
         "validation_samples": len(split.validation),
         "test_samples": len(split.test),
+        "prediction_artifact": {
+            "schema_version": 1,
+            "path": "test_predictions.npz",
+            "sha256": sha256_file(output / "test_predictions.npz"),
+            "outputs": list(OUTPUT_NAMES),
+        },
+        "validation_prediction_artifact": {
+            "schema_version": 1,
+            "path": "validation_predictions.npz",
+            "sha256": sha256_file(output / "validation_predictions.npz"),
+            "outputs": list(OUTPUT_NAMES),
+        },
+        "embedding_snapshot": {
+            "path": "test_embeddings.npz",
+            "manifest_path": "embedding_manifest.json",
+            "manifest_sha256": embedding_manifest["manifest_sha256"],
+        },
+        "validation_embedding_snapshot": {
+            "path": "validation_embeddings.npz",
+            "manifest_path": "validation_embedding_manifest.json",
+            "manifest_sha256": validation_embedding_manifest["manifest_sha256"],
+        },
         "split": {
             "train_first": int(split.train_timestamps[0]),
             "train_last": int(split.train_timestamps[-1]),
@@ -809,8 +1194,11 @@ def _train(config: dict, dataset_path: str | None, output_override: str | None) 
             "test_first": int(split.test_timestamps[0]),
             "test_last": int(split.test_timestamps[-1]),
         },
-    }, indent=2) + "\n", encoding="utf-8")
-    leakage_report.write(output / "leakage_report.json")
+    }
+    (output / "metrics.json").write_text(
+        json.dumps(metrics_payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
     return output
 
 
@@ -829,72 +1217,29 @@ def _export(config: dict, run_path: str, output_path: str) -> Path:
             raise ValueError(f"导出前必须配置 {key}")
     run, output = Path(run_path), Path(output_path)
     checkpoint = torch.load(run / "checkpoint.pt", map_location="cpu", weights_only=True)
-    if checkpoint.get("model_family", "TemporalTransformerV1.1") != "TemporalTransformerV1.1":
-        raise ValueError("深度基线 checkpoint 仅用于离线比较，不能导出为 V1.1 生产制品")
-    feature_indices = checkpoint.get(
-        "feature_indices", list(range(len(BAR_V1.feature_names)))
-    )
-    if feature_indices != list(range(len(BAR_V1.feature_names))):
-        raise ValueError("特征消融 checkpoint 仅用于分析，不能导出为 BAR_V1 生产制品")
     model = TemporalTransformerV1(TemporalTransformerConfig(**checkpoint["model_config"]))
     model.load_state_dict(checkpoint["model_state_dict"])
-    required_run_files = (
-        "label_spec.json", "normalization.json", "calibration.json",
-        "leakage_report.json", "metrics.json",
-    )
-    missing_run_files = [name for name in required_run_files if not (run / name).is_file()]
-    if missing_run_files:
-        raise ValueError("Manifest V2 导出缺少训练文件: " + ", ".join(missing_run_files))
-    label_spec = LabelSpec(**json.loads(
-        (run / "label_spec.json").read_text(encoding="utf-8")
-    ))
-    if checkpoint.get("label_spec_sha256") != label_spec.sha256:
-        raise ValueError("checkpoint 与 label_spec.json 不一致")
     output.mkdir(parents=True, exist_ok=False)
-    opset = int(config.get("export", {}).get("opset", 17))
+    opset = int(config.get("export", {}).get("opset", 18))
     model_path = export_temporal_transformer(model, output / "model.onnx", opset=opset)
     BAR_V1.write(output / "feature_schema.json")
-    for name in required_run_files:
-        shutil.copyfile(run / name, output / name)
+    shutil.copyfile(run / "metrics.json", output / "metrics.json")
     golden = output / "golden"
     golden.mkdir()
     generator = np.random.default_rng(int(checkpoint["seed"]))
     features = generator.normal(
-        size=(8, model.config.lookback, model.config.feature_count)
+        size=(2, model.config.lookback, model.config.feature_count)
     ).astype(np.float32)
-    valid_mask = np.ones(features.shape[:2], dtype=np.uint8)
+    valid_mask = np.ones((2, model.config.lookback), dtype=np.uint8)
     np.savez_compressed(golden / "input.npz", features=features, valid_mask=valid_mask)
-    with torch.no_grad():
-        pytorch_prediction = model(
-            torch.from_numpy(features), torch.from_numpy(valid_mask)
-        )
-    np.savez_compressed(golden / "pytorch_output.npz", **{
-        name: pytorch_prediction[name].detach().cpu().numpy() for name in OUTPUT_NAMES
-    })
-    expected_returns = pytorch_prediction["expected_return"].detach().cpu().numpy()
-    ranked = sorted(range(features.shape[0]), key=lambda index: (-expected_returns[index], index))
-    expected_targets = []
-    for index in ranked[:3]:
-        symbol_id = index + 1
-        close = 10.0 + symbol_id
-        raw_quantity = int((1_000_000.0 * 0.05) // close)
-        quantity = raw_quantity - raw_quantity % 100
-        expected_targets.append({
-            "symbol_id": symbol_id, "target_quantity": quantity,
-            "target_weight": 0.05,
-        })
-    expected_targets.sort(key=lambda value: value["symbol_id"])
-    (golden / "expected_decisions.json").write_text(json.dumps({
-        "policy": "long_only_top_k", "max_positions": 3,
-        "max_position_weight": 0.05, "equity": 1_000_000.0,
-        "price_rule": "10_plus_symbol_id", "lot_size": 100,
-        "targets": expected_targets,
-    }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    onnx_outputs = validate_onnx_parity(model, model_path, features, valid_mask)
-    np.savez_compressed(golden / "onnx_output.npz", **onnx_outputs)
+    outputs = validate_onnx_parity(model, model_path, features, valid_mask)
+    np.savez_compressed(golden / "python_output.npz", **outputs)
+    label_spec, ranking_score_spec = _phase1b_specs(config)
     horizon = label_spec.horizon_bars
+    ranking_config = config.get("ranking", {})
+    ranking_variant = str(ranking_config.get("loss_variant", "none"))
     manifest = ModelManifest(
-        schema_version=2,
+        schema_version=1,
         model_id=config.get("model_id", "bar-temporal-transformer-v1"),
         model_version=config.get(
             "model_version", datetime.now(timezone.utc).strftime("%Y%m%d.%H%M%S")
@@ -905,38 +1250,26 @@ def _export(config: dict, run_path: str, output_path: str) -> Path:
         data_cutoff_utc=config["data_cutoff_utc"], lookback=model.config.lookback,
         feature_count=model.config.feature_count,
         static_feature_count=model.config.static_feature_count,
-        frequency=config.get("frequency", "1d"),
         outputs=tuple({
             "name": name,
             "unit": "probability" if name in {"direction_probability", "confidence"}
                     else "return_std" if name == "expected_volatility" else "log_return",
             "horizon_bars": horizon,
-            **({"quantile": 0.10} if name == "lower_quantile" else
-               {"quantile": 0.90} if name == "upper_quantile" else {}),
         } for name in OUTPUT_NAMES),
         onnx_opset=opset,
-        model_family="TemporalTransformer",
-        architecture_version="V1.1",
-        label_spec_sha256=sha256_file(output / "label_spec.json"),
-        normalization_method="mean_std",
-        normalization_sha256=sha256_file(output / "normalization.json"),
-        calibration_method="platt_validation_only",
-        calibration_sha256=sha256_file(output / "calibration.json"),
-        training_dataset_fingerprint=checkpoint["training_dataset_fingerprint"],
-        leakage_report_sha256=sha256_file(output / "leakage_report.json"),
-        minimum_valid_tokens=int(config.get("minimum_valid_tokens", 1)),
-        dynamic_batch=True,
+        label_spec_version="V2",
+        label_spec_sha256=label_spec.sha256,
+        ranking_score_spec=json.loads(ranking_score_spec.canonical_json),
+        ranking_score_spec_sha256=ranking_score_spec.sha256,
+        ranking_loss_variant=ranking_variant,
+        ranking_cutoff=ranking_score_spec.production_top_k,
+        ranking_temperature=ranking_score_spec.rank_temperature,
+        rank_weight=(
+            ranking_score_spec.lambda_rank if ranking_variant != "none" else 0.0
+        ),
     )
     manifest.write(output / "manifest.json")
     return output
-
-
-def _validate_ort_cpp(
-    artifact_path: str, runner_path: str, output_path: str | None,
-) -> Path:
-    from .export import validate_ort_cpp_parity
-
-    return validate_ort_cpp_parity(artifact_path, runner_path, output_path)
 
 
 def main(argv=None) -> int:
@@ -944,65 +1277,38 @@ def main(argv=None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     validate = commands.add_parser("validate-artifact")
     validate.add_argument("artifact")
-    cpp_parity = commands.add_parser("validate-ort-cpp")
-    cpp_parity.add_argument("--artifact", required=True)
-    cpp_parity.add_argument("--runner", required=True)
-    cpp_parity.add_argument("--output")
     show = commands.add_parser("show-config")
     show.add_argument("config")
     dataset = commands.add_parser("build-dataset")
     dataset.add_argument("--config", required=True)
     dataset.add_argument("--output")
-    enrichment = commands.add_parser("enrich-phase-e")
-    enrichment.add_argument("--config", required=True)
-    enrichment.add_argument("--output")
-    leakage = commands.add_parser("detect-leakage")
-    leakage.add_argument("--config", required=True)
-    leakage.add_argument("--dataset")
-    leakage.add_argument("--output")
-    walk_forward = commands.add_parser("walk-forward")
-    walk_forward.add_argument("--config", required=True)
-    walk_forward.add_argument("--dataset")
-    walk_forward.add_argument("--output")
-    transformer_walk_forward = commands.add_parser("walk-forward-transformer")
-    transformer_walk_forward.add_argument("--config", required=True)
-    transformer_walk_forward.add_argument("--dataset")
-    transformer_walk_forward.add_argument("--output")
-    deep_baselines = commands.add_parser("walk-forward-deep-baselines")
-    deep_baselines.add_argument("--config", required=True)
-    deep_baselines.add_argument("--dataset")
-    deep_baselines.add_argument("--output")
-    ablation = commands.add_parser("ablate-features")
-    ablation.add_argument("--config", required=True)
-    ablation.add_argument("--dataset")
-    ablation.add_argument("--output")
-    transformer_ablation = commands.add_parser("ablate-transformer-features")
-    transformer_ablation.add_argument("--config", required=True)
-    transformer_ablation.add_argument("--dataset")
-    transformer_ablation.add_argument("--output")
-    benchmark = commands.add_parser("benchmark-models")
-    benchmark.add_argument("--config", required=True)
-    benchmark.add_argument("--dataset")
-    benchmark.add_argument("--output")
-    promotion = commands.add_parser("promotion-review")
-    promotion.add_argument("--config", required=True)
-    promotion.add_argument("--output")
-    portfolio_benchmark = commands.add_parser("benchmark-portfolios-cpp")
-    portfolio_benchmark.add_argument("--config", required=True)
-    portfolio_benchmark.add_argument("--dataset")
-    portfolio_benchmark.add_argument("--model-benchmark")
-    portfolio_benchmark.add_argument("--bars")
-    portfolio_benchmark.add_argument("--output")
-    portfolio_ablation = commands.add_parser("benchmark-ablation-portfolios-cpp")
-    portfolio_ablation.add_argument("--config", required=True)
-    portfolio_ablation.add_argument("--dataset")
-    portfolio_ablation.add_argument("--feature-ablation")
-    portfolio_ablation.add_argument("--bars")
-    portfolio_ablation.add_argument("--output")
     train = commands.add_parser("train")
     train.add_argument("--config", required=True)
     train.add_argument("--dataset")
     train.add_argument("--output")
+    ablation = commands.add_parser("phase1b-ablation")
+    ablation.add_argument("--config", required=True)
+    ablation.add_argument("--dataset")
+    ablation.add_argument("--output")
+    kendall = commands.add_parser("phase1b-kendall-ablation")
+    kendall.add_argument("--config", required=True)
+    kendall.add_argument("--dataset")
+    kendall.add_argument("--fixed-report")
+    kendall.add_argument("--output")
+    phase1e_source = commands.add_parser("phase1e-build-source")
+    phase1e_source.add_argument("--config", required=True)
+    phase1e_diagnostics = commands.add_parser("phase1e-diagnostics")
+    phase1e_diagnostics.add_argument("--config", required=True)
+    phase1e_diagnostics.add_argument("--dataset")
+    phase1e_diagnostics.add_argument("--output")
+    phase2b_audit = commands.add_parser("phase2b-audit")
+    phase2b_audit.add_argument("--dataset", required=True)
+    phase2b_audit.add_argument("--output", required=True)
+    phase2b_oos = commands.add_parser("phase2b-oos")
+    phase2b_oos.add_argument("--config", required=True)
+    phase2b_oos.add_argument("--dataset")
+    phase2b_oos.add_argument("--output")
+    phase2b_oos.add_argument("--baseline-root")
     export = commands.add_parser("export")
     export.add_argument("--config", required=True)
     export.add_argument("--run", required=True)
@@ -1020,48 +1326,77 @@ def main(argv=None) -> int:
             "valid": True, "model_id": manifest.model_id,
             "model_version": manifest.model_version,
         }, ensure_ascii=False))
-    elif args.command == "validate-ort-cpp":
-        print(_validate_ort_cpp(args.artifact, args.runner, args.output))
     elif args.command == "show-config":
         print(json.dumps(_load_config(args.config), ensure_ascii=False, sort_keys=True, indent=2))
     elif args.command == "build-dataset":
         print(_build_dataset(_load_config(args.config), args.output))
-    elif args.command == "enrich-phase-e":
-        print(_enrich_phase_e(_load_config(args.config), args.output))
-    elif args.command == "detect-leakage":
-        print(_detect_leakage(_load_config(args.config), args.dataset, args.output))
-    elif args.command == "walk-forward":
-        print(_walk_forward(_load_config(args.config), args.dataset, args.output))
-    elif args.command == "walk-forward-transformer":
-        print(_walk_forward_transformer(
-            _load_config(args.config), args.dataset, args.output
-        ))
-    elif args.command == "walk-forward-deep-baselines":
-        print(_walk_forward_deep_baselines(
-            _load_config(args.config), args.dataset, args.output
-        ))
-    elif args.command == "ablate-features":
-        print(_ablate_features(_load_config(args.config), args.dataset, args.output))
-    elif args.command == "ablate-transformer-features":
-        print(_ablate_transformer_features(
-            _load_config(args.config), args.dataset, args.output
-        ))
-    elif args.command == "benchmark-models":
-        print(_benchmark_models(_load_config(args.config), args.dataset, args.output))
-    elif args.command == "promotion-review":
-        print(_promotion_review(_load_config(args.config), args.output))
-    elif args.command == "benchmark-portfolios-cpp":
-        print(_portfolio_benchmark(
-            _load_config(args.config), args.dataset, args.model_benchmark,
-            args.bars, args.output,
-        ))
-    elif args.command == "benchmark-ablation-portfolios-cpp":
-        print(_portfolio_ablation(
-            _load_config(args.config), args.dataset, args.feature_ablation,
-            args.bars, args.output,
-        ))
     elif args.command == "train":
         print(_train(_load_config(args.config), args.dataset, args.output))
+    elif args.command == "phase1b-ablation":
+        from .training.ablation import run_phase1b_ablation
+        config = _load_config(args.config)
+        dataset_path = args.dataset or config.get("training", {}).get("dataset")
+        output_path = args.output or config.get("phase1b_ablation", {}).get("output")
+        if not dataset_path or not output_path:
+            raise ValueError("必须配置 ablation dataset 和 output")
+        print(run_phase1b_ablation(config, dataset_path, output_path, _train))
+    elif args.command == "phase1b-kendall-ablation":
+        from .training.ablation import run_kendall_ablation
+        config = _load_config(args.config)
+        settings = config.get("kendall_ablation", {})
+        dataset_path = args.dataset or config.get("training", {}).get("dataset")
+        fixed_report = args.fixed_report or settings.get("fixed_report")
+        output_path = args.output or settings.get("output")
+        if not dataset_path or not fixed_report or not output_path:
+            raise ValueError("必须配置 Kendall dataset、fixed_report 和 output")
+        print(run_kendall_ablation(
+            config, dataset_path, fixed_report, output_path, _train
+        ))
+    elif args.command == "phase1e-build-source":
+        from .training.phase1e import Phase1EDataSpecV1, build_phase1e_source
+        config = _load_config(args.config)
+        settings = config.get("phase1e_data", {})
+        spec = Phase1EDataSpecV1(
+            bars_root=settings["bars_root"],
+            security_state_root=settings["security_state_root"],
+            selection_year=int(settings.get("selection_year", 2019)),
+            minimum_selection_sessions=int(settings.get(
+                "minimum_selection_sessions", 220
+            )),
+            universe_size=int(settings.get("universe_size", 120)),
+            source_start_year=int(settings.get("source_start_year", 2020)),
+            phase1b_last_timestamp=int(settings["phase1b_last_timestamp"]),
+        )
+        print(build_phase1e_source(
+            spec, settings["source_output"], settings["audit_output"]
+        ))
+    elif args.command == "phase1e-diagnostics":
+        from .training.phase1e import run_phase1e_diagnostics
+        config = _load_config(args.config)
+        settings = config.get("phase1e_diagnostics", {})
+        dataset_path = args.dataset or config.get("training", {}).get("dataset")
+        output_path = args.output or settings.get("output")
+        audit_path = settings.get("data_audit")
+        if not dataset_path or not output_path or not audit_path:
+            raise ValueError("必须配置 Phase 1E dataset、data_audit 和 output")
+        print(run_phase1e_diagnostics(
+            config, dataset_path, audit_path, output_path, _train
+        ))
+    elif args.command == "phase2b-audit":
+        print(_phase2b_audit(args.dataset, args.output))
+    elif args.command == "phase2b-oos":
+        from .training.phase2b import run_phase2b_oos
+        config = _load_config(args.config)
+        settings = config.get("phase2b_oos", {})
+        dataset_path = args.dataset or config.get("training", {}).get("dataset")
+        output_path = args.output or settings.get("output")
+        baseline_root = args.baseline_root or settings.get("baseline_root")
+        if not dataset_path or not output_path:
+            raise ValueError("必须配置 Phase 2B dataset 和 output")
+        print(run_phase2b_oos(
+            config, dataset_path, output_path, _train,
+            baseline_root=baseline_root,
+        ))
     elif args.command == "export":
         print(_export(_load_config(args.config), args.run, args.output))
     else:

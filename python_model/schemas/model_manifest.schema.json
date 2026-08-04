@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qbt.local/schemas/model_manifest.schema.json",
-  "title": "QBT Model Manifest V1/V2",
+  "title": "QBT Model Manifest V1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,7 @@
     "onnx_opset", "minimum_runtime_version", "preferred_provider"
   ],
   "properties": {
-    "schema_version": {"enum": [1, 2]},
+    "schema_version": {"const": 1},
     "model_id": {"type": "string", "minLength": 1},
     "model_version": {"type": "string", "minLength": 1},
     "model_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -21,7 +21,6 @@
     "calendar_id": {"type": "string", "minLength": 1},
     "universe_id": {"type": "string", "minLength": 1},
     "data_cutoff_utc": {"type": "string", "minLength": 1},
-    "frequency": {"type": "string", "pattern": "^(1d|[1-9][0-9]*m)$"},
     "lookback": {"type": "integer", "minimum": 1},
     "feature_count": {"type": "integer", "minimum": 1},
     "static_feature_count": {"type": "integer", "minimum": 0},
@@ -37,8 +36,7 @@
         "properties": {
           "name": {"type": "string"},
           "unit": {"type": "string"},
-          "horizon_bars": {"type": "integer", "minimum": 1},
-          "quantile": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}
+          "horizon_bars": {"type": "integer", "minimum": 1}
         },
         "additionalProperties": false
       }
@@ -46,27 +44,14 @@
     "execution_alignment": {"const": "NEXT_OPEN"},
     "onnx_opset": {"type": "integer", "minimum": 17},
     "minimum_runtime_version": {"type": "string", "minLength": 1},
-    "preferred_provider": {"const": "CPUExecutionProvider"},
-    "model_family": {"type": "string", "minLength": 1},
-    "architecture_version": {"type": "string", "minLength": 1},
-    "label_spec_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "normalization_method": {"const": "mean_std"},
-    "normalization_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "calibration_method": {"const": "platt_validation_only"},
-    "calibration_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "training_dataset_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "leakage_report_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "minimum_valid_tokens": {"type": "integer", "minimum": 1},
-    "dynamic_batch": {"const": true}
-  },
-  "allOf": [{
-    "if": {"properties": {"schema_version": {"const": 2}}},
-    "then": {"required": [
-      "model_family", "architecture_version", "label_spec_sha256",
-      "normalization_method", "normalization_sha256", "calibration_method",
-      "calibration_sha256", "training_dataset_fingerprint",
-      "leakage_report_sha256", "minimum_valid_tokens", "dynamic_batch",
-      "frequency"
-    ]}
-  }]
+    "preferred_provider": {"const": "CPUExecutionProvider"}
+    ,"label_spec_version": {"enum": ["V1", "V2"]}
+    ,"label_spec_sha256": {"type": "string"}
+    ,"ranking_score_spec": {"type": ["object", "null"]}
+    ,"ranking_score_spec_sha256": {"type": "string"}
+    ,"ranking_loss_variant": {"enum": ["none", "legacy", "listmle", "lambda"]}
+    ,"ranking_cutoff": {"type": "integer", "minimum": 0}
+    ,"ranking_temperature": {"type": "number", "exclusiveMinimum": 0}
+    ,"rank_weight": {"type": "number", "minimum": 0}
+  }
 }

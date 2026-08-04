@@ -16,19 +16,6 @@ BAR_V1_FEATURE_NAMES = (
     "is_tradable",
 )
 
-BAR_V1_FEATURE_GROUPS = {
-    "returns": ("log_return_1", "log_return_5", "log_return_10", "log_return_20"),
-    "bar_structure": ("intraday_range", "close_open_return", "overnight_gap"),
-    "volume": ("log_volume", "volume_zscore_20"),
-    "volatility": ("volatility_5", "volatility_10", "volatility_20", "volatility_60"),
-    "trend_position": (
-        "ma_deviation_5", "ma_deviation_10", "ma_deviation_20",
-        "price_position_20", "breakout_20",
-    ),
-    "cross_section": ("cross_section_return_rank",),
-    "trade_state": ("is_suspended", "is_listed", "is_st", "is_tradable"),
-}
-
 
 @dataclass(frozen=True)
 class FeatureSchema:

@@ -6,7 +6,7 @@ from .manifest import OUTPUT_NAMES
 
 
 def export_temporal_transformer(model, output: str | Path, *, batch_size: int = 2,
-                                opset: int = 17) -> Path:
+                                opset: int = 18) -> Path:
     try:
         import torch
     except ImportError as exc:

@@ -76,6 +76,16 @@ if(QBT_ENABLE_PERFORMANCE_ANALYTICS)
     qbt_static_test_runtime(test_period_contribution_engine_integration)
     add_test(NAME test_period_contribution_engine_integration
         COMMAND test_period_contribution_engine_integration)
+    if(QBT_ENABLE_PORTFOLIO_MATH)
+        add_executable(test_phase2a_policy_replay
+            tests/test_phase2a_policy_replay.cpp)
+        target_link_libraries(test_phase2a_policy_replay PRIVATE
+            qbt_core performance_analytics portfolio_math)
+        qbt_enable_warnings(test_phase2a_policy_replay)
+        qbt_static_test_runtime(test_phase2a_policy_replay)
+        add_test(NAME test_phase2a_policy_replay
+            COMMAND test_phase2a_policy_replay)
+    endif()
 endif()
 
 add_executable(test_pnl tests/test_pnl.cpp)

@@ -4,6 +4,65 @@ import random
 
 import numpy as np
 
+try:
+    import torch
+    from torch import nn
+except ImportError:
+    torch = None
+    nn = None
+
+from .ranking import lambda_loss_at_k, legacy_rank_loss, listmle_loss
+
+
+KENDALL_TASKS = ("return", "direction", "volatility", "quantile")
+
+
+if nn is not None:
+    class KendallTaskWeights(nn.Module):
+        """Global homoscedastic task weights; rank remains explicitly weighted."""
+
+        def __init__(
+            self,
+            *,
+            initial_log_variance: float = 0.0,
+            regularizer: float = 0.5,
+            minimum: float = -6.0,
+            maximum: float = 6.0,
+        ) -> None:
+            super().__init__()
+            values = (initial_log_variance, regularizer, minimum, maximum)
+            if not np.isfinite(values).all() or regularizer <= 0 or minimum >= maximum:
+                raise ValueError("Kendall 参数必须有限，regularizer 为正且 clamp 有序")
+            self.log_variances = nn.ParameterDict({
+                task: nn.Parameter(torch.tensor(float(initial_log_variance)))
+                for task in KENDALL_TASKS
+            })
+            self.regularizer = float(regularizer)
+            self.minimum = float(minimum)
+            self.maximum = float(maximum)
+
+        def forward(self, components):
+            weighted = {}
+            total = None
+            for task in KENDALL_TASKS:
+                log_variance = self.log_variances[task].clamp(
+                    self.minimum, self.maximum
+                )
+                value = torch.exp(-log_variance) * components[task]
+                weighted[task] = value
+                term = value + self.regularizer * log_variance
+                total = term if total is None else total + term
+            return total, weighted
+
+        def clamp_(self) -> None:
+            with torch.no_grad():
+                for value in self.log_variances.values():
+                    value.clamp_(self.minimum, self.maximum)
+else:
+    class KendallTaskWeights:
+        def __init__(self, **_kwargs) -> None:
+            raise RuntimeError("Kendall 动态权重需要安装项目 ml 可选依赖")
+
 
 def seed_everything(seed: int) -> None:
     random.seed(seed)
@@ -17,18 +76,108 @@ def seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def pinball_loss(prediction, target, quantile: float):
-    if not 0.0 < quantile < 1.0:
-        raise ValueError("quantile 必须位于 (0,1)")
-    error = target - prediction
+def _ranking_score(prediction, mode: str, risk_floor: float):
+    if mode == "raw_return":
+        return prediction["expected_return"]
+    if mode == "risk_adjusted_return":
+        return prediction["expected_return"] / prediction["expected_volatility"].clamp_min(
+            risk_floor
+        )
+    raise ValueError(f"不支持的 ranking score mode: {mode}")
+
+
+def _timestamp_rank_loss(
+    prediction,
+    target,
+    *,
+    variant: str,
+    cutoff: int,
+    temperature: float,
+    score_mode: str,
+    risk_floor: float,
+):
     try:
         import torch
     except ImportError as exc:
         raise RuntimeError("训练功能未安装；请安装 ml 可选依赖") from exc
-    return torch.maximum(quantile * error, (quantile - 1.0) * error).mean()
+    if variant == "none":
+        return prediction["expected_return"].sum() * 0.0
+    score = _ranking_score(prediction, score_mode, risk_floor)
+    timestamp = target["timestamp"]
+    mask = target.get("rank_mask")
+    losses = []
+    for value in torch.unique(timestamp, sorted=True):
+        group = timestamp == value
+        group_mask = group if mask is None else group & mask.bool()
+        if variant == "legacy":
+            losses.append(legacy_rank_loss(score, target["rank_utility"], group_mask))
+        elif variant == "listmle":
+            losses.append(listmle_loss(
+                score,
+                target["rank_utility"],
+                mask=group_mask,
+                tie_breaker=target["symbol_tie_breaker"],
+            ))
+        elif variant == "lambda":
+            losses.append(lambda_loss_at_k(
+                score,
+                target["rank_relevance"],
+                cutoff=cutoff,
+                temperature=temperature,
+                mask=group_mask,
+            ))
+        else:
+            raise ValueError(f"不支持的 ranking loss variant: {variant}")
+    if not losses:
+        return score.sum() * 0.0
+    return torch.stack(losses).mean()
 
 
 def multitask_loss_components(
+    prediction,
+    target,
+    *,
+    ranking_variant="none",
+    ranking_cutoff=20,
+    rank_temperature=1.0,
+    ranking_score_mode="raw_return",
+    risk_floor=1e-4,
+):
+    try:
+        import torch
+        import torch.nn.functional as functional
+    except ImportError as exc:
+        raise RuntimeError("训练功能未安装；请安装 ml 可选依赖") from exc
+    expected_return = target["expected_return"]
+    lower_error = expected_return - prediction["lower_quantile"]
+    upper_error = expected_return - prediction["upper_quantile"]
+    return {
+        "return": functional.huber_loss(
+            prediction["expected_return"], target["expected_return"]
+        ),
+        "direction": functional.binary_cross_entropy(
+            prediction["direction_probability"], target["direction"]
+        ),
+        "volatility": functional.huber_loss(
+            prediction["expected_volatility"], target["realized_volatility"]
+        ),
+        "quantile": (
+            torch.maximum(0.10 * lower_error, -0.90 * lower_error).mean()
+            + torch.maximum(0.90 * upper_error, -0.10 * upper_error).mean()
+        ),
+        "rank": _timestamp_rank_loss(
+            prediction,
+            target,
+            variant=ranking_variant,
+            cutoff=ranking_cutoff,
+            temperature=rank_temperature,
+            score_mode=ranking_score_mode,
+            risk_floor=risk_floor,
+        ),
+    }
+
+
+def multitask_loss(
     prediction,
     target,
     *,
@@ -37,70 +186,28 @@ def multitask_loss_components(
     volatility_weight=0.25,
     quantile_weight=0.25,
     rank_weight=0.0,
+    ranking_variant="none",
+    ranking_cutoff=20,
+    rank_temperature=1.0,
+    ranking_score_mode="raw_return",
+    risk_floor=1e-4,
 ):
-    try:
-        import torch.nn.functional as functional
-    except ImportError as exc:
-        raise RuntimeError("训练功能未安装；请安装 ml 可选依赖") from exc
-    raw = {
-        "return": functional.huber_loss(
-            prediction["expected_return"], target["expected_return"]
-        ),
-        "direction": functional.binary_cross_entropy_with_logits(
-            prediction["direction_logits"], target["direction"]
-        ),
-        "volatility": functional.huber_loss(
-            prediction["expected_volatility"], target["realized_volatility"]
-        ),
-        "quantile": (
-            pinball_loss(prediction["lower_quantile"], target["expected_return"], 0.10)
-            + pinball_loss(prediction["upper_quantile"], target["expected_return"], 0.90)
-        ),
-    }
-    if rank_weight:
-        if "timestamps" not in target:
-            raise ValueError("启用 rank loss 时 target 必须包含 timestamps")
-        raw["rank"] = cross_section_rank_loss(
-            prediction["expected_return"], target["expected_return"], target["timestamps"]
-        )
-    weighted = {
-        "return": return_weight * raw["return"],
-        "direction": direction_weight * raw["direction"],
-        "volatility": volatility_weight * raw["volatility"],
-        "quantile": quantile_weight * raw["quantile"],
-    }
-    if rank_weight:
-        weighted["rank"] = rank_weight * raw["rank"]
-    weighted["total"] = sum(weighted.values())
-    return weighted
-
-
-def multitask_loss(prediction, target, **weights):
-    return multitask_loss_components(prediction, target, **weights)["total"]
-
-
-def cross_section_rank_loss(prediction, target, timestamps):
-    try:
-        import torch
-    except ImportError as exc:
-        raise RuntimeError("训练功能未安装；请安装 ml 可选依赖") from exc
-    losses = []
-    for timestamp in torch.unique(timestamps):
-        selected = timestamps == timestamp
-        section_prediction = prediction[selected]
-        section_target = target[selected]
-        if section_prediction.numel() < 2:
-            continue
-        target_rank = torch.argsort(torch.argsort(section_target)).to(section_prediction.dtype)
-        prediction_centered = section_prediction - section_prediction.mean()
-        rank_centered = target_rank - target_rank.mean()
-        prediction_norm = torch.sqrt(prediction_centered.square().sum() + 1e-12)
-        rank_norm = torch.sqrt(rank_centered.square().sum() + 1e-12)
-        denominator = prediction_norm * rank_norm
-        losses.append(1.0 - (prediction_centered * rank_centered).sum() / denominator)
-    if not losses:
-        return prediction.sum() * 0.0
-    return torch.stack(losses).mean()
+    components = multitask_loss_components(
+        prediction,
+        target,
+        ranking_variant=ranking_variant,
+        ranking_cutoff=ranking_cutoff,
+        rank_temperature=rank_temperature,
+        ranking_score_mode=ranking_score_mode,
+        risk_floor=risk_floor,
+    )
+    return (
+        return_weight * components["return"]
+        + direction_weight * components["direction"]
+        + volatility_weight * components["volatility"]
+        + quantile_weight * components["quantile"]
+        + rank_weight * components["rank"]
+    )
 
 
 def train_epoch(model, batches, optimizer, device="cpu") -> float:

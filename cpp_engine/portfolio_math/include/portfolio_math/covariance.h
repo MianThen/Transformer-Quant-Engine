@@ -78,10 +78,30 @@ struct NonlinearCovarianceResult {
   NonlinearShrinkageDiagnostics diagnostics;
 };
 
+struct RmtDenoisingDiagnostics {
+  double aspect_ratio{0.0};
+  double fitted_noise_boundary{0.0};
+  double constant_residual_eigenvalue{0.0};
+  double targeted_shrinkage_intensity{0.0};
+  std::size_t retained_signal_rank{0};
+  std::size_t noise_eigenvalue_count{0};
+  std::vector<double> raw_eigenvalues;
+  std::vector<double> cleaned_eigenvalues;
+  double input_correlation_trace{0.0};
+  double output_correlation_trace{0.0};
+  double trace_drift{0.0};
+  double maximum_relative_diagonal_drift{0.0};
+  double condition_number{0.0};
+  double psd_repair_amount{0.0};
+  bool eligible_for_official_risk{false};
+};
+
 struct ResearchCovarianceSelection {
   CovarianceResult covariance;
   NonlinearShrinkageDiagnostics nonlinear_diagnostics;
   bool has_nonlinear_diagnostics{false};
+  RmtDenoisingDiagnostics rmt_diagnostics;
+  bool has_rmt_diagnostics{false};
 };
 
 struct FixedInputCovarianceComparison {

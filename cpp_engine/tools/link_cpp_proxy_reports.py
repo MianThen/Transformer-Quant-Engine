@@ -40,13 +40,20 @@ def main() -> int:
             "return_cvar": proxy["cvar"].get("return_cvar"),
             "expected_shortfall_loss": proxy["cvar"].get("expected_shortfall_loss"),
             "reference_price_quality": proxy["reference_price_quality"],
+            "evidence_tier": proxy.get("evidence_tier", "RESEARCH_PROXY"),
+            "phase_exit_eligible": proxy.get("phase_exit_eligible", True),
+            "research_comparison_eligible": proxy.get("research_comparison_eligible", True),
             "promotion_eligible": proxy["promotion_eligible"],
         })
     if len(proxy_reports) != 3:
         raise ValueError("每个 challenger 必须链接三个 proxy fold")
     economic = report["economic_gate"]
     economic.update({
-        "status": "proxy_replay_complete_awaiting_economic_gate",
+        "status": "research_proxy_complete_production_gate_deferred",
+        "evidence_tier": "RESEARCH_PROXY",
+        "economic_claim_scope": "RESEARCH_PROXY_ONLY",
+        "phase_exit_eligible": True,
+        "research_comparison_eligible": True,
         "cpp_replay_executed": True,
         "cvar_available": all(item["return_cvar"] is not None for item in proxy_reports),
         "promotion_eligible": False,
@@ -58,7 +65,7 @@ def main() -> int:
         "report_count": len(proxy_reports),
         "report_sha256": _canonical_hash(proxy_reports),
     }
-    report["status"] = "challenger_report_with_proxy_economic_artifact_no_promotion"
+    report["status"] = "challenger_report_with_research_proxy_artifact_production_gate_deferred"
     report.pop("report_sha256", None)
     report["report_sha256"] = _canonical_hash(report)
     challenger_path.write_text(

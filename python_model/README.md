@@ -1,303 +1,71 @@
-# Quant Backtester
+# 量化回测研究平台（quant-backtester）
 
-面向 A 股分钟线和多标的截面策略的个人回测引擎。
+面向 **A 股分钟线**的个人量化回测研究平台，覆盖一条完整的业务闭环：
 
-项目采用 Python/C++ 混合架构：Python 负责策略研究、point-in-time 参考数据和实验编排，
-C++20 负责订单、成交、现金、持仓与权益等有状态执行路径。分钟行情保存在分区 Parquet
-数据湖中，通过 Arrow Dataset 流式扫描，并使用 Arrow C Data Interface 直接进入 C++。
+```text
+行情数据导入 → 校验入湖 → 配置并运行回测 → 结果落库 → Dashboard 审计 →（可选）ML 研究
+```
 
-这不是一个只展示“双均线收益曲线”的玩具项目。项目重点解决三类问题：
+项目的核心不是展示一条收益曲线，而是把回测这件事做得**可信、可复现、可审计**：
 
-- **回测可信度**：A 股 T+1、涨跌停、停牌、成交量约束、历史费率、公司行动和完整订单审计。
-- **分钟线规模能力**：过滤下推、列投影、分区感知回放、完整 timestamp 截面和可控工作集。
-- **结果可复现**：数据内容 hash、schema/dataset/query fingerprint、SQLite 审计和跨后端一致性测试。
+- **回测可信**：T+1、涨跌停、停牌、整手、历史费率、公司行动等 A 股业务规则全部建模，
+  并全部使用 point-in-time 历史数据，杜绝前视偏差。
+- **规模可用**：全市场分钟线（设计容量约 120 亿行）以流式方式回放，内存占用与历史
+  长度无关。
+- **结果可审计**：一次运行从行情来源、策略代码到成交、拒单、权益、风险的完整链条
+  全部落库，任何结果都能回答"为什么"。
+- **研究可复现**：数据内容 hash、运行配置冻结、假设预注册，跨后端结果一致。
 
 ## 项目状态
 
 | 阶段 | 状态 | 内容 |
-|---|---|---|
-| P0 | 已完成 | DataFeed → 回测 → SQLite → Streamlit Dashboard 完整闭环 |
+| --- | --- | --- |
+| P0 | 已完成 | 数据导入 → 回测 → SQLite → Dashboard 完整闭环 |
 | P1 | 已完成 | A 股交易规则、point-in-time 参考数据、订单生命周期与风险审计 |
-| P2 数据路径 | 已完成 | Arrow Scanner、分区回放、C Stream bridge、lineage、特征缓存与 benchmark |
-| P2 结果交付 | 已完成 | round-trip 账本、SQLite v2、分页聚合、审计 Dashboard、安装包、CI 与质量门禁 |
-| P3 性能与实时实验 | 进行中 | 真实 cache 控制、三条执行路径 benchmark；`SymbolId` 与实时闭环待实施 |
-| ML 可选能力 | 基础协议已接入 | `BAR_V1`、`NEXT_OPEN`、外部训练代码与模型制品校验；默认关闭 |
+| P2 | 已完成 | 全市场分钟线数据湖、批量导入、数据血缘、特征缓存、审计 Dashboard |
+| P3 | 进行中 | 性能与实时实验 |
+| ML 研究层 | 基础协议已接入 | 数据集构建、训练、消融、ONNX 导出与制品验证；默认关闭 |
 
-当前验收结果：
+---
 
-- 强制 Python 后端：104/104 tests passed
-- 强制 C++ 后端：104/104 tests passed
-- C++ 默认核心构建：3/3 CTest passed
-- C++ `all-modules` 构建：6/6 CTest passed
-- ASan/UBSan 核心构建：3/3 CTest passed
-- Python 分支覆盖率：76%（门禁 60%）
+## 一、行情数据导入
 
-## 系统架构
+### 数据契约
 
-```text
-CSV / Parquet
-      |
-      v
-校验 + 不可变分区数据湖 + 原子 catalog
-      |
-      +---- DuckDB ----------------------> 研究 SQL / 小结果查询
-      |
-      +---- Arrow Dataset Scanner -------> 过滤下推 / 列投影 / batch streaming
-                                              |
-                                   PartitionAwareIterator
-                                   月/日窗口 + 局部排序
-                                   完整 timestamp 截面
-                                              |
-                              Arrow C Stream / batch events
-                                              |
-                                              v
-Python Strategy --------------------> C++ Execution Engine
-                                              |
-                         orders / fills / positions / equity
-                                              |
-                                              v
-                               SQLite audit + Streamlit Dashboard
-```
-
-组件职责：
-
-| 组件 | 职责 |
-|---|---|
-| Python | 策略、数据查询、交易日历、历史股票状态、复权和实验编排 |
-| C++20 | 撮合、订单状态、资金冻结、持仓、T+1、费用、round-trip 和权益计算 |
-| Parquet + Arrow | 全市场分钟线存储、裁剪和批量传输 |
-| DuckDB | 研究 SQL、单标的历史和物化查询 |
-| SQLite | 保存回测运行、委托、成交、权益、风险、公司行动和数据血缘 |
-| Streamlit | 回测结果、交易分析和风险指标展示 |
-
-详细设计见 [架构说明](docs/architecture.md) 和
-[分钟线数据系统](docs/data_system.md)。
-
-## 源码布局
-
-当前源码由两个工程组成：
-
-```text
-quant-backtester-cpp/       # C++ 核心和 pybind11 模块
-├── cpp_engine/             # 当前回测执行引擎
-├── trading_engine/         # 独立低延迟实验模块，默认不构建
-├── CMakePresets.json       # dev/release/cpp-only/sanitize/all-modules
-└── pyproject.toml          # cpp_engine wheel 构建入口
-
-PythonProject/              # Python 业务层和项目主 README
-├── python/                 # 回测运行器、策略、数据系统和测试
-├── storage/                # SQLite schema 与访问层
-├── dashboard/              # Streamlit 页面
-├── data/sample/            # 可直接运行的样例行情
-├── docs/                   # 架构、数据系统、项目记忆与 benchmark
-├── pyproject.toml          # Python 安装包与质量工具配置
-└── requirements.lock       # Python 3.9/3.12 完整锁定环境
-```
-
-后续发布为单一仓库时，可以把两个目录合并；当前构建命令使用 `QBT_CPP_ROOT` 和
-`QBT_PY_ROOT`，不依赖本机的绝对路径。
-
-## 环境要求
-
-- Python 3.9+
-- 支持 C++20 的编译器
-- CMake 3.21+（使用 presets；手工配置最低仍为 3.15）
-- macOS 或 Linux
-
-纯 Python 后端不要求编译 C++，适合先验证功能。C++ 后端需要使用同一个 Python
-解释器安装 pybind11、配置 CMake 和运行回测。
-
-## 快速开始
-
-先设置两个源码目录：
-
-```bash
-export QBT_CPP_ROOT=/path/to/quant-backtester-cpp
-export QBT_PY_ROOT=/path/to/PythonProject
-
-# cmake/ctest 已在 PATH 时保留默认值即可。
-export CMAKE_BIN="${CMAKE_BIN:-cmake}"
-export CTEST_BIN="${CTEST_BIN:-ctest}"
-
-# 若使用 macOS CMake.app，改为：
-# export CMAKE_BIN=/Applications/CMake.app/Contents/bin/cmake
-# export CTEST_BIN=/Applications/CMake.app/Contents/bin/ctest
-```
-
-### 1. 安装 Python 依赖
-
-```bash
-cd "$QBT_PY_ROOT"
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.lock
-python -m pip install --no-deps -e .
-```
-
-### 2. 先运行纯 Python 版本
-
-```bash
-cd "$QBT_PY_ROOT"
-QBT_BACKEND=python QBT_DB_PATH=/tmp/qbt-demo.db \
-  python -m python.examples.ma_cross_strategy
-```
-
-### 3. 安装并运行 C++ 后端
-
-推荐直接构建并安装 wheel：
-
-```bash
-cd "$QBT_CPP_ROOT"
-CMAKE_BIN="$CMAKE_BIN" python -m pip install .
-
-cd "$QBT_PY_ROOT"
-QBT_BACKEND=cpp QBT_DB_PATH=/tmp/qbt-demo.db \
-  python -m python.examples.ma_cross_strategy
-```
-
-需要开发构建时使用 CMake preset：
-
-```bash
-cd "$QBT_CPP_ROOT"
-"$CMAKE_BIN" --preset dev \
-  -Dpybind11_DIR="$(python -m pybind11 --cmakedir)" \
-  -DQBT_WARNINGS_AS_ERRORS=ON
-
-"$CMAKE_BIN" --build --preset dev -j
-
-export PYTHONPATH="$QBT_PY_ROOT:$QBT_CPP_ROOT/build/dev/cpp_engine"
-cd "$QBT_PY_ROOT"
-QBT_BACKEND=cpp QBT_DB_PATH=/tmp/qbt-demo.db \
-  python -m python.examples.ma_cross_strategy
-```
-
-默认 `QBT_BUILD_PYTHON=ON`，因此 Python/pybind11 缺失时 CMake 会直接失败，
-不会产生“构建成功但没有扩展模块”的结果。只构建纯 C++ 测试时可显式传入
-`-DQBT_BUILD_PYTHON=OFF`。实验性的 `trading_engine` 默认关闭，只有
-`all-modules` preset 或显式 `-DQBT_BUILD_LIVE_ENGINE=ON` 才会构建。
-
-已验证的示例输出（Python/C++ 后端一致）：
-
-```text
-成交笔数: 7
-期末权益: 1,196,138.76
-总收益率: 19.61%
-Sharpe:   3.85
-最大回撤: 1.96%
-```
-
-`QBT_BACKEND` 支持：
-
-- `cpp`：必须加载 C++ 模块，加载失败立即报错。
-- `python`：强制使用纯 Python 参考实现。
-- `auto`：默认值；仅在 `cpp_engine` 未安装时回退到 Python，不会吞掉二进制损坏错误。
-
-## 策略业务接口
-
-普通策略继承 `Strategy`，可直接使用 `market_order()`、`limit_order()`、
-`target_position_order()`、`close_position_order()`、`cancel_order()` 和 `get_positions()`。
-Runner 会把 `on_order_update()` 接到引擎的接受、部分成交和终态通知，策略不应在信号发出时
-自行假定已经持仓。
-
-高频截面研究可继承 `ColumnarStrategy`。C++ 后端直接传入只读 `MarketBatchView`，策略以
-`symbol_index/side/quantity/type/price` 列返回订单，避免每个 timestamp 构造完整的 Python
-`MarketSnapshot` 列表；纯 Python 后端会用兼容视图执行同一策略。内置均线和均值回归示例
-已经使用该路径。
-
-```python
-from python.strategy import ColumnarStrategy
-
-class EqualWeightSignal(ColumnarStrategy):
-    def on_cross_section_view(self, batch):
-        selected = [index for index in range(len(batch)) if batch.close(index) > 10]
-        return {"symbol_index": selected, "quantity": [100] * len(selected)}
-```
-
-C++ 现金账本按 `1/10000` 货币单位逐成交量化；分析用成交价格仍保留浮点精度。因此由展示
-价格反算的 round-trip PnL 与现金账本可能相差若干个最小货币单位。
-
-### 4. 查看 Dashboard
-
-```bash
-cd "$QBT_PY_ROOT"
-QBT_BACKEND=cpp \
-QBT_DB_PATH=/tmp/qbt-demo.db \
-QBT_DATA_LAKE_PATH=/tmp/qbt-data-lake \
-  streamlit run dashboard/app.py
-```
-
-Dashboard 可查看同一次回测的总收益、年化收益、Sharpe、最大回撤、权益曲线、成交分析和
-风险指标。成交、平仓轮次、委托和公司行动均使用 SQL 分页；运行审计页同时展示订单状态
-聚合、组合风险、数据血缘和完整 RunSpec。
-
-侧栏进入“数据实验”后，可以导入自己的 CSV、Parquet 或 PQ 行情文件，再选择标的和策略
-运行回测。文件超过 100 MiB 时应选择“本机文件路径”：CSV 使用 Arrow 流式分块解析，
-Parquet 使用 RecordBatch 迭代读取，校验、分区写入和回测回放都不会一次性加载完整数据集。
-浏览器上传只用于 100 MiB 以内的小文件，因为上传组件本身会在进程中保留文件内容。
-
-运行回测支持两种多标的业务模式：
-
-- **独立批量**：每个标的独立使用界面中的初始资金，分别产生 run_id，完成后展示横向对比表。
-- **共享资金组合**：所有标的共享一笔本金和一条权益曲线，策略为每个标的维护独立信号状态，
-  按资金利用率等权分配预算，并由引擎统一执行现金、持仓和交易约束。
-
-推荐的大文件操作流程：
-
-1. 把行情文件保存在本机磁盘。
-2. 打开“数据实验”并保留“本机文件路径”选项。
-3. 输入单个文件或目录的绝对路径；单文件可先预览，目录会递归批量导入。
-4. 切换到“运行回测”，选择标的、策略和参数后开始回测。
-
-爬虫全量数据应选择单一数据源目录，例如：
-
-```text
-/Users/Zhuanz/PycharmProjects/scrapy/data/bars/provider=baostock
-```
-
-目录导入只保存有限路径和 source fingerprint，行情数据继续按 Arrow RecordBatch 流式读取；
-同一批目录只提交一次 catalog，并自动跳过已导入文件。不要选择同时包含多个
-`provider=*` 的上级目录，否则不同数据源可能包含重复 `(timestamp, symbol)`。
-
-数据湖目录由 `QBT_DATA_LAKE_PATH` 控制；导入批次大小、CSV 读取块和 DuckDB 校验内存上限
-可分别通过 `DataLakeConfig.ingest_batch_rows`、`ingest_csv_block_size_bytes` 和
-`ingest_memory_limit_mb` 调整。
-
-## 行情数据契约
-
-CSV 与 Parquet 使用相同的基础字段：
+所有行情源（CSV / Parquet）使用同一份基础字段契约：
 
 ```text
 Bar(timestamp, symbol, open, high, low, close, volume)
 ```
 
-| 字段 | 类型 | 约束 |
-|---|---|---|
-| `timestamp` | int64 | UTC epoch nanoseconds |
-| `symbol` | string | 非空；保留 `000001` 等前导零 |
-| `open/high/low/close` | float64 | 有限正数，满足 OHLC 关系 |
-| `volume` | int64 | 非负 |
+| 字段 | 说明 |
+| --- | --- |
+| `timestamp` | UTC epoch 纳秒整数 |
+| `symbol` | 字符串，保留 `000001` 等前导零 |
+| `open/high/low/close` | 有限正数，满足 OHLC 关系 |
+| `volume` | 非负整数 |
 
-唯一主键是 `(timestamp, symbol)`。导入时会检查 schema、null、重复主键、OHLCV 合法性
-以及与已有数据的主键冲突。
+唯一主键为 `(timestamp, symbol)`。导入时逐批校验 schema、null、主键重复、OHLCV
+合法性以及与湖内已有数据的主键冲突；CSV 股票代码按字符串读取，不丢前导零。
+CSV/Parquet 可额外透传三个可选交易状态字段：`upper_limit`、`lower_limit`、
+`is_suspended`。
 
-小文件和兼容策略可以直接使用 `CSVDataFeed` 或 `ParquetDataFeed`：
+### 导入方式
 
-```python
-from python.data_feed import CSVDataFeed
+- **单文件导入**：一个 CSV / Parquet 文件，可先预览前 20 行再导入。
+- **目录批量导入**：适合爬虫全量数据。选择单一数据源目录（如
+  `.../data/bars/provider=baostock`）后递归批量导入，自动跳过已导入文件，同一批
+  目录只提交一次数据目录。不要选择同时包含多个 `provider=*` 的上级目录，避免不同
+  数据源重复 `(timestamp, symbol)`。
+- **浏览器上传**：仅限 100 MiB 以内小文件；大文件必须使用本机路径，导入全程流式
+  处理，不会把完整数据集一次性载入内存。
 
-feed = CSVDataFeed(
-    "data/sample/sample_ohlcv.csv",
-    symbols=["000001"],
-    start=1704067200000000000,
-    end=1711929600000000000,
-)
-```
+### 校验、幂等与数据湖
 
-## 全市场分钟线数据湖
+导入先写入 staging，完整校验后才发布为不可变 Parquet 分区文件并原子更新 catalog，
+查询永远看不到半批数据。源文件内容生成 SHA-256 指纹，**重复导入相同内容直接跳过**。
 
-设计容量按 10,000 个标的、240 分钟/交易日、250 个交易日/年、20 年估算，理论上限约
-120 亿行。物理布局为 `year/month/bucket`，默认使用 64 个稳定 symbol bucket：
+数据湖按 `year/month/symbol_bucket` 分区（默认 64 个稳定 bucket）：
 
 ```text
 data_lake/
@@ -306,251 +74,200 @@ data_lake/
     └── year=2026/month=07/bucket=43/part-<id>-0.parquet
 ```
 
-月分区避免每日分区造成小文件爆炸；symbol bucket 同时兼顾全市场截面扫描与单标的历史
-查询。
+月分区避免小文件爆炸；symbol bucket 让"全市场某一分钟的截面查询"和"单标的历史查询"
+都只读必要的文件。
 
-```python
-from python.market_data import (
-    ArrowDatasetScanner,
-    DataLakeConfig,
-    MinuteBarDataLake,
-    PartitionAwareIterator,
-)
-from python.engine_api import BacktestEngine
+---
 
-lake = MinuteBarDataLake(
-    DataLakeConfig(
-        "/data/ashare-minute",
-        bucket_count=64,
-        ingest_max_open_files=64,
-    )
-)
-result = lake.ingest("incoming/2026-07-01.parquet")
+## 二、回测执行
 
-# Arrow Dataset 负责过滤下推、列投影和原始 batch streaming。
-scanner = ArrowDatasetScanner(lake)
+### 两种业务模式
 
-# 历史回放负责全局确定性顺序与完整 timestamp 截面。
-replay = PartitionAwareIterator(
-    scanner,
-    target_bytes=256 * 1024 * 1024,
-)
+- **独立批量**：每个标的独立使用初始资金，分别产生一次运行（run_id），全部完成后
+  展示横向对比表（收益、Sharpe、回撤、成交笔数），适合批量筛选标的。
+- **共享资金组合**：所有标的共享一笔本金和一条权益曲线，按资金利用率**等权分配**
+  预算，由引擎统一执行现金、持仓与交易约束，适合组合级研究。
 
-reader = replay.reader(
-    start=1782869400000000000,
-    end=1782955800000000000,
-    columns=("timestamp", "symbol", "open", "high", "low", "close", "volume"),
-)
-engine = BacktestEngine()
-stats = engine.process_arrow_stream(reader)
-```
+### 内置策略与自定义策略
 
-需要明确的边界：
+Dashboard 内置**双均线**和**均值回归**两个示例策略，可直接调参运行。研究用策略
+继承 `Strategy` 编写：一个完整 timestamp 的截面作为整体交给策略一次处理
+（`on_cross_section`），策略返回批量订单，不依赖股票顺序。常用业务接口：
 
-- Arrow Scanner 不保证多个 Parquet fragment 之间的全局顺序；历史回放必须经过
-  `PartitionAwareIterator`。
-- `DataLakeFeed` 和 `ArrowDatasetScanner` 在构造时固定 `CatalogSnapshot`；后续 ingest
-  不会改变已经创建的回放及其 lineage。需要读取新 generation 时应创建新的 feed/scanner。
-- `target_bytes` 是软目标。一个 timestamp 的完整截面不能拆开，因此单截面可能超过目标。
-- Arrow C Stream bridge 消除了逐 Bar Python 对象构造，但 Parquet 仍由 Arrow 解码，
-  `symbol` 仍会复制到现有 C++ `std::string` 模型；这不是全链路完全零拷贝。
-- DuckDB 保留用于研究 SQL 和复杂物化查询，Arrow Scanner 用于固定 schema 的快速主路径。
+- 下单：`market_order` / `limit_order` / `target_position_order`（调仓至目标仓位）/
+  `close_position_order` / `cancel_order`；
+- 查询：`get_cash` / `get_position(s)` / `get_portfolio`（现金、权益、敞口、行业暴露）；
+- 回调：`on_order_update`（接受、部分成交、终态）——**策略不应在信号发出时就假定
+  已经持仓**，必须以成交回报为准。
 
-## A 股回测可信度
+### A 股业务规则
 
-执行模型已覆盖：
+执行模型覆盖以下业务规则，且全部来自 point-in-time 历史数据：
 
-- T+1 可卖数量和卖单数量冻结；
-- 订单接受时冻结预计现金，防止同一截面内资金透支；
-- 停牌、零成交量、涨停买入和跌停卖出不成交；
-- Bar 成交量参与率、滑点和跨 Bar 部分成交；
-- 历史整手、最小买入数量、上市和 ST 状态；
-- `NEXT_OPEN` 与 `CLOSE` 成交时点；
-- T+1 与做空权限独立配置；关闭 T+1 不会隐式允许裸卖，只有 `allow_short=True`
-  才允许负持仓；
-- 市价单、限价单和 `ACCEPTED / PARTIALLY_FILLED / FILLED / CANCELED /
-  REJECTED / EXPIRED` 完整生命周期；
-- point-in-time 费率：原生引擎按委托/成交 timestamp 选择费率，默认佣金万三、最低 5 元，
-  印花税覆盖 2023-08-28 由千一降至万五；
-- 现金分红、送转股、持仓成本调整和公司行动前撤单；
-- 总/净敞口、最大持仓权重、行业和风格因子暴露。
+| 类别 | 规则 |
+| --- | --- |
+| T+1 | 按上海自然日滚动可卖数量，预留未成交卖单数量，防止多单合计穿透可卖量 |
+| 涨跌停 | 涨停买入、跌停卖出**不成交**（Bar 级数据的保守近似）；停牌、零成交量不成交 |
+| 资金冻结 | 订单接受时冻结预计现金/可卖数量，同一截面内不允许资金透支 |
+| 成交约束 | 市价单成交量参与率（默认 10%）、滑点、跨 Bar 部分成交；剩余数量滚到下一根 Bar |
+| 交易单位 | 整手、最小买入数量、上市状态均按历史证券状态提供，不按代码规则猜测；卖出允许一次性清理零股 |
+| 订单生命周期 | `ACCEPTED → PARTIALLY_FILLED → FILLED / CANCELED / REJECTED / EXPIRED` |
+| 成交时点 | `NEXT_OPEN`（下一根 Bar 开盘价）与 `CLOSE`（收盘价）两种口径 |
+| 历史费率 | 按委托/成交 timestamp 选择费率区间：佣金默认万三、最低 5 元，印花税覆盖 2023-08-28 由千一降至万五，过户费可配置 |
+| 公司行动 | 现金分红、送转股直接调整现金/数量/持仓成本；除权前自动撤销该标的未完成委托 |
+| 风险 | 总/净敞口、最大持仓权重、行业与风格因子暴露 |
 
-交易日历、证券状态、复权因子和公司行动均为独立的 point-in-time 数据集。成交始终使用
-原始 OHLC；策略信号使用 `raw_price * adjustment_factor`，避免用复权价错误扣减现金。
+### point-in-time 参考数据
 
-```python
-from python.backtest_runner import BacktestRunner
-from python.market_data import (
-    AdjustmentFactorStore,
-    ChinaAShareCalendar,
-    CorporateActionStore,
-    MarketReferenceData,
-    SecurityMaster,
-)
+交易日历、证券状态（上市/ST/停牌/涨跌停/整手）、复权因子和公司行动都是独立的
+历史数据集，按指定 timestamp 查询，**不允许用当前状态倒推历史**：
 
-calendar = ChinaAShareCalendar.from_file("reference/trading_calendar.csv")
-reference = MarketReferenceData(
-    security_master=SecurityMaster.from_file("reference/security_state.parquet"),
-    adjustment_factors=AdjustmentFactorStore.from_file("reference/adjustment_factor.parquet"),
-    corporate_actions=CorporateActionStore.from_file("reference/corporate_action.parquet"),
-)
+- 交易日历使用显式开市日期，不靠"周一到周五"猜测节假日；
+- 退市股票不会因为今天已不存在而从历史中消失；
+- 成交始终使用**原始 OHLC**；复权价格只用于策略信号
+  （`signal_price = raw_price × adjustment_factor`），避免用复权价扣错现金。
 
-result = BacktestRunner(
-    strategy,
-    feed,
-    calendar=calendar,
-    reference_data=reference,
-).run()
-```
+### 零成交诊断
 
-Bar 级数据无法还原涨跌停封单队列，因此当前采用保守近似：涨停不买、跌停不卖。若要模拟
-排队成交，需要可靠的逐笔委托和成交数据，而不是在分钟 Bar 上伪造精度。
+批量回测后会对没有成交的标的给出业务原因提示（如单笔金额不足、信号从未触发等），
+而不是只输出一个空的失败结果。
 
-## 数据血缘与特征缓存
+---
 
-每次数据查询可生成以下身份：
+## 三、结果持久化与审计
 
-- catalog generation；
-- 规范 Bar schema hash；
-- 基于源文件和 Parquet fragment 内容 SHA-256 的 dataset fingerprint；
-- 绑定 symbols、时间范围和列投影的 query fingerprint。
-
-血缘随回测结果写入 SQLite。`RunSpec` 还会保存实际 backend artifact SHA-256、策略代码
-hash、显式策略参数、随机种子、执行配置、完整费率区间、交易日历/reference fingerprint
-和环境摘要。物化特征缓存进一步绑定特征代码 hash、版本、参数、交易日历、历史股票池和
-复权口径，避免修改数据或 point-in-time 上下文后误用旧因子。
-
-## Benchmark
-
-benchmark 将存储 IO、Arrow decode/compute、整段 C Stream、稀疏事件边界回放和完整
-策略回测分开计时，并记录 rows/s、MB/s、RSS 起止/增量、进程高水位、调用次数、batch
-p50/p95、cache 控制方法、查询与数据 fingerprint。报告同时保存实际 backend artifact
-绝对路径、SHA-256、大小、修改时间和 Arrow/DuckDB/NumPy/pybind11 版本。
-
-基线数据：200 标的 × 5 天 × 240 分钟，共 240,000 行；64 buckets；64 MiB 工作集目标；
-arm64 macOS；warm cache。
-
-P3 warm-cache 历史基线：
-
-| 阶段 | 吞吐量 | C Stream 调用 |
-|---|---:|---:|
-| Arrow decode | 367,844 rows/s | - |
-| 整段 C Stream | 201,805 rows/s | 1 |
-| 事件回放 | 195,287 rows/s | 5 |
-| 完整策略回测 | 144,642 rows/s | 5 |
-
-完整报告见 [P3 benchmark JSON](docs/benchmarks/p3-baseline.json)，旧版阶段拆分保留在
-[P2 benchmark JSON](docs/benchmarks/p2-baseline.json)。P3 完整策略默认在首个截面买入
-10 个标的、下一截面卖出，产生 20 笔成交和 10 个 round-trip；它用于覆盖策略回调、订单、
-费用和结果查询，不代表具体生产策略的性能。该历史报告未记录 CMake build type，不能作为
-Release 性能回归门禁；新版 benchmark 会拒绝路径明确属于 dev/debug/sanitize 的扩展。
-
-`warm` 会在每个读盘阶段前显式顺序预读；Linux 的 `cold` 使用
-`POSIX_FADV_DONTNEED`，其他平台必须传 `--cold-cache-command`，无法可靠清缓存时会失败，
-不会把未受控缓存标成 cold。`uncontrolled` 只用于探索性运行。
-
-对已有数据湖运行 benchmark：
-
-```bash
-cd "$QBT_CPP_ROOT"
-"$CMAKE_BIN" --preset release \
-  -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
-"$CMAKE_BIN" --build --preset release -j
-
-cd "$QBT_PY_ROOT"
-export PYTHONPATH="$QBT_PY_ROOT:$QBT_CPP_ROOT/build/release/cpp_engine"
-
-QBT_BACKEND=cpp python -m python.benchmarks.run_minute_replay \
-  /path/to/minute-lake \
-  --target-mb 256 \
-  --cache-state warm \
-  --output /tmp/qbt-benchmark.json
-```
-
-## 测试
-
-```bash
-# Python 参考后端
-cd "$QBT_PY_ROOT"
-QBT_BACKEND=python python -m pytest -q python/tests
-
-# C++ 后端及跨后端 parity
-export PYTHONPATH="$QBT_PY_ROOT:$QBT_CPP_ROOT/build/dev/cpp_engine"
-QBT_BACKEND=cpp python -m pytest -q python/tests
-
-# 默认原生核心（3 项）
-cd "$QBT_CPP_ROOT"
-"$CTEST_BIN" --preset dev
-
-# 显式包含实验模块（6 项）
-"$CMAKE_BIN" --preset all-modules \
-  -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
-"$CMAKE_BIN" --build --preset all-modules -j
-"$CTEST_BIN" --preset all-modules
-
-# ASan + UBSan
-"$CMAKE_BIN" --preset sanitize
-"$CMAKE_BIN" --build --preset sanitize -j
-ASAN_OPTIONS=detect_leaks=1 "$CTEST_BIN" --preset sanitize
-
-# 覆盖率门禁
-cd "$QBT_PY_ROOT"
-QBT_BACKEND=python coverage run -m pytest -q
-coverage report
-```
-
-macOS 的 AddressSanitizer 不支持 LeakSanitizer，本机运行最后一条 CTest 时使用
-`ASAN_OPTIONS=detect_leaks=0`；Linux CI 保留泄漏检测。
-
-测试重点不是覆盖率数字本身，而是固定两种后端的业务语义，包括截面顺序、手续费、滑点、
-部分成交、不可交易 Bar、T+1、拒单、订单过期、公司行动、风险暴露、数据血缘与 Arrow
-C Stream 输入约束。固定 JSON golden 场景锁定部分成交后的手续费分摊和 round-trip
-净损益；24 组固定随机种子执行轻量 property/fuzz 检查，验证现金守恒、持仓归零、净损益
-守恒和订单不过量成交。
-
-两个工程均提供 GitHub Actions：Python CI 覆盖 Python 3.9/3.12、锁文件安装、覆盖率、
-源码编译检查和 wheel；C++ CI 覆盖严格告警、核心与全模块 CTest、wheel 安装冒烟以及
-ASan/UBSan。
-
-## SQLite 审计结果
-
-一次回测会事务化保存：
+一次回测以事务方式保存（SQLite，星型结构以 `backtest_runs` 为中心）：
 
 ```text
-backtest_runs
-├── trades
-├── round_trips
-├── orders
-├── daily_equity
-├── performance_metrics
-├── corporate_actions
-├── portfolio_risk
-├── data_lineage
-└── run_config
+backtest_runs         运行元数据：策略、标的、区间、初始资金、状态
+├── trades            逐笔成交（含手续费）
+├── round_trips       开平仓匹配后的轮次净损益（胜率只按轮次计算）
+├── orders            全部委托：含拒绝、撤销、部分成交、过期订单
+├── daily_equity      每日净值/现金/持仓市值
+├── performance_metrics  总收益、年化、Sharpe、最大回撤、胜率、毛/净损益
+├── corporate_actions 公司行动
+├── portfolio_risk    最终组合风险快照
+├── data_lineage      数据血缘
+└── run_config        冻结的完整 RunSpec
 ```
 
-运行开始前会先保存 `RUNNING` 状态和冻结的 RunSpec；成功后原地更新为 `SUCCEEDED`，
-异常则保留 `FAILED`、错误信息和实验配置。不仅成交会被保存，拒绝、撤销、部分成交和
-过期订单也会保留，因此可以回答“为什么没有成交”。schema 当前为
-`PRAGMA user_version=3`：旧库会自动逐版迁移，若数据库版本高于程序支持版本则拒绝打开。
-大表查询提供有界 `limit/offset`、计数和 SQL 侧聚合，常用排序路径具有复合索引。
+业务要点：
 
-## 设计取舍
+- **运行状态机**：开始前先落 `RUNNING` 并冻结配置；成功原地更新为 `SUCCEEDED`，
+  异常保留 `FAILED` 和错误信息——Dashboard 里能看到失败原因，而不是凭空消失。
+- **未成交委托也会保存**：可以回答"为什么没有成交"（被拒、被撤、过期、涨跌停等）。
+- **可复现**：每次运行冻结 `RunSpec`——后端制品 SHA-256、策略代码 hash、显式策略
+  参数、随机种子、执行配置、完整费率区间、交易日历/参考数据指纹、环境摘要；数据
+  血缘记录 catalog 版本、schema hash、源文件内容指纹和查询指纹。同一输入在任何
+  时候重跑，都应得到同一结果。
 
-- **单机优先**：不引入 Kafka、Spark、微服务或分布式数据库，个人项目没有对应收益。
-- **截面优先**：策略一次看到完整 timestamp，避免逐股票回调产生顺序依赖。
-- **正确性优先于硬内存限制**：完整截面不可拆分，内存目标只能是软约束。
-- **显式 point-in-time**：交易日历、股票状态、费率、复权和公司行动都不能用当前状态
-  倒推历史。
-- **不伪造盘口精度**：分钟 Bar 只能支持可解释的 Bar 级成交近似。
-- **实盘边界明确**：历史回放与未来实时源共用 batch event 接口，但当前不实现行情网络、
-  重连、柜台和生产级风控。
+---
 
-## 后续方向
+## 四、Dashboard
 
-- 增加完整的多标的截面策略案例与可复现实验配置；
-- 在更大、公开可描述的数据规模上重复 benchmark；
-- 按 profiling 结果评估 `SymbolId`、字符串复制与费用批量化；
-- 合并 C++ 与 Python 源码布局，并在正式仓库发布跨工程集成 wheel。
+`streamlit run dashboard/app.py` 启动，包含：
 
-项目的阶段记录和已知边界见 [项目记忆](docs/project-memory.md)。
+| 页面 | 内容 |
+| --- | --- |
+| 主页 | 总收益、年化、Sharpe、最大回撤、成交笔数、平仓轮次；运行列表与状态 |
+| 数据实验 | 导入行情 + 配置运行回测（两种模式、策略参数、时间区间、批量对比表） |
+| 权益与回撤 | 权益曲线与回撤曲线 |
+| 交易分析 | 成交明细与平仓轮次，SQL 分页 |
+| 风险指标 | 组合风险与暴露指标 |
+| 运行审计 | 订单状态聚合、组合风险、数据血缘、完整 RunSpec |
+
+大表查询全部使用有界分页与 SQL 侧聚合，常用排序路径带复合索引。
+
+---
+
+## 五、机器学习研究层（可选，默认关闭）
+
+ML 功能默认关闭：常规安装不包含 PyTorch/ONNX，回测与 Dashboard 不会触发任何训练。
+训练与回测严格分离——**训练机产出只读模型制品，回测引擎只消费版本化制品**，
+模型预测不能绕过组合、订单规划和既有交易规则。
+
+### 研究流程
+
+```text
+build-dataset → train → phase1b-ablation → export → validate-artifact → backtest-artifact
+```
+
+1. **构建数据集**：分钟 Bar 特征（`BAR_V1` 协议）与标签（`NEXT_OPEN` 对齐），
+   逐 Bar 波动率、下行半波动、截面 rank 效用等；
+2. **训练**：时间 Transformer / 基线模型，walk-forward 交叉验证；
+3. **排序消融（Phase 1B）**：`legacy / ListMLE / LambdaLoss@K` 三种排序损失在
+   三个 purged 样本外窗口上配对比较，报告 NDCG@K、RankIC、Precision@K、top-k
+   重叠与换手率；只有通过模型门禁的挑战者才进入 C++ 成本回测与经济门禁，胜出者
+   冻结为 `frozen_winner`；
+4. **共享梯度消融（Phase 1E）**：按 `diagnostics → pcgrad → gradnorm` 顺序评估
+   多任务梯度冲突；
+5. **导出与验证**：导出 ONNX + manifest + 特征 schema + 指标，`validate-artifact`
+   核验 SHA-256、协议、对齐、输入形状；
+6. **制品回测**：直接用已导出的模型对 CSV/Parquet 行情回测，输出模型版本、订单、
+   成交、现金、权益与收益摘要。
+
+### 假设注册与多重检验
+
+研究流程内置防止"调参数调到显著"的机制：
+
+- **假设预注册**：任何假设必须在其测试数据可用**之前**注册（registry 记录
+  创建时间与封存时间，晚于测试数据的注册直接拒绝），并绑定方法版本、组合策略、
+  期望方向、验证窗口与 p 值方法；
+- **多重检验校正**：对一组试验的 p 值做多重比较校正，配对窗口差异用 block
+  bootstrap 估计，避免"试了很多次终于有一次显著"的假阳性；
+- **窗口净化**：样本外窗口之间带 purge 间隔，防止标签泄漏。
+
+### 制品契约
+
+模型制品最小包含：`model.onnx`、`manifest.json`、`feature_schema.json`、
+`metrics.json`。schema/hash 不匹配、输出非有限、输入过期或模型不可用时，引擎
+**停止产生新风险**，绝不静默回退到旧预测。
+
+---
+
+## 六、业务边界与设计取舍
+
+- **单机优先**：不引入 Kafka、Spark、微服务或分布式数据库——个人回测研究没有
+  对应收益。
+- **截面优先**：策略一次看到完整 timestamp 截面，避免逐股票回调产生顺序依赖。
+- **显式 point-in-time**：日历、证券状态、费率、复权、公司行动全部用历史数据，
+  不允许任何"用未来或当前状态倒推"的路径。
+- **不伪造盘口精度**：分钟 Bar 无法还原涨跌停封单队列，因此采用保守的"涨停不买、
+  跌停不卖"近似；要模拟排队成交需要逐笔委托数据，而不是在 Bar 上伪造精度。
+- **实盘边界明确**：当前是历史回放研究平台，不包含行情网络、重连、柜台和生产级
+  风控；未来实时源与历史回放共用同一批量事件接口，但实时模块不在本阶段交付。
+- **数据修订策略**：历史数据修订采用新建数据版本，不覆盖已有主键。
+
+---
+
+## 快速开始
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+python -m pip install -r requirements.lock
+python -m pip install --no-deps -e .
+
+# 启动 Dashboard，进入"数据实验"页面
+streamlit run dashboard/app.py
+```
+
+业务走一遍完整闭环：
+
+1. **导入行情**：在"数据实验 → 导入行情"输入本机 CSV/Parquet 路径（可先预览），
+   或直接导入样例 `data/sample/sample_ohlcv.csv`；爬虫全量数据选单一
+   `provider=*` 目录递归导入。
+2. **运行回测**：切换到"运行回测"，选择模式（独立批量 / 共享资金组合）、策略
+   （双均线 / 均值回归）、标的与参数，开始回测。
+3. **查看结果**：在主页及"权益与回撤 / 交易分析 / 风险指标 / 运行审计"页面查看
+   同一次运行的全部结果、成交与未成交原因、数据血缘和运行配置。
+
+命令行回测示例：
+
+```bash
+python -m python.examples.ma_cross_strategy          # 双均线示例
+python -m python.examples.mean_reversion             # 均值回归示例
+```
+
+ML 研究（需另装 `pip install -e '.[ml]'`）与更多技术细节见
+[docs/ml_integration.md](docs/ml_integration.md)、[docs/architecture.md](docs/architecture.md)
+和 [docs/data_system.md](docs/data_system.md)。

@@ -4,8 +4,23 @@
   "execution_alignment": "NEXT_OPEN",
   "lookback": 64,
   "label_horizon_bars": 5,
-  "frequency": "1d",
-  "price_adjustment_mode": "pit_adjusted_signal_raw_execution",
+  "label_v2": {
+    "horizon_bars": 5,
+    "execution_lag_bars": 1,
+    "direction_threshold": 0.0,
+    "direction_temperature": 0.0025
+  },
+  "ranking_score": {
+    "mode": "raw_return",
+    "production_top_k": 20,
+    "risk_floor": 0.0001,
+    "cost_proxy_bps": 0.0,
+    "winsor_lower_quantile": 0.01,
+    "winsor_upper_quantile": 0.99,
+    "rank_temperature": 1.0,
+    "lambda_rank": 0.1,
+    "target_tie_policy": "symbol_ascending"
+  },
   "calendar_id": "CONFIGURE_ON_TRAINING_HOST",
   "universe_id": "CONFIGURE_ON_TRAINING_HOST",
   "data_cutoff_utc": "CONFIGURE_ON_TRAINING_HOST",
@@ -13,7 +28,6 @@
     "source": "CONFIGURE_ON_TRAINING_HOST",
     "dataset_output": "CONFIGURE_ON_TRAINING_HOST",
     "point_in_time_required": true,
-    "execution_reference_mode": "optional_for_model_evaluation",
     "random_split_allowed": false
   },
   "split": {"purge_bars": 5, "embargo_bars": 5}

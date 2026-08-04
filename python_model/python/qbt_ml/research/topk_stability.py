@@ -1,141 +1,126 @@
-"""独立的 differentiable top-k 前向与梯度参考 oracle。"""
-
 from __future__ import annotations
 
-import math
-from collections.abc import Mapping
-from numbers import Real
-from typing import Any
+from collections.abc import Mapping, Sequence
+
+import numpy as np
 
 
-class TopKStabilityOracleError(ValueError):
-    """Raised when a top-k stability oracle input is invalid."""
-
-
-def _finite(value: Any) -> bool:
-    return isinstance(value, Real) and not isinstance(value, bool) and math.isfinite(value)
-
-
-def _validate_scores(scores: Mapping[str, Any], name: str) -> dict[str, float]:
+def _validate_mapping(
+    scores: Mapping[str, float], top_k: int, temperature: float
+) -> tuple[list[str], np.ndarray, int, float]:
     if not isinstance(scores, Mapping) or not scores:
-        raise TopKStabilityOracleError(f"{name} 必须是非空 symbol->score 映射")
-    normalized: dict[str, float] = {}
-    for symbol, value in scores.items():
-        if not isinstance(symbol, str) or not symbol:
-            raise TopKStabilityOracleError(f"{name} 的 symbol 必须是非空字符串")
-        if not _finite(value):
-            raise TopKStabilityOracleError(f"{name}[{symbol}] 必须是有限数值")
-        normalized[symbol] = float(value)
-    if len(normalized) != len(scores):
-        raise TopKStabilityOracleError(f"{name} 的 symbol 不得重复")
-    return normalized
+        raise ValueError("scores 必须是非空 mapping")
+    if top_k < 1 or top_k > len(scores):
+        raise ValueError("top_k 必须在 [1, len(scores)] 内")
+    if not np.isfinite(temperature) or temperature <= 0.0:
+        raise ValueError("temperature 必须是有限正数")
+    symbols = sorted(str(symbol) for symbol in scores)
+    values = np.asarray([float(scores[symbol]) for symbol in symbols], dtype=np.float64)
+    if not np.isfinite(values).all():
+        raise ValueError("scores 必须全部有限")
+    return symbols, values, int(top_k), float(temperature)
 
 
-def _validate_top_k(top_k: int, size: int) -> None:
-    if isinstance(top_k, bool) or not isinstance(top_k, int) or not 1 <= top_k <= size:
-        raise TopKStabilityOracleError("top_k 必须满足 1 <= top_k <= universe size")
-
-
-def _validate_temperature(temperature: float) -> float:
-    if not _finite(temperature) or float(temperature) <= 0.0:
-        raise TopKStabilityOracleError("temperature 必须为正有限数值")
-    return float(temperature)
+def _weights_from_values(values: np.ndarray, top_k: int, temperature: float) -> np.ndarray:
+    order = np.argsort(-values, kind="stable")
+    sorted_values = values[order]
+    logits = -np.abs(sorted_values[:, None] - values[None, :]) / temperature
+    logits -= logits.max(axis=1, keepdims=True)
+    probabilities = np.exp(logits)
+    probabilities /= probabilities.sum(axis=1, keepdims=True)
+    return probabilities[:top_k].mean(axis=0)
 
 
 def softsort_topk_weights(
-    scores: Mapping[str, Any],
-    top_k: int,
-    temperature: float,
+    scores: Mapping[str, float], top_k: int, temperature: float
 ) -> dict[str, float]:
-    """Return normalized SoftSort top-k masses for a score cross-section.
-
-    For sorted values ``v_j`` and raw scores ``s_i``, the reference matrix is
-    ``P[j,i] = softmax_i(-abs(v_j - s_i) / temperature)``. The first ``top_k``
-    rows are summed and divided by ``top_k``. Symbol ordering only resolves
-    exact forward ties; non-tie fixtures are used for finite-difference checks.
-    """
-    normalized = _validate_scores(scores, "scores")
-    _validate_top_k(top_k, len(normalized))
-    temperature_value = _validate_temperature(temperature)
-    symbols = tuple(sorted(normalized))
-    ordered_values = tuple(sorted(
-        (normalized[symbol] for symbol in symbols),
-        reverse=True,
-    ))
-    masses = {symbol: 0.0 for symbol in symbols}
-    for target_value in ordered_values[:top_k]:
-        logits = {
-            symbol: -abs(target_value - normalized[symbol]) / temperature_value
-            for symbol in symbols
-        }
-        maximum = max(logits.values())
-        exponentials = {
-            symbol: math.exp(logit - maximum) for symbol, logit in logits.items()
-        }
-        denominator = sum(exponentials.values())
-        if not math.isfinite(denominator) or denominator <= 0.0:
-            raise TopKStabilityOracleError("SoftSort normalization 失败")
-        for symbol in symbols:
-            masses[symbol] += exponentials[symbol] / denominator
-    return {symbol: masses[symbol] / top_k for symbol in symbols}
+    symbols, values, top_k, temperature = _validate_mapping(scores, top_k, temperature)
+    weights = _weights_from_values(values, top_k, temperature)
+    return {symbol: float(weight) for symbol, weight in zip(symbols, weights)}
 
 
 def temporal_topk_stability_penalty(
-    current_scores: Mapping[str, Any],
-    previous_scores: Mapping[str, Any],
+    current: Mapping[str, float],
+    previous: Mapping[str, float],
     top_k: int,
     temperature: float,
 ) -> float:
-    """Return mean squared distance between consecutive normalized top-k masses."""
-    current = _validate_scores(current_scores, "current_scores")
-    previous = _validate_scores(previous_scores, "previous_scores")
-    if set(current) != set(previous):
-        raise TopKStabilityOracleError(
-            "temporal stability 要求相邻截面使用相同的 symbol intersection"
-        )
     current_weights = softsort_topk_weights(current, top_k, temperature)
     previous_weights = softsort_topk_weights(previous, top_k, temperature)
-    penalty = sum(
+    common = sorted(set(current_weights) & set(previous_weights))
+    if not common:
+        return 0.0
+    return float(np.mean([
         (current_weights[symbol] - previous_weights[symbol]) ** 2
-        for symbol in sorted(current)
-    ) / len(current)
-    if not math.isfinite(penalty) or penalty < 0.0:
-        raise TopKStabilityOracleError("temporal stability penalty 无效")
-    return penalty
+        for symbol in common
+    ]))
 
 
 def finite_difference_temporal_gradient(
-    current_scores: Mapping[str, Any],
-    previous_scores: Mapping[str, Any],
+    current: Mapping[str, float],
+    previous: Mapping[str, float],
     top_k: int,
     temperature: float,
     epsilon: float = 1e-6,
 ) -> dict[str, float]:
-    """Return a central finite-difference gradient for the current scores."""
-    current = _validate_scores(current_scores, "current_scores")
-    _validate_scores(previous_scores, "previous_scores")
-    if not _finite(epsilon) or float(epsilon) <= 0.0:
-        raise TopKStabilityOracleError("epsilon 必须为正有限数值")
-    epsilon_value = float(epsilon)
+    if not np.isfinite(epsilon) or epsilon <= 0.0:
+        raise ValueError("epsilon 必须是有限正数")
+    symbols, _, _, _ = _validate_mapping(current, top_k, temperature)
     gradient: dict[str, float] = {}
-    for symbol in sorted(current):
-        plus = dict(current)
-        minus = dict(current)
-        plus[symbol] += epsilon_value
-        minus[symbol] -= epsilon_value
-        plus_value = temporal_topk_stability_penalty(
-            plus, previous_scores, top_k, temperature
-        )
-        minus_value = temporal_topk_stability_penalty(
-            minus, previous_scores, top_k, temperature
-        )
-        gradient[symbol] = (plus_value - minus_value) / (2.0 * epsilon_value)
+    for symbol in symbols:
+        plus = {key: float(value) for key, value in current.items()}
+        minus = dict(plus)
+        plus[symbol] += epsilon
+        minus[symbol] -= epsilon
+        gradient[symbol] = (
+            temporal_topk_stability_penalty(plus, previous, top_k, temperature)
+            - temporal_topk_stability_penalty(minus, previous, top_k, temperature)
+        ) / (2.0 * epsilon)
     return gradient
 
 
-__all__ = [
-    "TopKStabilityOracleError",
-    "finite_difference_temporal_gradient",
-    "softsort_topk_weights",
-    "temporal_topk_stability_penalty",
-]
+def torch_softsort_topk_weights(scores, top_k: int, temperature: float):
+    try:
+        import torch
+    except ImportError as exc:  # pragma: no cover - optional training dependency
+        raise RuntimeError("torch_softsort_topk_weights 需要安装 PyTorch") from exc
+    if scores.ndim != 1 or scores.numel() == 0:
+        raise ValueError("scores 必须是一维非空 tensor")
+    if top_k < 1 or top_k > scores.numel():
+        raise ValueError("top_k 必须在 [1, scores.numel()] 内")
+    if not torch.isfinite(scores).all() or not np.isfinite(temperature) or temperature <= 0.0:
+        raise ValueError("scores/temperature 必须有限且 temperature 为正")
+    order = torch.argsort(scores, descending=True, stable=True)
+    sorted_scores = scores[order]
+    logits = -(sorted_scores[:, None] - scores[None, :]).abs() / float(temperature)
+    return torch.softmax(logits, dim=1)[:top_k].mean(dim=0)
+
+
+def torch_temporal_topk_stability_loss(
+    current_scores,
+    current_symbols: Sequence[str],
+    previous_scores,
+    previous_symbols: Sequence[str],
+    top_k: int,
+    temperature: float,
+):
+    current_weights = torch_softsort_topk_weights(current_scores, top_k, temperature)
+    with __import__("torch").no_grad():
+        previous_weights = torch_softsort_topk_weights(
+            previous_scores, top_k, temperature
+        )
+    previous_by_symbol = {
+        str(symbol): previous_weights[index]
+        for index, symbol in enumerate(previous_symbols)
+    }
+    current_indices = [
+        index for index, symbol in enumerate(current_symbols)
+        if str(symbol) in previous_by_symbol
+    ]
+    if not current_indices:
+        return current_scores.sum() * 0.0
+    target = __import__("torch").stack([
+        previous_by_symbol[str(current_symbols[index])]
+        for index in current_indices
+    ])
+    return __import__("torch").mean((current_weights[current_indices] - target) ** 2)

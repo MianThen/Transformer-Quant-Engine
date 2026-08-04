@@ -16,9 +16,16 @@ bool valid_risk_preprocessor_spec(const RiskPreprocessorSpec& spec) noexcept {
     if (spec.official_estimator == CovarianceEstimator::LEDOIT_WOLF_NONLINEAR_QUEST) {
         return spec.covariance_loss == CovarianceLossProfile::MINIMUM_VARIANCE &&
             spec.uniform_observation_weights && spec.concentration_ratio_guard > 0.0 &&
-            spec.quest_solver_spec_hash != 0;
+            spec.quest_solver_spec_hash != 0 && spec.rmt_spec_hash == 0;
     }
-    if (spec.quest_solver_spec_hash != 0) return false;
+    if (spec.official_estimator == CovarianceEstimator::RMT_CONSTANT_RESIDUAL ||
+        spec.official_estimator == CovarianceEstimator::RMT_TARGETED_SHRINKAGE) {
+        return spec.covariance_loss == CovarianceLossProfile::NOT_APPLICABLE &&
+            spec.uniform_observation_weights && spec.concentration_ratio_guard > 0.0 &&
+            spec.eigenvalue_floor > 0.0 && spec.rmt_spec_hash != 0 &&
+            spec.quest_solver_spec_hash == 0;
+    }
+    if (spec.quest_solver_spec_hash != 0 || spec.rmt_spec_hash != 0) return false;
     if (spec.official_estimator ==
         CovarianceEstimator::LEDOIT_WOLF_LINEAR_CONSTANT_CORRELATION) {
         return spec.covariance_loss == CovarianceLossProfile::FROBENIUS;

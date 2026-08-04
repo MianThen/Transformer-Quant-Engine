@@ -27,6 +27,7 @@ CMakeCache.txt
 *.dll
 *.exe
 *.whl
+*.orig
 
 # Local data and state
 *.db
@@ -34,6 +35,11 @@ CMakeCache.txt
 *.sqlite3
 data/lake/
 python_model/data/lake/
+python_model/data/research/
+python_model/runs/
+python_model/*.db
+python_model/*.db-*
+python_model/*.zip
 /models/
 /runs/
 /analysis/
@@ -47,6 +53,10 @@ experiments/*
 !experiments/README.md
 !experiments/phase1e/
 !experiments/phase1e/**
+!experiments/phase1f/
+!experiments/phase1f/**
+!experiments/phase2b/
+!experiments/phase2b/**
 
 # Secrets
 .env

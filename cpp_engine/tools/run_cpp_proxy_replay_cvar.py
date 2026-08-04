@@ -24,6 +24,17 @@ LIMITATIONS = [
     "COMMON_SYMBOL_INTERSECTION_PROXY",
 ]
 
+MISSING_EXECUTION_DATA = {
+    "fee_state": "UNAVAILABLE",
+    "tax_state": "UNAVAILABLE",
+    "limit_state": "UNAVAILABLE",
+    "corporate_action_state": "UNAVAILABLE",
+    "adjustment_state": "UNKNOWN",
+    "lot_state": "UNAVAILABLE",
+    "reference_quality": "PROXY",
+    "slippage_state": "UNAVAILABLE",
+}
+
 
 def _file_hash(path: Path) -> str:
     digest = hashlib.sha256()
@@ -287,6 +298,10 @@ def run_proxy_replay(
     report = {
         "schema_version": 1,
         "status": "proxy_replay_complete",
+        "evidence_tier": "RESEARCH_PROXY",
+        "economic_claim_scope": "RESEARCH_PROXY_ONLY",
+        "phase_exit_eligible": True,
+        "research_comparison_eligible": True,
         "reference_price_quality": "PROXY",
         "promotion_eligible": False,
         "cpp_replay_executed": True,
@@ -312,6 +327,7 @@ def run_proxy_replay(
         "ledger_artifact": ledger_artifact,
         "return_analysis_report": return_analysis,
         "limitations": LIMITATIONS,
+        "missing_execution_data": MISSING_EXECUTION_DATA,
         "promotion_block_reason": "PROXY reference/fill and missing economic provenance",
     }
     report["report_sha256"] = _canonical_hash(report)

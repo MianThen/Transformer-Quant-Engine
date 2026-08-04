@@ -1,0 +1,101 @@
+{
+  "embedding_snapshot": {
+    "manifest_path": "embedding_manifest.json",
+    "manifest_sha256": "ca202563267fef6876e9a546b10cc23bfc01494d69fc849e60801fe329f91808",
+    "path": "test_embeddings.npz"
+  },
+  "gradient_conflict_report_sha256": null,
+  "gradient_mechanism_diagnostics": [],
+  "gradient_optimization_hypothesis_id": null,
+  "gradient_optimization_mode": "none",
+  "gradient_optimization_spec_sha256": null,
+  "loss_weight_diagnostics": [],
+  "multitask_weighting_mode": "fixed",
+  "prediction_artifact": {
+    "outputs": [
+      "expected_return",
+      "expected_volatility",
+      "direction_probability",
+      "lower_quantile",
+      "upper_quantile",
+      "confidence"
+    ],
+    "path": "test_predictions.npz",
+    "schema_version": 1,
+    "sha256": "cbaf7f40525833961e42db7c8f78b7fbaf35f01bbddd94f7bdca493069306a58"
+  },
+  "split": {
+    "test_first": 1752217200000000000,
+    "test_last": 1768374000000000000,
+    "train_first": 1667977200000000000,
+    "train_last": 1733382000000000000,
+    "validation_first": 1734332400000000000,
+    "validation_last": 1750834800000000000
+  },
+  "test_cross_sections": 126,
+  "test_loss": 0.17846340567819655,
+  "test_ndcg_at_k": 0.49699269091159504,
+  "test_ranking": {
+    "cross_sections": 126,
+    "head_metrics": {
+      "direction_brier": 0.22312839329242706,
+      "interval_coverage": 0.6345284943885731,
+      "interval_width": 0.08424874395132065,
+      "return_mae": 0.07182659208774567,
+      "volatility_mae": 0.03417355567216873
+    },
+    "ndcg_at_cutoff": 0.49699269091159504,
+    "precision_at_cutoff": 0.1547619047619048,
+    "rank_ic": 0.04115258958541668,
+    "top_bottom_utility_spread": 0.005179504119466097,
+    "top_k_overlap": 0.82,
+    "top_k_turnover": 0.18000000000000005,
+    "transition_count": 125
+  },
+  "test_samples": 13722,
+  "train_loss": [
+    0.18916598256559125,
+    0.18274681299688325,
+    0.18067041212426765
+  ],
+  "train_samples": 57271,
+  "validation_cross_sections": 126,
+  "validation_embedding_snapshot": {
+    "manifest_path": "validation_embedding_manifest.json",
+    "manifest_sha256": "19e1e6a4e0046ef227bb1182e5a6eeb5a7eb932e8d356ab02c864e828ac592ab",
+    "path": "validation_embeddings.npz"
+  },
+  "validation_loss": 0.18587760686401336,
+  "validation_ndcg_at_k": 0.5080384298972391,
+  "validation_prediction_artifact": {
+    "outputs": [
+      "expected_return",
+      "expected_volatility",
+      "direction_probability",
+      "lower_quantile",
+      "upper_quantile",
+      "confidence"
+    ],
+    "path": "validation_predictions.npz",
+    "schema_version": 1,
+    "sha256": "0dc15487d9ae7f88128d3d1299aca77c81c5db7fc3996a2b5507404ec288fc8c"
+  },
+  "validation_ranking": {
+    "cross_sections": 126,
+    "head_metrics": {
+      "direction_brier": 0.22768358886241913,
+      "interval_coverage": 0.5987168270632838,
+      "interval_width": 0.0841182991862297,
+      "return_mae": 0.07819180935621262,
+      "volatility_mae": 0.03251177445054054
+    },
+    "ndcg_at_cutoff": 0.5080384298972391,
+    "precision_at_cutoff": 0.16587301587301584,
+    "rank_ic": 0.06503713661169895,
+    "top_bottom_utility_spread": 0.006119747846495887,
+    "top_k_overlap": 0.836,
+    "top_k_turnover": 0.16400000000000003,
+    "transition_count": 125
+  },
+  "validation_samples": 13716
+}

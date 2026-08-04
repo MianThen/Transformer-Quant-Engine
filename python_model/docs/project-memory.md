@@ -256,34 +256,7 @@ Parquet 和 DuckDB 数据湖测试无跳过。
 - 公司行动的现金分红值按数据源提供值直接入账；红利税和配股参与决策需要上层模型。
 - 风格暴露由 point-in-time 数据提供，引擎只做持仓市值加权，不在回测时回看未来因子。
 
-## 9. Transformer Phase E 数据与执行合同（2026-07-29）
-
-1. 正式训练/评审数据使用 `price_adjustment_mode =
-   pit_adjusted_signal_raw_execution`。原始 OHLC 仅用于 C++ 成交，`signal_* = raw *
-   adjustment_factor` 同时用于 BAR_V1 特征和 NEXT_OPEN 标签。
-2. Bar 表必须包含上市、停牌、ST、涨跌停、lot、行业、`industry_known_at`、
-   `universe_asof`、`reference_data_known_at_max`；企业行动使用独立 PIT 表，不能从未来
-   修订值或当前状态反推。
-3. 模型 Benchmark 输出 `prediction_manifest.json`，按模型和 walk-forward window 指向冻结
-   NPZ；每个预测文件按 `(timestamp,symbol)` 唯一升序。
-4. C++ 预计算预测运行时只替代 ONNX inference，之后仍走生产
-   `LongOnlyTopKPolicy -> LongOnlyOrderPlanner -> BasicRiskManager`，再由 C++ 引擎执行费用、
-   T+1、涨跌停、现金和部分成交。Python 只负责编排，不使用 Python demo 回测引擎。
-5. 正式组合报告固定比较动量、反转、等权、现金、Ridge、MLP、因果 TCN、GRU 和 V1.1，
-   至少三个相同窗口，同时运行 0/5/10 bp；输出合同为
-   `schemas/phase_e_portfolio_backtest.schema.json`。
-6. BaoStock `adjustment=none` 原始 Bar 不能直接用于 Phase E。必须先与状态、PIT 行业、
-   adjustment factor 和企业行动表按主键/as-of 规则富化。
-7. `enrich-phase-e` 以状态表为日频骨架，明确停牌且缺 Bar 时只允许沿用上一原始收盘价，
-   并记录 `bar_observed=false, volume=0`。行业可用时间是
-   `max(provider known_at,snapshot_asof)`；月度快照不能回填到快照日期之前。
-8. 在缺少历史逐日涨跌停价和 PIT lot/minimum buy quantity 时，富化报告固定为
-   `MODEL_READY_EXECUTION_DEFERRED`。模型训练、Leakage、Walk-forward、预测任务消融和
-   Attention Analysis 可继续；C++ 仅能运行关闭涨跌停/board-lot 约束的研究模式，报告
-   必须标记 `promotion_eligible=false`。正式 Promotion 仍为 `INSUFFICIENT_EVIDENCE`。
-   不能用当前板块规则反推历史。
-
-## 10. 定义完成
+## 9. 定义完成
 
 当以下条件全部满足，回测引擎 Phase 1 视为完成：
 

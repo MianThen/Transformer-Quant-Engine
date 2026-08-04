@@ -11,9 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-repository_root = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(repository_root / "python_model"))
-sys.path.insert(0, str(repository_root))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from python.qbt_ml.research.topk_stability import (
     finite_difference_temporal_gradient,

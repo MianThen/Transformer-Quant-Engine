@@ -25,6 +25,7 @@ struct RiskPreprocessorSpec {
     double eigenvalue_floor{0.0};
     std::uint64_t balanced_panel_policy_hash{0};
     std::uint64_t quest_solver_spec_hash{0};
+    std::uint64_t rmt_spec_hash{0};
     std::uint64_t config_hash{0};
 };
 

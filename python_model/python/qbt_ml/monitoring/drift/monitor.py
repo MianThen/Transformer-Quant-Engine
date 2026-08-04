@@ -1,1657 +1,1041 @@
-"""Deterministic, observation-only drift statistics for frozen snapshots."""
-
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import math
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from numbers import Real
-from pathlib import Path
+from dataclasses import dataclass, field
+from enum import Enum
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Iterable, Mapping, Sequence
+
+import numpy as np
+import pandas as pd
 
 
-class DriftArtifactValidationError(ValueError):
-    """Raised when a drift specification or artifact is not self-consistent."""
+class ReferenceKind(str, Enum):
+    TRAINING_STATIC = "training_static"
+    ROLLING_RECENT = "rolling_recent"
 
 
-def _canonical_json(value: Any) -> str:
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    )
+class LayerStatus(str, Enum):
+    OK = "OK"
+    PENDING_LABELS = "PENDING_LABELS"
+    INCOMPATIBLE = "INCOMPATIBLE"
+    UNAVAILABLE = "UNAVAILABLE"
+    HARD_FAILURE = "HARD_FAILURE"
 
 
-def _sha256_text(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+class AlertState(str, Enum):
+    INFO = "INFO"
+    WARN = "WARN"
+    CRITICAL = "CRITICAL"
 
 
-def _digest_like(value: Any) -> bool:
-    return isinstance(value, str) and len(value) == 64 and all(
-        character in "0123456789abcdef" for character in value
-    )
+def _canonical_json(value: Any) -> bytes:
+    return (json.dumps(value, ensure_ascii=False, sort_keys=True,
+                       separators=(",", ":"), allow_nan=False) + "\n").encode()
 
 
-def _valid_utc_timestamp(value: Any) -> bool:
-    if not isinstance(value, str) or not value.endswith("Z") or "T" not in value:
-        return False
-    try:
-        parsed = datetime.fromisoformat(value[:-1] + "+00:00")
-    except ValueError:
-        return False
-    return parsed.tzinfo == timezone.utc
+def _sha256(value: Any) -> str:
+    return hashlib.sha256(_canonical_json(value)).hexdigest()
 
 
-def _utc_datetime(value: str) -> datetime:
-    return datetime.fromisoformat(value[:-1] + "+00:00")
-
-
-def _finite(value: Any) -> bool:
-    return isinstance(value, Real) and not isinstance(value, bool) and math.isfinite(value)
-
-
-def _finite_values(values: Sequence[Any]) -> tuple[float, ...]:
-    return tuple(float(value) for value in values if _finite(value))
-
-
-def _quantile(values: Sequence[float], probability: float) -> float | None:
-    if not values:
+def _json_value(value: Any) -> Any:
+    if dataclasses.is_dataclass(value):
+        return {item.name: _json_value(getattr(value, item.name))
+                for item in dataclasses.fields(value)}
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, Mapping):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_json_value(item) for item in value]
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, float) and not math.isfinite(value):
         return None
-    ordered = sorted(values)
-    position = probability * (len(ordered) - 1)
-    lower = math.floor(position)
-    upper = math.ceil(position)
-    return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower)
-
-
-def _median(values: Sequence[float]) -> float | None:
-    return _quantile(values, 0.5)
-
-
-def _moment_summary(values: Sequence[Any], quantiles: Sequence[float]) -> dict[str, Any]:
-    total = len(values)
-    finite_values = _finite_values(values)
-    missing = total - len(finite_values)
-    mean = sum(finite_values) / len(finite_values) if finite_values else None
-    variance = (
-        sum((value - mean) ** 2 for value in finite_values) / len(finite_values)
-        if finite_values
-        else None
-    )
-    median = _median(finite_values)
-    mad = (
-        _median(tuple(abs(value - median) for value in finite_values))
-        if median is not None
-        else None
-    )
-    return {
-        "count": total,
-        "finite_count": len(finite_values),
-        "missing_count": missing,
-        "missing_rate": missing / total if total else None,
-        "mean": mean,
-        "variance": variance,
-        "median": median,
-        "mad": mad,
-        "quantiles": {
-            str(probability): _quantile(finite_values, probability)
-            for probability in quantiles
-        },
-    }
-
-
-def _bucket_counts(values: Sequence[Any], edges: Sequence[float]) -> list[int]:
-    counts = [0] * (len(edges) + 2)
-    for value in values:
-        if not _finite(value):
-            counts[0] += 1
-            continue
-        numeric = float(value)
-        if numeric < edges[0]:
-            counts[1] += 1
-            continue
-        bucket = len(edges) + 1
-        for index in range(len(edges) - 1):
-            if numeric < edges[index + 1]:
-                bucket = index + 2
-                break
-        counts[bucket] += 1
-    return counts
-
-
-def _psi(reference_counts: Sequence[int], current_counts: Sequence[int], floor: float) -> float | None:
-    reference_total = sum(reference_counts)
-    current_total = sum(current_counts)
-    if reference_total == 0 or current_total == 0:
-        return None
-    reference_shares = [
-        max(reference_count / reference_total, floor)
-        for reference_count in reference_counts
-    ]
-    current_shares = [
-        max(current_count / current_total, floor)
-        for current_count in current_counts
-    ]
-    reference_normalizer = sum(reference_shares)
-    current_normalizer = sum(current_shares)
-    value = 0.0
-    for reference_share, current_share in zip(
-        (share / reference_normalizer for share in reference_shares),
-        (share / current_normalizer for share in current_shares),
-    ):
-        value += (current_share - reference_share) * math.log(
-            current_share / reference_share
-        )
     return value
 
 
-def _ks_d(reference: Sequence[Any], current: Sequence[Any]) -> float | None:
-    reference_values = sorted(_finite_values(reference))
-    current_values = sorted(_finite_values(current))
-    if not reference_values or not current_values:
-        return None
-    points = sorted(set(reference_values + current_values))
-    reference_index = 0
-    current_index = 0
-    maximum = 0.0
-    for point in points:
-        while reference_index < len(reference_values) and reference_values[reference_index] <= point:
-            reference_index += 1
-        while current_index < len(current_values) and current_values[current_index] <= point:
-            current_index += 1
-        maximum = max(
-            maximum,
-            abs(
-                reference_index / len(reference_values)
-                - current_index / len(current_values)
-            ),
-        )
-    return maximum
+def _freeze(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return tuple(_freeze(item) for item in value)
+    if isinstance(value, tuple):
+        return tuple(_freeze(item) for item in value)
+    return value
 
 
-def compare_scalar_drift(
-    reference: Sequence[Any],
-    current: Sequence[Any],
-    *,
-    bin_edges: Sequence[float],
-    quantiles: Sequence[float] = (0.05, 0.25, 0.5, 0.75, 0.95),
-    psi_probability_floor: float = 1e-12,
-) -> dict[str, Any]:
-    edges = tuple(float(edge) for edge in bin_edges)
-    if len(edges) < 2 or any(not math.isfinite(edge) for edge in edges):
-        raise DriftArtifactValidationError("PSI bin_edges 必须至少包含两个有限值")
-    if any(left >= right for left, right in zip(edges, edges[1:])):
-        raise DriftArtifactValidationError("PSI bin_edges 必须严格递增")
-    if any(probability < 0.0 or probability > 1.0 for probability in quantiles):
-        raise DriftArtifactValidationError("quantiles 必须位于 [0, 1]")
-    if not math.isfinite(psi_probability_floor) or not 0.0 < psi_probability_floor < 1.0:
-        raise DriftArtifactValidationError("PSI probability floor 必须位于 (0, 1)")
-    reference_counts = _bucket_counts(reference, edges)
-    current_counts = _bucket_counts(current, edges)
-    return {
-        "reference": _moment_summary(reference, quantiles),
-        "current": _moment_summary(current, quantiles),
-        "reference_bucket_counts": reference_counts,
-        "current_bucket_counts": current_counts,
-        "psi": _psi(reference_counts, current_counts, psi_probability_floor),
-        "ks_d": _ks_d(reference, current),
-        "status": "OK" if len(reference) > 0 and len(current) > 0 else "INSUFFICIENT_DATA",
-    }
+@dataclass(frozen=True)
+class WindowSpec:
+    start: int
+    end: int
+    available_at: int
+    reference_kind: ReferenceKind | None = None
+
+    def __post_init__(self) -> None:
+        if self.start <= 0 or self.end < self.start or self.available_at < self.end:
+            raise ValueError("window 时间边界或 available_at 无效")
+
+
+@dataclass(frozen=True)
+class EmbeddingSpec:
+    checkpoint_sha256: str
+    encoder_family: str
+    layer_id: str
+    pooling_spec_sha256: str
+    dimension: int
+    mask_spec_sha256: str
+
+    def __post_init__(self) -> None:
+        digests = (self.checkpoint_sha256, self.pooling_spec_sha256,
+                   self.mask_spec_sha256)
+        if (self.dimension <= 0 or not self.encoder_family or not self.layer_id or
+                any(len(value) != 64 for value in digests)):
+            raise ValueError("embedding compatibility spec 无效")
 
 
 @dataclass(frozen=True)
 class DriftMonitorSpecV1:
     schema_version: int = 1
-    reference_mode: str = "training_static"
-    frequency: str = ""
-    calendar_id: str = ""
-    reference_window_id: str = ""
-    current_window_id: str = ""
-    psi_bin_edges: tuple[float, ...] = ()
+    report_version: str = "drift-artifact-v1"
     quantiles: tuple[float, ...] = (0.05, 0.25, 0.5, 0.75, 0.95)
-    psi_probability_floor: float = 1e-12
-    bootstrap_replicates: int = 2000
-    bootstrap_seed: int = 1
-    mean_block_length: float = 10.0
-    fdr_family: str = ""
-    fast_window_sessions: int = 1
-    confirm_window_sessions: int = 3
-    persistence_required: int = 2
-    prediction_top_k: int = 20
-    psi_warn_threshold: float | None = None
-    psi_critical_threshold: float | None = None
-    ks_warn_threshold: float | None = None
-    ks_critical_threshold: float | None = None
-    embedding_checkpoint_id: str = ""
-    embedding_layer: str = ""
-    embedding_pooling: str = ""
-    embedding_dimension: int = 0
-    embedding_anchor_sha256: str = ""
-    embedding_mmd_bandwidth: float = 1.0
-    diagnostic_only: bool = True
-    available_at_utc: str = ""
+    psi_bins: int = 10
+    top_k: int = 20
+    minimum_sessions: int = 3
+    minimum_observations: int = 20
+    fast_window_sessions: int = 5
+    confirm_window_sessions: int = 20
+    bootstrap_replicates: int = 499
+    mean_block_length: float = 5.0
+    bootstrap_seed: int = 20260801
+    fdr_q: float = 0.05
+    persistence_windows: int = 2
+    hard_missing_rate: float = 0.5
+    marginal_warning_psi: float | None = None
+    joint_warning_mmd: float | None = None
+    concept_warning_ic_drop: float | None = None
+    mmd_bandwidth: float = 1.0
+    maximum_joint_samples: int = 512
+    classifier_test_fraction: float = 0.3
+    classifier_ridge: float = 1e-6
+    stale_session_tolerance: int = 0
 
-    def validate(self) -> None:
-        if isinstance(self.schema_version, bool) or self.schema_version != 1:
-            raise DriftArtifactValidationError("DriftMonitorSpec schema_version 必须为 1")
-        if self.reference_mode not in {"training_static", "rolling_recent"}:
-            raise DriftArtifactValidationError("reference_mode 不受支持")
-        if not all(isinstance(value, str) and value for value in (
-            self.frequency,
-            self.calendar_id,
-            self.reference_window_id,
-            self.current_window_id,
-            self.fdr_family,
-            self.available_at_utc,
-        )):
-            raise DriftArtifactValidationError("DriftMonitorSpec 的窗口和日历字段不能为空")
-        if not _valid_utc_timestamp(self.available_at_utc):
-            raise DriftArtifactValidationError("DriftMonitorSpec available_at_utc 无效")
-        if len(self.psi_bin_edges) < 2 or any(
-            not math.isfinite(edge) for edge in self.psi_bin_edges
-        ) or any(left >= right for left, right in zip(self.psi_bin_edges, self.psi_bin_edges[1:])):
-            raise DriftArtifactValidationError("psi_bin_edges 必须严格递增且有限")
-        if not self.quantiles or any(
-            not math.isfinite(probability) or probability < 0.0 or probability > 1.0
-            for probability in self.quantiles
-        ) or any(left >= right for left, right in zip(self.quantiles, self.quantiles[1:])):
-            raise DriftArtifactValidationError("quantiles 必须严格递增且位于 [0, 1]")
-        if not 0.0 < self.psi_probability_floor < 1.0:
-            raise DriftArtifactValidationError("psi_probability_floor 必须位于 (0, 1)")
-        if self.bootstrap_replicates <= 0 or self.bootstrap_seed <= 0:
-            raise DriftArtifactValidationError("bootstrap replicates/seed 必须为正")
-        if not math.isfinite(self.mean_block_length) or self.mean_block_length < 1.0:
-            raise DriftArtifactValidationError("mean_block_length 必须不小于 1")
-        if self.fast_window_sessions <= 0 or self.confirm_window_sessions < self.fast_window_sessions:
-            raise DriftArtifactValidationError("fast/confirm window 顺序无效")
-        if self.persistence_required <= 0:
-            raise DriftArtifactValidationError("persistence_required 必须为正")
-        if isinstance(self.prediction_top_k, bool) or self.prediction_top_k <= 0:
-            raise DriftArtifactValidationError("prediction_top_k 必须为正")
-        thresholds = (
-            self.psi_warn_threshold,
-            self.psi_critical_threshold,
-            self.ks_warn_threshold,
-            self.ks_critical_threshold,
-        )
-        if any(value is not None and (not math.isfinite(value) or value < 0.0) for value in thresholds):
-            raise DriftArtifactValidationError("漂移阈值必须为非负有限值")
-        if (self.psi_warn_threshold is not None and self.psi_critical_threshold is not None and
-                self.psi_warn_threshold > self.psi_critical_threshold):
-            raise DriftArtifactValidationError("PSI warn threshold 不得高于 critical")
-        if (self.ks_warn_threshold is not None and self.ks_critical_threshold is not None and
-                self.ks_warn_threshold > self.ks_critical_threshold):
-            raise DriftArtifactValidationError("KS warn threshold 不得高于 critical")
-        if self.embedding_dimension < 0:
-            raise DriftArtifactValidationError("embedding_dimension 不得为负")
-        if self.embedding_dimension > 0 and not all(isinstance(value, str) and value for value in (
-            self.embedding_checkpoint_id,
-            self.embedding_layer,
-            self.embedding_pooling,
-        )):
-            raise DriftArtifactValidationError("embedding 元数据不完整")
-        if self.embedding_dimension > 0 and not _digest_like(self.embedding_anchor_sha256):
-            raise DriftArtifactValidationError("embedding_anchor_sha256 格式无效")
-        if not math.isfinite(self.embedding_mmd_bandwidth) or self.embedding_mmd_bandwidth <= 0.0:
-            raise DriftArtifactValidationError("embedding_mmd_bandwidth 必须为正")
-        if not isinstance(self.diagnostic_only, bool) or not self.diagnostic_only:
-            raise DriftArtifactValidationError("Phase 1D V1 embedding 必须保持 diagnostic_only")
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "schema_version": self.schema_version,
-            "reference_mode": self.reference_mode,
-            "frequency": self.frequency,
-            "calendar_id": self.calendar_id,
-            "reference_window_id": self.reference_window_id,
-            "current_window_id": self.current_window_id,
-            "psi_bin_edges": list(self.psi_bin_edges),
-            "quantiles": list(self.quantiles),
-            "psi_probability_floor": self.psi_probability_floor,
-            "bootstrap_replicates": self.bootstrap_replicates,
-            "bootstrap_seed": self.bootstrap_seed,
-            "mean_block_length": self.mean_block_length,
-            "fdr_family": self.fdr_family,
-            "fast_window_sessions": self.fast_window_sessions,
-            "confirm_window_sessions": self.confirm_window_sessions,
-            "persistence_required": self.persistence_required,
-            "prediction_top_k": self.prediction_top_k,
-            "psi_warn_threshold": self.psi_warn_threshold,
-            "psi_critical_threshold": self.psi_critical_threshold,
-            "ks_warn_threshold": self.ks_warn_threshold,
-            "ks_critical_threshold": self.ks_critical_threshold,
-            "embedding_checkpoint_id": self.embedding_checkpoint_id,
-            "embedding_layer": self.embedding_layer,
-            "embedding_pooling": self.embedding_pooling,
-            "embedding_dimension": self.embedding_dimension,
-            "embedding_anchor_sha256": self.embedding_anchor_sha256,
-            "embedding_mmd_bandwidth": self.embedding_mmd_bandwidth,
-            "diagnostic_only": self.diagnostic_only,
-            "available_at_utc": self.available_at_utc,
-        }
+    def __post_init__(self) -> None:
+        if self.schema_version != 1 or not self.report_version:
+            raise ValueError("DriftMonitorSpec V1 版本无效")
+        if (self.psi_bins < 2 or self.top_k < 1 or self.minimum_sessions < 2 or
+                self.minimum_observations < 2 or self.bootstrap_replicates < 1 or
+                self.fast_window_sessions < self.minimum_sessions or
+                self.confirm_window_sessions < self.fast_window_sessions or
+                self.mean_block_length < 1.0 or self.bootstrap_seed == 0 or
+                not 0.0 < self.fdr_q < 1.0 or self.persistence_windows < 1 or
+                not 0.0 <= self.hard_missing_rate <= 1.0 or
+                self.mmd_bandwidth <= 0.0 or self.maximum_joint_samples < 2):
+            raise ValueError("DriftMonitorSpec V1 数值参数无效")
+        if (not 0.0 < self.classifier_test_fraction < 0.5 or
+                self.classifier_ridge <= 0.0 or self.stale_session_tolerance < 0):
+            raise ValueError("two-sample/stale spec 无效")
+        if (not self.quantiles or tuple(sorted(set(self.quantiles))) != self.quantiles or
+                any(not 0.0 < value < 1.0 for value in self.quantiles)):
+            raise ValueError("quantiles 必须严格递增且位于 (0, 1)")
+        for value in (self.marginal_warning_psi, self.joint_warning_mmd,
+                      self.concept_warning_ic_drop):
+            if value is not None and (not math.isfinite(value) or value < 0.0):
+                raise ValueError("warning threshold 必须事前冻结为非负有限值")
 
     @property
-    def spec_sha256(self) -> str:
-        self.validate()
-        return _sha256_text(_canonical_json(self.to_dict()))
+    def sha256(self) -> str:
+        return _sha256(_json_value(self))
+
+
+def _eligible_sessions(frame: pd.DataFrame, *, session_column: str,
+                       available_at: int, before_session: int | None = None) -> np.ndarray:
+    if session_column not in frame.columns:
+        raise ValueError(f"缺少 session column: {session_column}")
+    eligible = frame
+    if "available_at" in frame.columns:
+        availability = pd.to_numeric(frame["available_at"], errors="coerce")
+        if availability.isna().any():
+            raise ValueError("available_at 必须完整且可解析")
+        eligible = frame[availability <= available_at]
+    if before_session is not None:
+        eligible = eligible[eligible[session_column] < before_session]
+    sessions = np.sort(eligible[session_column].dropna().unique())
+    if sessions.size == 0:
+        raise ValueError("没有满足 available_at 的 session")
+    return sessions.astype(np.int64)
+
+
+def build_reference_window(frame: pd.DataFrame, *, reference_kind: ReferenceKind,
+                           session_column: str, available_at: int,
+                           before_session: int,
+                           training_start: int | None = None,
+                           training_end: int | None = None,
+                           rolling_sessions: int | None = None) -> WindowSpec:
+    sessions = _eligible_sessions(
+        frame, session_column=session_column, available_at=available_at,
+        before_session=before_session)
+    if reference_kind is ReferenceKind.TRAINING_STATIC:
+        if training_start is None or training_end is None:
+            raise ValueError("training_static 必须冻结 training_start/training_end")
+        selected = sessions[(sessions >= training_start) & (sessions <= training_end)]
+        if (selected.size == 0 or selected[0] != training_start or
+                selected[-1] != training_end):
+            raise ValueError("training_static session 与冻结边界不一致")
+    else:
+        if rolling_sessions is None or rolling_sessions < 2:
+            raise ValueError("rolling_recent 必须冻结 rolling_sessions")
+        if sessions.size < rolling_sessions:
+            raise ValueError("rolling_recent 可用 session 不足")
+        selected = sessions[-rolling_sessions:]
+    return WindowSpec(int(selected[0]), int(selected[-1]), available_at,
+                      reference_kind)
+
+
+def build_current_windows(frame: pd.DataFrame, *, session_column: str,
+                          available_at: int,
+                          spec: DriftMonitorSpecV1) -> Mapping[str, WindowSpec]:
+    sessions = _eligible_sessions(
+        frame, session_column=session_column, available_at=available_at)
+    if sessions.size < spec.confirm_window_sessions:
+        raise ValueError("confirm window 可用 session 不足")
+    fast = sessions[-spec.fast_window_sessions:]
+    confirm = sessions[-spec.confirm_window_sessions:]
+    return {
+        "fast": WindowSpec(int(fast[0]), int(fast[-1]), available_at),
+        "confirm": WindowSpec(int(confirm[0]), int(confirm[-1]), available_at),
+    }
 
 
 @dataclass(frozen=True)
-class RawDataQualityWindow:
-    window_id: str
-    schema_hash: str
-    required_fields: tuple[str, ...]
-    observed_fields: tuple[str, ...]
-    row_count: int
-    expected_row_count: int
-    stale_row_count: int
-    duplicate_row_count: int
-    invalid_timestamp_count: int
-    universe: tuple[str, ...]
-    corporate_action_state: str
-    adjustment_state: str
-    available_at_utc: str
+class BootstrapResult:
+    observed_mean: float
+    p_value: float
+    replicates: int
+    mean_block_length: float
+    seed: int
+    replay_sha256: str
 
-    def validate(self) -> None:
-        if not self.window_id or not _digest_like(self.schema_hash):
-            raise DriftArtifactValidationError("RawDataQualityWindow id/schema hash 无效")
-        for fields in (self.required_fields, self.observed_fields):
-            if any(not isinstance(field, str) or not field for field in fields):
-                raise DriftArtifactValidationError("RawDataQualityWindow 字段名无效")
-            if len(fields) != len(set(fields)):
-                raise DriftArtifactValidationError("RawDataQualityWindow 字段名不得重复")
-        if any(not isinstance(symbol, str) or not symbol for symbol in self.universe):
-            raise DriftArtifactValidationError("RawDataQualityWindow universe 无效")
-        if len(self.universe) != len(set(self.universe)):
-            raise DriftArtifactValidationError("RawDataQualityWindow universe 不得重复")
-        counts = (
-            self.row_count,
-            self.expected_row_count,
-            self.stale_row_count,
-            self.duplicate_row_count,
-            self.invalid_timestamp_count,
-        )
-        if any(isinstance(count, bool) or count < 0 for count in counts):
-            raise DriftArtifactValidationError("RawDataQualityWindow 行计数不得为负")
-        if any(count > self.row_count for count in counts[2:]):
-            raise DriftArtifactValidationError("RawDataQualityWindow 行计数超过 row_count")
-        if self.corporate_action_state not in {"KNOWN", "UNKNOWN", "UNAVAILABLE", "PROXY"}:
-            raise DriftArtifactValidationError("corporate_action_state 不受支持")
-        if self.adjustment_state not in {"KNOWN", "UNKNOWN", "UNAVAILABLE", "PROXY"}:
-            raise DriftArtifactValidationError("adjustment_state 不受支持")
-        if not _valid_utc_timestamp(self.available_at_utc):
-            raise DriftArtifactValidationError("RawDataQualityWindow available_at_utc 无效")
+
+def stationary_bootstrap_mean(values: Sequence[float], *, replicates: int,
+                              mean_block_length: float,
+                              seed: int) -> BootstrapResult:
+    data = np.asarray(values, dtype=np.float64)
+    if (data.ndim != 1 or data.size < 2 or not np.isfinite(data).all()):
+        raise ValueError("stationary bootstrap 需要至少两个有限观测")
+    if replicates < 1 or mean_block_length < 1.0 or seed == 0:
+        raise ValueError("stationary bootstrap spec 无效")
+    observed = float(data.mean())
+    centered = data - observed
+    random = np.random.default_rng(seed)
+    samples = np.empty(replicates, dtype=np.float64)
+    probability = 1.0 / mean_block_length
+    for replicate in range(replicates):
+        index = int(random.integers(0, data.size))
+        total = 0.0
+        for draw in range(data.size):
+            total += centered[index]
+            if draw + 1 < data.size:
+                if random.random() < probability:
+                    index = int(random.integers(0, data.size))
+                else:
+                    index = (index + 1) % data.size
+        samples[replicate] = total / data.size
+    exceedances = int(np.count_nonzero(np.abs(samples) >= abs(observed)))
+    p_value = (exceedances + 1.0) / (replicates + 1.0)
+    replay = _sha256({
+        "observed": observed,
+        "samples": samples.tolist(),
+        "replicates": replicates,
+        "mean_block_length": mean_block_length,
+        "seed": seed,
+    })
+    return BootstrapResult(observed, p_value, replicates,
+                           mean_block_length, seed, replay)
+
+
+def _adjusted_p_values(p_values: Sequence[float], multiplier: float) -> np.ndarray:
+    values = np.asarray(p_values, dtype=np.float64)
+    if values.ndim != 1 or values.size == 0 or not np.isfinite(values).all() or (
+            (values < 0.0) | (values > 1.0)).any():
+        raise ValueError("p-values 必须是非空的 [0, 1] 有限向量")
+    order = np.argsort(values, kind="stable")
+    adjusted = np.empty_like(values)
+    running = 1.0
+    for offset in range(values.size - 1, -1, -1):
+        rank = offset + 1
+        running = min(running, values[order[offset]] * values.size * multiplier / rank)
+        adjusted[order[offset]] = min(1.0, running)
+    return adjusted
+
+
+def benjamini_hochberg(p_values: Sequence[float]) -> np.ndarray:
+    return _adjusted_p_values(p_values, 1.0)
+
+
+def benjamini_yekutieli(p_values: Sequence[float]) -> np.ndarray:
+    count = len(p_values)
+    return _adjusted_p_values(p_values, sum(1.0 / rank for rank in range(1, count + 1)))
+
+
+def _finite_values(values: Sequence[float]) -> tuple[np.ndarray, int]:
+    array = np.asarray(values, dtype=np.float64).reshape(-1)
+    finite = array[np.isfinite(array)]
+    return finite, int(array.size - finite.size)
+
+
+def _ks_distance(left: np.ndarray, right: np.ndarray) -> float:
+    if left.size == 0 or right.size == 0:
+        return float("nan")
+    support = np.sort(np.unique(np.concatenate((left, right))))
+    left_cdf = np.searchsorted(np.sort(left), support, side="right") / left.size
+    right_cdf = np.searchsorted(np.sort(right), support, side="right") / right.size
+    return float(np.max(np.abs(left_cdf - right_cdf)))
+
+
+def _psi(reference: np.ndarray, current: np.ndarray, missing_reference: int,
+         missing_current: int, bins: int) -> tuple[float, tuple[float, ...]]:
+    if reference.size == 0:
+        return float("nan"), ()
+    minimum, maximum = float(reference.min()), float(reference.max())
+    interior = np.unique(np.quantile(reference, np.linspace(0.0, 1.0, bins + 1)[1:-1]))
+    reference_counts = np.zeros(interior.size + 4, dtype=np.float64)
+    current_counts = np.zeros_like(reference_counts)
+    reference_counts[0] = missing_reference
+    current_counts[0] = missing_current
+    reference_counts[1] = np.count_nonzero(reference < minimum)
+    current_counts[1] = np.count_nonzero(current < minimum)
+    reference_counts[-1] = np.count_nonzero(reference > maximum)
+    current_counts[-1] = np.count_nonzero(current > maximum)
+    reference_inside = reference[(reference >= minimum) & (reference <= maximum)]
+    current_inside = current[(current >= minimum) & (current <= maximum)]
+    reference_counts[2:-1] = np.bincount(
+        np.searchsorted(interior, reference_inside, side="right"),
+        minlength=interior.size + 1)
+    current_counts[2:-1] = np.bincount(
+        np.searchsorted(interior, current_inside, side="right"),
+        minlength=interior.size + 1)
+    epsilon = 0.5
+    reference_frequency = (reference_counts + epsilon) / (
+        reference_counts.sum() + epsilon * reference_counts.size)
+    current_frequency = (current_counts + epsilon) / (
+        current_counts.sum() + epsilon * current_counts.size)
+    value = np.sum((current_frequency - reference_frequency) *
+                   np.log(current_frequency / reference_frequency))
+    return float(value), tuple(float(item) for item in interior)
+
+
+def continuous_drift(reference: Sequence[float], current: Sequence[float],
+                     spec: DriftMonitorSpecV1) -> dict[str, Any]:
+    reference_values, reference_missing = _finite_values(reference)
+    current_values, current_missing = _finite_values(current)
+    if reference_values.size < 2 or current_values.size < 2:
+        return {"status": LayerStatus.UNAVAILABLE.value}
+    psi, edges = _psi(reference_values, current_values, reference_missing,
+                      current_missing, spec.psi_bins)
+
+    def summary(values: np.ndarray, missing: int) -> dict[str, Any]:
+        median = float(np.median(values))
+        return {
+            "count": int(values.size),
+            "missing": missing,
+            "missing_rate": missing / (values.size + missing),
+            "mean": float(values.mean()),
+            "variance": float(values.var(ddof=1)),
+            "median": median,
+            "mad": float(np.median(np.abs(values - median))),
+            "quantiles": {str(q): float(np.quantile(values, q)) for q in spec.quantiles},
+        }
+
+    return {
+        "status": LayerStatus.OK.value,
+        "reference": summary(reference_values, reference_missing),
+        "current": summary(current_values, current_missing),
+        "psi": psi,
+        "psi_reference_edges": edges,
+        "ks_d": _ks_distance(reference_values, current_values),
+    }
+
+
+def categorical_drift(reference: Sequence[Any], current: Sequence[Any]) -> dict[str, Any]:
+    left = pd.Series(reference, dtype="object").where(pd.notna(reference), "__MISSING__")
+    right = pd.Series(current, dtype="object").where(pd.notna(current), "__MISSING__")
+    if left.empty or right.empty:
+        return {"status": LayerStatus.UNAVAILABLE.value}
+    left = left.astype(str)
+    right = right.astype(str)
+    categories = sorted(set(left) | set(right))
+    left_counts = left.value_counts().reindex(categories, fill_value=0).to_numpy(dtype=np.float64)
+    right_counts = right.value_counts().reindex(categories, fill_value=0).to_numpy(dtype=np.float64)
+    epsilon = 0.5
+    left_frequency = (left_counts + epsilon) / (left_counts.sum() + epsilon * len(categories))
+    right_frequency = (right_counts + epsilon) / (right_counts.sum() + epsilon * len(categories))
+    midpoint = (left_frequency + right_frequency) / 2.0
+    js = 0.5 * np.sum(left_frequency * np.log(left_frequency / midpoint))
+    js += 0.5 * np.sum(right_frequency * np.log(right_frequency / midpoint))
+    psi = np.sum((right_frequency - left_frequency) *
+                 np.log(right_frequency / left_frequency))
+    reference_categories = set(left)
+    new_count = int(right.isin(set(right) - reference_categories).sum())
+    return {
+        "status": LayerStatus.OK.value,
+        "categories": categories,
+        "reference_frequency": dict(zip(categories, left_frequency.tolist())),
+        "current_frequency": dict(zip(categories, right_frequency.tolist())),
+        "psi": float(psi),
+        "js_divergence": float(js),
+        "total_variation": float(0.5 * np.abs(right_frequency - left_frequency).sum()),
+        "new_category_rate": new_count / len(right),
+    }
+
+
+def _ordered_rows(values: np.ndarray, limit: int) -> np.ndarray:
+    order = np.lexsort(tuple(values[:, column] for column in range(values.shape[1] - 1, -1, -1)))
+    ordered = values[order]
+    if ordered.shape[0] <= limit:
+        return ordered
+    indices = np.linspace(0, ordered.shape[0] - 1, limit, dtype=np.int64)
+    return ordered[indices]
+
+
+def _effective_rank(covariance: np.ndarray) -> float:
+    eigenvalues = np.maximum(np.linalg.eigvalsh(covariance), 0.0)
+    total = float(eigenvalues.sum())
+    if total <= 0.0:
+        return 0.0
+    probabilities = eigenvalues[eigenvalues > 0.0] / total
+    return float(np.exp(-np.sum(probabilities * np.log(probabilities))))
+
+
+def _mmd_rbf(left: np.ndarray, right: np.ndarray, bandwidth: float) -> float:
+    def kernel(first: np.ndarray, second: np.ndarray) -> np.ndarray:
+        squared = np.sum((first[:, None, :] - second[None, :, :]) ** 2, axis=2)
+        return np.exp(-squared / (2.0 * bandwidth * bandwidth))
+
+    left_kernel = kernel(left, left)
+    right_kernel = kernel(right, right)
+    cross_kernel = kernel(left, right)
+    left_term = ((left_kernel.sum() - np.trace(left_kernel)) /
+                 (left.shape[0] * (left.shape[0] - 1)))
+    right_term = ((right_kernel.sum() - np.trace(right_kernel)) /
+                  (right.shape[0] * (right.shape[0] - 1)))
+    return float(max(0.0, left_term + right_term - 2.0 * cross_kernel.mean()))
+
+
+def _auc(labels: np.ndarray, scores: np.ndarray) -> float:
+    positives = int(labels.sum())
+    negatives = labels.size - positives
+    if positives == 0 or negatives == 0:
+        return float("nan")
+    ranks = pd.Series(scores).rank(method="average").to_numpy(dtype=np.float64)
+    value = ((ranks[labels == 1].sum() -
+              positives * (positives + 1) / 2.0) /
+             (positives * negatives))
+    return float(max(value, 1.0 - value))
+
+
+def _two_sample_auc(left: np.ndarray, right: np.ndarray,
+                    spec: DriftMonitorSpecV1) -> float:
+    if min(left.shape[0], right.shape[0]) < 4:
+        return float("nan")
+    random = np.random.default_rng(spec.bootstrap_seed)
+    left_order = random.permutation(left.shape[0])
+    right_order = random.permutation(right.shape[0])
+    left_test_count = max(1, int(left.shape[0] * spec.classifier_test_fraction))
+    right_test_count = max(1, int(right.shape[0] * spec.classifier_test_fraction))
+    left_test, left_train = left[left_order[:left_test_count]], left[left_order[left_test_count:]]
+    right_test, right_train = right[right_order[:right_test_count]], right[right_order[right_test_count:]]
+    pooled = np.vstack((left_train, right_train))
+    location = pooled.mean(axis=0)
+    scale = pooled.std(axis=0, ddof=1)
+    scale[scale == 0.0] = 1.0
+    left_train = (left_train - location) / scale
+    right_train = (right_train - location) / scale
+    pooled_train = np.vstack((left_train, right_train))
+    covariance = np.atleast_2d(np.cov(pooled_train, rowvar=False, ddof=1))
+    covariance += np.eye(covariance.shape[0]) * spec.classifier_ridge
+    direction = np.linalg.solve(
+        covariance, right_train.mean(axis=0) - left_train.mean(axis=0))
+    test = np.vstack(((left_test - location) / scale, (right_test - location) / scale))
+    labels = np.concatenate((np.zeros(left_test.shape[0], dtype=np.int8),
+                             np.ones(right_test.shape[0], dtype=np.int8)))
+    return _auc(labels, test @ direction)
+
+
+def linear_cka(left: Sequence[Sequence[float]],
+               right: Sequence[Sequence[float]]) -> float:
+    first = np.asarray(left, dtype=np.float64)
+    second = np.asarray(right, dtype=np.float64)
+    if (first.ndim != 2 or second.ndim != 2 or first.shape[0] != second.shape[0] or
+            first.shape[0] < 2 or not np.isfinite(first).all() or
+            not np.isfinite(second).all()):
+        raise ValueError("CKA 需要相同 anchor 行数的有限二维矩阵")
+    first = first - first.mean(axis=0, keepdims=True)
+    second = second - second.mean(axis=0, keepdims=True)
+    cross = np.linalg.norm(first.T @ second, ord="fro") ** 2
+    first_norm = np.linalg.norm(first.T @ first, ord="fro")
+    second_norm = np.linalg.norm(second.T @ second, ord="fro")
+    denominator = first_norm * second_norm
+    return float(cross / denominator) if denominator > 0.0 else 0.0
+
+
+def joint_drift(reference: Sequence[Sequence[float]],
+                current: Sequence[Sequence[float]],
+                spec: DriftMonitorSpecV1) -> dict[str, Any]:
+    left = np.asarray(reference, dtype=np.float64)
+    right = np.asarray(current, dtype=np.float64)
+    if (left.ndim != 2 or right.ndim != 2 or left.shape[1] != right.shape[1]):
+        raise ValueError("joint drift 输入维度不兼容")
+    left = left[np.isfinite(left).all(axis=1)]
+    right = right[np.isfinite(right).all(axis=1)]
+    if min(left.shape[0], right.shape[0]) < 2:
+        return {"status": LayerStatus.UNAVAILABLE.value}
+    left = _ordered_rows(left, spec.maximum_joint_samples)
+    right = _ordered_rows(right, spec.maximum_joint_samples)
+    left_cov = np.atleast_2d(np.cov(left, rowvar=False, ddof=1))
+    right_cov = np.atleast_2d(np.cov(right, rowvar=False, ddof=1))
+    left_corr = np.nan_to_num(np.corrcoef(left, rowvar=False), nan=0.0)
+    right_corr = np.nan_to_num(np.corrcoef(right, rowvar=False), nan=0.0)
+    if left_corr.ndim == 0:
+        left_corr = right_corr = np.ones((1, 1), dtype=np.float64)
+    denominator = max(float(np.linalg.norm(left_corr, ord="fro")), 1e-12)
+    left_eigen = np.sort(np.maximum(np.linalg.eigvalsh(left_cov), 0.0))[::-1]
+    right_eigen = np.sort(np.maximum(np.linalg.eigvalsh(right_cov), 0.0))[::-1]
+    return {
+        "status": LayerStatus.OK.value,
+        "correlation_frobenius_distance": float(
+            np.linalg.norm(right_corr - left_corr, ord="fro") / denominator),
+        "eigenvalue_l2_distance": float(np.linalg.norm(right_eigen - left_eigen)),
+        "reference_effective_rank": _effective_rank(left_cov),
+        "current_effective_rank": _effective_rank(right_cov),
+        "mmd_rbf": _mmd_rbf(left, right, spec.mmd_bandwidth),
+        "classifier_two_sample_auc": _two_sample_auc(left, right, spec),
+    }
+
+
+def _rank(values: np.ndarray) -> np.ndarray:
+    return pd.Series(values).rank(method="average").to_numpy(dtype=np.float64)
+
+
+def _correlation(left: np.ndarray, right: np.ndarray) -> float:
+    if left.size < 2 or np.std(left, ddof=1) == 0.0 or np.std(right, ddof=1) == 0.0:
+        return float("nan")
+    return float(np.corrcoef(left, right)[0, 1])
+
+
+def _ndcg(scores: np.ndarray, relevance: np.ndarray, cutoff: int) -> float:
+    count = min(cutoff, scores.size)
+    gains = np.exp2(np.maximum(relevance, 0.0)) - 1.0
+    discounts = 1.0 / np.log2(np.arange(count, dtype=np.float64) + 2.0)
+    actual = float(np.dot(gains[np.argsort(-scores, kind="stable")[:count]], discounts))
+    ideal = float(np.dot(np.sort(gains)[::-1][:count], discounts))
+    return actual / ideal if ideal > 0.0 else 0.0
+
+
+def concept_metrics(frame: pd.DataFrame, *, session_column: str,
+                    score_column: str, return_column: str,
+                    utility_column: str | None, top_k: int) -> dict[str, Any]:
+    required = {session_column, score_column, return_column}
+    if not required.issubset(frame.columns):
+        return {"status": LayerStatus.UNAVAILABLE.value}
+    pearson, rank_ic, ndcg, spreads = [], [], [], []
+    for _, group in frame.groupby(session_column, sort=True):
+        valid = group[[score_column, return_column]].replace(
+            [np.inf, -np.inf], np.nan).dropna()
+        if valid.shape[0] < 2:
+            continue
+        scores = valid[score_column].to_numpy(dtype=np.float64)
+        returns = valid[return_column].to_numpy(dtype=np.float64)
+        pearson.append(_correlation(scores, returns))
+        rank_ic.append(_correlation(_rank(scores), _rank(returns)))
+        relevance = returns - min(float(returns.min()), 0.0)
+        ndcg.append(_ndcg(scores, relevance, top_k))
+        order = np.argsort(scores, kind="stable")
+        count = min(top_k, max(1, scores.size // 2))
+        spreads.append(float(returns[order[-count:]].mean() - returns[order[:count]].mean()))
+    pearson_values = np.asarray(pearson, dtype=np.float64)
+    rank_values = np.asarray(rank_ic, dtype=np.float64)
+    pearson_values = pearson_values[np.isfinite(pearson_values)]
+    rank_values = rank_values[np.isfinite(rank_values)]
+    if pearson_values.size == 0 or rank_values.size == 0:
+        return {"status": LayerStatus.UNAVAILABLE.value}
+    ic_std = float(pearson_values.std(ddof=1)) if pearson_values.size > 1 else 0.0
+    result = {
+        "status": LayerStatus.OK.value,
+        "pearson_ic": float(pearson_values.mean()),
+        "rank_ic": float(rank_values.mean()),
+        "icir": float(pearson_values.mean() / ic_std) if ic_std > 0.0 else 0.0,
+        "ic_sign_rate": float(np.mean(pearson_values > 0.0)),
+        "ndcg_at_k": float(np.mean(ndcg)),
+        "utility_spread": float(np.mean(spreads)),
+        "sessions": int(pearson_values.size),
+    }
+    merged = frame.replace([np.inf, -np.inf], np.nan)
+    if "expected_return" in merged.columns:
+        valid = merged[["expected_return", return_column]].dropna()
+        result["return_mae"] = float(np.mean(np.abs(
+            valid["expected_return"].to_numpy() - valid[return_column].to_numpy())))
+    if "direction_probability" in merged.columns:
+        valid = merged[["direction_probability", return_column]].dropna()
+        probability = np.clip(valid["direction_probability"].to_numpy(), 0.0, 1.0)
+        direction = (valid[return_column].to_numpy() > 0.0).astype(np.float64)
+        result["direction_brier"] = float(np.mean((probability - direction) ** 2))
+    if "q10" in merged.columns and "q90" in merged.columns:
+        valid = merged[["q10", "q90", return_column]].dropna()
+        result["interval_coverage"] = float(np.mean(
+            (valid[return_column] >= valid["q10"]) &
+            (valid[return_column] <= valid["q90"])))
+        result["quantile_crossing_rate"] = float(np.mean(valid["q10"] > valid["q90"]))
+    precision = []
+    for _, group in merged.groupby(session_column, sort=True):
+        valid = group[[score_column, return_column]].dropna()
+        if valid.empty:
+            continue
+        selected = valid.nlargest(min(top_k, len(valid)), score_column)
+        precision.append(float(np.mean(selected[return_column] > 0.0)))
+    result["precision_at_k"] = float(np.mean(precision)) if precision else None
+    if utility_column and utility_column in frame.columns:
+        valid = frame[[score_column, utility_column]].replace(
+            [np.inf, -np.inf], np.nan).dropna()
+        result["utility_mae"] = float(np.mean(np.abs(
+            valid[score_column].to_numpy() - valid[utility_column].to_numpy())))
+    return result
+
+
+def _frame_hash(frame: pd.DataFrame) -> str:
+    ordered = frame.sort_index(axis=1).sort_values(
+        list(frame.columns), kind="stable", na_position="first")
+    values = pd.util.hash_pandas_object(ordered, index=False).to_numpy(dtype=np.uint64)
+    return hashlib.sha256(values.tobytes()).hexdigest()
+
+
+def _array_hash(values: Sequence[Sequence[float]]) -> str:
+    array = np.asarray(values, dtype=np.float64)
+    if array.ndim != 2:
+        raise ValueError("snapshot array 必须是二维")
+    ordered = _ordered_rows(array, array.shape[0])
+    return hashlib.sha256(ordered.tobytes()).hexdigest()
+
+
+def _window(frame: pd.DataFrame, window: WindowSpec, session_column: str) -> pd.DataFrame:
+    if session_column not in frame.columns:
+        raise ValueError(f"缺少 session column: {session_column}")
+    if "available_at" in frame.columns:
+        available = pd.to_numeric(frame["available_at"], errors="coerce")
+        if available.isna().any():
+            raise ValueError("available_at 必须完整且可解析")
+        leaked = frame[(frame[session_column] >= window.start) &
+                       (frame[session_column] <= window.end) &
+                       (available > window.available_at)]
+        if not leaked.empty:
+            raise ValueError("snapshot 包含 available_at 之后才可用的数据")
+    selected = frame[(frame[session_column] >= window.start) &
+                     (frame[session_column] <= window.end)].copy()
+    if selected.empty:
+        raise ValueError("window 没有数据")
+    return selected
+
+
+def _universe_summary(reference: pd.DataFrame, current: pd.DataFrame,
+                      session_column: str, symbol_column: str) -> dict[str, Any]:
+    reference_symbols = set(reference[symbol_column].astype(str))
+    current_symbols = set(current[symbol_column].astype(str))
+    union = reference_symbols | current_symbols
+    overlap = len(reference_symbols & current_symbols) / len(union) if union else 1.0
+    return {
+        "reference_count": len(reference_symbols),
+        "current_count": len(current_symbols),
+        "composition_jaccard": overlap,
+        "new_symbol_rate": len(current_symbols - reference_symbols) /
+                           max(1, len(current_symbols)),
+        "reference_session_counts": reference.groupby(
+            session_column)[symbol_column].nunique().tolist(),
+        "current_session_counts": current.groupby(
+            session_column)[symbol_column].nunique().tolist(),
+    }
+
+
+def _prediction_portfolio_summary(frame: pd.DataFrame, session_column: str,
+                                  symbol_column: str, score_column: str,
+                                  top_k: int) -> dict[str, Any]:
+    top_sets: list[set[str]] = []
+    concentration = []
+    for _, group in frame.groupby(session_column, sort=True):
+        valid = group[[symbol_column, score_column]].replace(
+            [np.inf, -np.inf], np.nan).dropna()
+        if valid.empty:
+            continue
+        ordered = valid.sort_values([score_column, symbol_column], kind="stable")
+        selected = ordered.tail(min(top_k, len(ordered)))
+        top_sets.append(set(selected[symbol_column].astype(str)))
+        scores = selected[score_column].to_numpy(dtype=np.float64)
+        weights = np.exp(scores - scores.max())
+        weights /= weights.sum()
+        concentration.append(float(np.sum(weights * weights)))
+    overlap = []
+    for previous, current in zip(top_sets, top_sets[1:]):
+        overlap.append(len(previous & current) / max(1, len(previous | current)))
+    return {
+        "topk_overlap": float(np.mean(overlap)) if overlap else None,
+        "topk_turnover": float(np.mean([1.0 - value for value in overlap])) if overlap else None,
+        "topk_concentration": float(np.mean(concentration)) if concentration else None,
+        "sessions": len(top_sets),
+    }
+
+
+@dataclass(frozen=True)
+class DriftReport:
+    schema_version: int
+    report_version: str
+    monitor_spec_sha256: str
+    reference_window: WindowSpec
+    current_window: WindowSpec
+    data_quality: Mapping[str, Any]
+    raw_drift: Mapping[str, Any]
+    feature_drift: Mapping[str, Any]
+    feature_joint_drift: Mapping[str, Any]
+    prediction_drift: Mapping[str, Any]
+    label_status: LayerStatus
+    label_drift: Mapping[str, Any] | None
+    concept_status: LayerStatus
+    concept_performance: Mapping[str, Any] | None
+    embedding_status: LayerStatus
+    embedding_drift: Mapping[str, Any] | None
+    alert_state: AlertState
+    alert_reasons: tuple[str, ...]
+    persistence_count: int
+    retraining_review_recommended: bool
+    artifact_hashes: Mapping[str, str]
+    source_snapshot_set_sha256: str
+    report_sha256: str
 
     def to_dict(self) -> dict[str, Any]:
-        self.validate()
-        return {
-            "window_id": self.window_id,
-            "schema_hash": self.schema_hash,
-            "required_fields": list(self.required_fields),
-            "observed_fields": list(self.observed_fields),
-            "row_count": self.row_count,
-            "expected_row_count": self.expected_row_count,
-            "stale_row_count": self.stale_row_count,
-            "duplicate_row_count": self.duplicate_row_count,
-            "invalid_timestamp_count": self.invalid_timestamp_count,
-            "universe": list(self.universe),
-            "corporate_action_state": self.corporate_action_state,
-            "adjustment_state": self.adjustment_state,
-            "available_at_utc": self.available_at_utc,
-        }
+        return _json_value(self)
+
+    def verify_hash(self) -> bool:
+        payload = self.to_dict()
+        report_sha256 = payload.pop("report_sha256")
+        return _sha256(payload) == report_sha256
 
 
-def compare_raw_data_quality(
-    reference: RawDataQualityWindow,
-    current: RawDataQualityWindow,
-) -> dict[str, Any]:
-    reference.validate()
-    current.validate()
-    reference_fields = set(reference.required_fields)
-    current_fields = set(current.observed_fields)
-    reference_universe = set(reference.universe)
-    current_universe = set(current.universe)
-    union = reference_universe | current_universe
-    overlap = reference_universe & current_universe
-    missing_reference = sorted(reference_fields - set(reference.observed_fields))
-    missing_current = sorted(reference_fields - current_fields)
-    hard_failures: list[str] = []
-    warnings: list[str] = []
-    if reference.schema_hash != current.schema_hash:
-        hard_failures.append("SCHEMA_HASH_MISMATCH")
-    if missing_reference:
-        hard_failures.append("REFERENCE_FIELDS_MISSING")
-    if missing_current:
-        hard_failures.append("CURRENT_FIELDS_MISSING")
-    if current.row_count == 0:
-        hard_failures.append("CURRENT_EMPTY")
-    if current.invalid_timestamp_count:
-        hard_failures.append("INVALID_TIMESTAMP")
-    if current.duplicate_row_count:
-        hard_failures.append("DUPLICATE_ROWS")
-    if current.stale_row_count:
-        warnings.append("STALE_ROWS")
-    if current.corporate_action_state in {"UNKNOWN", "UNAVAILABLE", "PROXY"}:
-        warnings.append("CORPORATE_ACTION_PROVENANCE_INCOMPLETE")
-    if current.adjustment_state in {"UNKNOWN", "UNAVAILABLE", "PROXY"}:
-        warnings.append("ADJUSTMENT_PROVENANCE_INCOMPLETE")
-    if _utc_datetime(current.available_at_utc) < _utc_datetime(reference.available_at_utc):
-        hard_failures.append("AVAILABLE_AT_REGRESSION")
-    if hard_failures:
-        status = "HARD_FAILURE"
-    elif warnings:
-        status = "WARN"
-    else:
-        status = "OK"
-    return {
-        "status": status,
-        "hard_failures": sorted(set(hard_failures)),
-        "warnings": sorted(set(warnings)),
-        "reference_window_id": reference.window_id,
-        "current_window_id": current.window_id,
-        "schema_compatible": reference.schema_hash == current.schema_hash,
-        "missing_fields": {
-            "reference": missing_reference,
-            "current": missing_current,
-        },
-        "coverage": {
-            "reference": reference.row_count / reference.expected_row_count
-            if reference.expected_row_count else None,
-            "current": current.row_count / current.expected_row_count
-            if current.expected_row_count else None,
-        },
-        "stale_rate": current.stale_row_count / current.row_count
-        if current.row_count else None,
-        "duplicate_rate": current.duplicate_row_count / current.row_count
-        if current.row_count else None,
-        "invalid_timestamp_rate": current.invalid_timestamp_count / current.row_count
-        if current.row_count else None,
-        "universe": {
-            "reference_count": len(reference_universe),
-            "current_count": len(current_universe),
-            "overlap_count": len(overlap),
-            "added": sorted(current_universe - reference_universe),
-            "removed": sorted(reference_universe - current_universe),
-            "jaccard": len(overlap) / len(union) if union else None,
-        },
-        "corporate_action_state": {
-            "reference": reference.corporate_action_state,
-            "current": current.corporate_action_state,
-        },
-        "adjustment_state": {
-            "reference": reference.adjustment_state,
-            "current": current.adjustment_state,
-        },
-        "available_at_utc": {
-            "reference": reference.available_at_utc,
-            "current": current.available_at_utc,
-        },
-    }
+@dataclass
+class DriftAlertMachine:
+    spec: DriftMonitorSpecV1
+    persistence_count: int = 0
+    last_state: AlertState = AlertState.INFO
 
-
-def _family_summary(
-    reference: Mapping[str, Sequence[Any]] | None,
-    current: Mapping[str, Sequence[Any]] | None,
-    spec: DriftMonitorSpecV1,
-) -> dict[str, Any]:
-    reference = reference or {}
-    current = current or {}
-    names = sorted(set(reference) | set(current))
-    result: dict[str, Any] = {}
-    for name in names:
-        result[name] = compare_scalar_drift(
-            reference.get(name, ()),
-            current.get(name, ()),
-            bin_edges=spec.psi_bin_edges,
-            quantiles=spec.quantiles,
-            psi_probability_floor=spec.psi_probability_floor,
-        )
-    return result
-
-
-def _summary_sha256(summary: Mapping[str, Any]) -> str:
-    return _sha256_text(_canonical_json(summary))
-
-
-def _splitmix64(state: int) -> tuple[int, int]:
-    state = (state + 0x9E3779B97F4A7C15) & ((1 << 64) - 1)
-    value = state
-    value = ((value ^ (value >> 30)) * 0xBF58476D1CE4E5B9) & ((1 << 64) - 1)
-    value = ((value ^ (value >> 27)) * 0x94D049BB133111EB) & ((1 << 64) - 1)
-    return state, (value ^ (value >> 31)) & ((1 << 64) - 1)
-
-
-def _uniform_53(state: int) -> tuple[int, float]:
-    state, value = _splitmix64(state)
-    return state, (value >> 11) / float(1 << 53)
-
-
-def _stationary_indices(length: int, mean_block_length: float, state: int) -> tuple[list[int], int]:
-    state, value = _splitmix64(state)
-    index = value % length
-    indices: list[int] = []
-    for position in range(length):
-        indices.append(index)
-        if position + 1 == length:
-            break
-        state, uniform = _uniform_53(state)
-        if uniform < 1.0 / mean_block_length:
-            state, value = _splitmix64(state)
-            index = value % length
+    def update(self, *, hard_failure: bool, marginal_signal: bool,
+               joint_signal: bool, concept_signal: bool,
+               reasons: Iterable[str]) -> tuple[AlertState, int, tuple[str, ...]]:
+        reason_tuple = tuple(sorted(set(reasons)))
+        if hard_failure:
+            self.persistence_count += 1
+            self.last_state = AlertState.CRITICAL
+            return self.last_state, self.persistence_count, reason_tuple
+        distribution_signal = marginal_signal or joint_signal
+        if distribution_signal or concept_signal:
+            self.persistence_count += 1
         else:
-            index = (index + 1) % length
-    return indices, state
+            self.persistence_count = 0
+        if (distribution_signal and concept_signal and
+                self.persistence_count >= self.spec.persistence_windows):
+            self.last_state = AlertState.CRITICAL
+        elif distribution_signal or concept_signal:
+            self.last_state = AlertState.WARN
+        else:
+            self.last_state = AlertState.INFO
+        return self.last_state, self.persistence_count, reason_tuple
 
 
-def stationary_bootstrap_mean_difference(
-    reference: Sequence[Any],
-    current: Sequence[Any],
-    *,
-    replicates: int,
-    seed: int,
-    mean_block_length: float,
-    confidence_level: float = 0.95,
-) -> dict[str, Any]:
-    if len(reference) != len(current) or not reference:
-        raise DriftArtifactValidationError("stationary bootstrap 输入必须等长且非空")
-    if isinstance(replicates, bool) or replicates <= 0 or isinstance(seed, bool) or seed <= 0:
-        raise DriftArtifactValidationError("stationary bootstrap replicates/seed 必须为正")
-    if not math.isfinite(mean_block_length) or mean_block_length < 1.0:
-        raise DriftArtifactValidationError("stationary bootstrap block length 无效")
-    if not 0.0 < confidence_level < 1.0:
-        raise DriftArtifactValidationError("confidence_level 必须位于 (0, 1)")
-    differences = [
-        float(current_value) - float(reference_value)
-        for reference_value, current_value in zip(reference, current)
-        if _finite(reference_value) and _finite(current_value)
-    ]
-    if not differences:
-        return {
-            "status": "INSUFFICIENT_DATA",
-            "observations": 0,
-            "replicates": replicates,
-            "seed": seed,
-            "mean_block_length": mean_block_length,
-        }
-    observed = sum(differences) / len(differences)
-    bootstrap_values: list[float] = []
-    state = seed
-    for _ in range(replicates):
-        indices, state = _stationary_indices(len(differences), mean_block_length, state)
-        bootstrap_values.append(sum(differences[index] for index in indices) / len(indices))
-    extreme = sum(abs(value) >= abs(observed) for value in bootstrap_values)
-    result: dict[str, Any] = {
-        "status": "OK",
-        "observations": len(differences),
-        "replicates": replicates,
-        "seed": seed,
-        "mean_block_length": mean_block_length,
-        "observed_difference": observed,
-        "bootstrap_mean": sum(bootstrap_values) / len(bootstrap_values),
-        "p_value": (extreme + 1) / (replicates + 1.0),
-        "confidence_level": confidence_level,
-        "confidence_lower": _quantile(bootstrap_values, (1.0 - confidence_level) / 2.0),
-        "confidence_upper": _quantile(bootstrap_values, 1.0 - (1.0 - confidence_level) / 2.0),
-    }
-    result["artifact_hash"] = _sha256_text(_canonical_json(result))
-    return result
+def build_drift_report(*, reference_raw: pd.DataFrame, current_raw: pd.DataFrame,
+                       reference_features: pd.DataFrame, current_features: pd.DataFrame,
+                       reference_predictions: pd.DataFrame,
+                       current_predictions: pd.DataFrame,
+                       reference_window: WindowSpec, current_window: WindowSpec,
+                       raw_columns: Sequence[str], feature_columns: Sequence[str],
+                       prediction_columns: Sequence[str],
+                       categorical_raw_columns: Sequence[str] = (),
+                       session_column: str = "timestamp",
+                       symbol_column: str = "symbol", score_column: str = "ranking_score",
+                       reference_labels: pd.DataFrame | None = None,
+                       current_labels: pd.DataFrame | None = None,
+                       return_column: str = "return_raw",
+                       label_columns: Sequence[str] = (),
+                       utility_column: str | None = "rank_utility",
+                       reference_embeddings: Sequence[Sequence[float]] | None = None,
+                       current_embeddings: Sequence[Sequence[float]] | None = None,
+                       reference_embedding_spec: EmbeddingSpec | None = None,
+                       current_embedding_spec: EmbeddingSpec | None = None,
+                       reference_anchor_embeddings: Sequence[Sequence[float]] | None = None,
+                       current_anchor_embeddings: Sequence[Sequence[float]] | None = None,
+                       fixed_anchor_sha256: str | None = None,
+                       source_snapshot_hashes: Sequence[str] = (),
+                       artifact_hashes: Mapping[str, str] | None = None,
+                       alert_machine: DriftAlertMachine | None = None,
+                       spec: DriftMonitorSpecV1 = DriftMonitorSpecV1()) -> DriftReport:
+    if reference_window.reference_kind is None:
+        raise ValueError("reference window 必须声明 reference_kind")
+    if reference_window.end >= current_window.start:
+        raise ValueError("reference 与 current window 必须按时间隔离")
+    if reference_window.available_at > current_window.available_at:
+        raise ValueError("reference available_at 不得晚于 current")
+    reference_raw = _window(reference_raw, reference_window, session_column)
+    current_raw = _window(current_raw, current_window, session_column)
+    reference_features = _window(reference_features, reference_window, session_column)
+    current_features = _window(current_features, current_window, session_column)
+    reference_predictions = _window(reference_predictions, reference_window, session_column)
+    current_predictions = _window(current_predictions, current_window, session_column)
 
-
-def benjamini_hochberg(
-    p_values: Mapping[str, Any],
-    *,
-    alpha: float,
-    family: str,
-    method: str = "BH",
-) -> dict[str, Any]:
-    if not family or not 0.0 < alpha <= 1.0:
-        raise DriftArtifactValidationError("FDR family/alpha 无效")
-    if method not in {"BH", "BY"}:
-        raise DriftArtifactValidationError("FDR method 只支持 BH 或 BY")
-    entries = []
-    for name, probability in p_values.items():
-        if not isinstance(name, str) or not name or not _finite(probability) or not 0.0 <= probability <= 1.0:
-            raise DriftArtifactValidationError("FDR p-value 必须是 [0, 1] 有限值")
-        entries.append((name, float(probability)))
-    entries.sort(key=lambda item: (item[1], item[0]))
-    count = len(entries)
-    correction = sum(1.0 / index for index in range(1, count + 1)) if method == "BY" else 1.0
-    q_values: dict[str, float] = {}
-    running = 1.0
-    for rank in range(count, 0, -1):
-        name, probability = entries[rank - 1]
-        candidate = probability * count * correction / rank
-        running = min(running, candidate)
-        q_values[name] = min(running, 1.0)
-    rejected = {name: q_values[name] <= alpha for name, _ in entries}
-    result: dict[str, Any] = {
-        "status": "OK",
-        "family": family,
-        "method": method,
-        "alpha": alpha,
-        "p_values": {name: probability for name, probability in sorted(entries)},
-        "q_values": {name: q_values[name] for name in sorted(q_values)},
-        "rejected": {name: rejected[name] for name in sorted(rejected)},
-    }
-    result["artifact_hash"] = _sha256_text(_canonical_json(result))
-    return result
-
-
-def _matrix_from_mapping(values: Mapping[str, Sequence[Any]]) -> tuple[tuple[str, ...], list[list[Any]]]:
-    names = tuple(sorted(values))
-    if not names:
-        return names, []
-    lengths = {len(values[name]) for name in names}
-    if len(lengths) != 1:
-        raise DriftArtifactValidationError("correlation 输入字段长度必须一致")
-    return names, [[values[name][row] for name in names] for row in range(lengths.pop())]
-
-
-def _correlation_matrix(rows: Sequence[Sequence[Any]], dimension: int) -> list[list[float]]:
-    matrix = [[0.0 for _ in range(dimension)] for _ in range(dimension)]
-    for left in range(dimension):
-        for right in range(left, dimension):
-            pairs = [
-                (float(row[left]), float(row[right]))
-                for row in rows
-                if len(row) == dimension and _finite(row[left]) and _finite(row[right])
-            ]
-            if left == right:
-                matrix[left][right] = 1.0 if len(pairs) >= 2 else 0.0
-                continue
-            if len(pairs) < 2:
-                correlation = 0.0
-            else:
-                left_mean = sum(pair[0] for pair in pairs) / len(pairs)
-                right_mean = sum(pair[1] for pair in pairs) / len(pairs)
-                left_variance = sum((pair[0] - left_mean) ** 2 for pair in pairs)
-                right_variance = sum((pair[1] - right_mean) ** 2 for pair in pairs)
-                denominator = math.sqrt(left_variance * right_variance)
-                correlation = (
-                    sum((pair[0] - left_mean) * (pair[1] - right_mean) for pair in pairs)
-                    / denominator
-                    if denominator > 0.0
-                    else 0.0
-                )
-            matrix[left][right] = correlation
-            matrix[right][left] = correlation
-    return matrix
-
-
-def _jacobi_eigenvalues(matrix: Sequence[Sequence[float]]) -> list[float]:
-    dimension = len(matrix)
-    values = [list(row) for row in matrix]
-    for row in values:
-        if len(row) != dimension:
-            raise DriftArtifactValidationError("eigenvalue 输入矩阵必须方阵")
-    for _ in range(max(1, dimension * dimension * 32)):
-        pivot = (0, 0, 0.0)
-        for left in range(dimension):
-            for right in range(left + 1, dimension):
-                candidate = abs(values[left][right])
-                if candidate > pivot[2]:
-                    pivot = (left, right, candidate)
-        left, right, magnitude = pivot
-        if magnitude <= 1e-12:
-            break
-        angle = 0.5 * math.atan2(
-            2.0 * values[left][right], values[right][right] - values[left][left]
-        )
-        cosine = math.cos(angle)
-        sine = math.sin(angle)
-        for index in range(dimension):
-            if index in {left, right}:
-                continue
-            left_value = values[index][left]
-            right_value = values[index][right]
-            values[index][left] = values[left][index] = cosine * left_value - sine * right_value
-            values[index][right] = values[right][index] = sine * left_value + cosine * right_value
-        left_diagonal = values[left][left]
-        right_diagonal = values[right][right]
-        cross = values[left][right]
-        values[left][left] = cosine * cosine * left_diagonal - 2.0 * sine * cosine * cross + sine * sine * right_diagonal
-        values[right][right] = sine * sine * left_diagonal + 2.0 * sine * cosine * cross + cosine * cosine * right_diagonal
-        values[left][right] = values[right][left] = 0.0
-    return sorted((values[index][index] for index in range(dimension)), reverse=True)
-
-
-def _effective_rank(eigenvalues: Sequence[float]) -> float | None:
-    positive = [max(value, 0.0) for value in eigenvalues]
-    total = sum(positive)
-    if total <= 0.0:
-        return None
-    probabilities = [value / total for value in positive if value > 0.0]
-    return math.exp(-sum(probability * math.log(probability) for probability in probabilities))
-
-
-def compare_correlation_drift(
-    reference: Mapping[str, Sequence[Any]],
-    current: Mapping[str, Sequence[Any]],
-) -> dict[str, Any]:
-    reference_names = tuple(sorted(reference))
-    current_names = tuple(sorted(current))
-    if reference_names != current_names:
-        return {
-            "status": "SCHEMA_MISMATCH",
-            "reference_features": list(reference_names),
-            "current_features": list(current_names),
-            "added": sorted(set(current_names) - set(reference_names)),
-            "removed": sorted(set(reference_names) - set(current_names)),
-        }
-    names, reference_rows = _matrix_from_mapping(reference)
-    _, current_rows = _matrix_from_mapping(current)
-    if not names or not reference_rows or not current_rows:
-        return {
-            "status": "INSUFFICIENT_DATA",
-            "features": list(names),
-            "reference_count": len(reference_rows),
-            "current_count": len(current_rows),
-        }
-    reference_matrix = _correlation_matrix(reference_rows, len(names))
-    current_matrix = _correlation_matrix(current_rows, len(names))
-    difference = [
-        [current_matrix[row][column] - reference_matrix[row][column] for column in range(len(names))]
-        for row in range(len(names))
-    ]
-    frobenius = math.sqrt(sum(value * value for row in difference for value in row))
-    eigenvalues = _jacobi_eigenvalues(difference)
-    operator_distance = max((abs(value) for value in eigenvalues), default=0.0)
-    result: dict[str, Any] = {
-        "status": "OK",
-        "features": list(names),
-        "reference_count": len(reference_rows),
-        "current_count": len(current_rows),
-        "reference_correlation": reference_matrix,
-        "current_correlation": current_matrix,
-        "reference_eigenvalues": _jacobi_eigenvalues(reference_matrix),
-        "current_eigenvalues": _jacobi_eigenvalues(current_matrix),
-        "difference_eigenvalues": eigenvalues,
-        "reference_effective_rank": _effective_rank(_jacobi_eigenvalues(reference_matrix)),
-        "current_effective_rank": _effective_rank(_jacobi_eigenvalues(current_matrix)),
-        "frobenius_distance": frobenius,
-        "operator_distance": operator_distance,
-    }
-    result["artifact_hash"] = _sha256_text(_canonical_json(result))
-    return result
-
-
-def compare_rbf_mmd(
-    reference: Sequence[Sequence[Any]],
-    current: Sequence[Sequence[Any]],
-    *,
-    bandwidth: float,
-    projection: Sequence[int] | None = None,
-) -> dict[str, Any]:
-    if not math.isfinite(bandwidth) or bandwidth <= 0.0:
-        raise DriftArtifactValidationError("MMD RBF bandwidth 必须为正")
-    reference_rows = [
-        tuple(float(value) if _finite(value) else math.nan for value in row)
-        for row in reference
-    ]
-    current_rows = [
-        tuple(float(value) if _finite(value) else math.nan for value in row)
-        for row in current
-    ]
-    if not reference_rows or not current_rows:
-        return {
-            "status": "INSUFFICIENT_DATA",
-            "reference_count": 0,
-            "current_count": 0,
-            "dimension": 0,
-            "kernel_spec": {
-                "kernel": "RBF",
-                "estimator": "biased",
-                "bandwidth": bandwidth,
-                "projection": list(projection) if projection is not None else None,
-            },
-        }
-    dimensions = {len(row) for row in reference_rows + current_rows}
-    if len(dimensions) != 1 or not dimensions:
-        raise DriftArtifactValidationError("MMD 输入行维度必须一致且非空")
-    dimension = dimensions.pop()
-    selected = tuple(range(dimension)) if projection is None else tuple(projection)
-    if not selected or any(isinstance(index, bool) or index < 0 or index >= dimension for index in selected):
-        raise DriftArtifactValidationError("MMD projection 索引无效")
-    if len(set(selected)) != len(selected):
-        raise DriftArtifactValidationError("MMD projection 索引不得重复")
-    filtered_reference = [row for row in reference_rows if all(math.isfinite(row[index]) for index in selected)]
-    filtered_current = [row for row in current_rows if all(math.isfinite(row[index]) for index in selected)]
-    spec_payload = {
-        "kernel": "RBF",
-        "estimator": "biased",
-        "bandwidth": bandwidth,
-        "projection": list(selected),
-    }
-    kernel_spec_sha256 = _sha256_text(_canonical_json(spec_payload))
-    if not filtered_reference or not filtered_current:
-        return {
-            "status": "INSUFFICIENT_DATA",
-            "reference_count": len(filtered_reference),
-            "current_count": len(filtered_current),
-            "dimension": len(selected),
-            "kernel_spec": spec_payload,
-            "kernel_spec_sha256": kernel_spec_sha256,
-        }
-    reference_points = [tuple(row[index] for index in selected) for row in filtered_reference]
-    current_points = [tuple(row[index] for index in selected) for row in filtered_current]
-
-    def kernel(left: Sequence[float], right: Sequence[float]) -> float:
-        squared_distance = sum((left[index] - right[index]) ** 2 for index in range(len(selected)))
-        return math.exp(-squared_distance / (2.0 * bandwidth * bandwidth))
-
-    reference_term = sum(kernel(left, right) for left in reference_points for right in reference_points) / (len(reference_points) ** 2)
-    current_term = sum(kernel(left, right) for left in current_points for right in current_points) / (len(current_points) ** 2)
-    cross_term = sum(kernel(left, right) for left in reference_points for right in current_points) / (len(reference_points) * len(current_points))
-    mmd_squared = max(reference_term + current_term - 2.0 * cross_term, 0.0)
-    result = {
-        "status": "OK",
-        "reference_count": len(reference_points),
-        "current_count": len(current_points),
-        "dimension": len(selected),
-        "kernel_spec": spec_payload,
-        "kernel_spec_sha256": kernel_spec_sha256,
-        "mmd_squared": mmd_squared,
-        "mmd": math.sqrt(mmd_squared),
-    }
-    result["artifact_hash"] = _sha256_text(_canonical_json(result))
-    return result
-
-
-def _ranked_symbols(scores: Mapping[str, Any], top_k: int) -> list[tuple[str, float]]:
-    normalized: list[tuple[str, float]] = []
-    for symbol, score in scores.items():
-        if not isinstance(symbol, str) or not symbol or not _finite(score):
-            raise DriftArtifactValidationError("RankingScore symbol/score 无效")
-        normalized.append((symbol, float(score)))
-    normalized.sort(key=lambda item: (-item[1], item[0]))
-    return normalized[: min(top_k, len(normalized))]
-
-
-def _top_k_concentration(ranked: Sequence[tuple[str, float]], all_scores: Mapping[str, Any]) -> float | None:
-    denominator = sum(abs(float(score)) for score in all_scores.values() if _finite(score))
-    if denominator <= 0.0:
-        return None
-    return sum(abs(score) for _, score in ranked) / denominator
-
-
-def compare_prediction_drift(
-    reference: Mapping[str, Sequence[Any]],
-    current: Mapping[str, Sequence[Any]],
-    *,
-    bin_edges: Sequence[float],
-    quantiles: Sequence[float] = (0.05, 0.25, 0.5, 0.75, 0.95),
-    ranking_reference: Mapping[str, Any] | None = None,
-    ranking_current: Mapping[str, Any] | None = None,
-    confidence_reference: Sequence[Any] | None = None,
-    confidence_current: Sequence[Any] | None = None,
-    interval_width_reference: Sequence[Any] | None = None,
-    interval_width_current: Sequence[Any] | None = None,
-    top_k: int = 20,
-) -> dict[str, Any]:
-    if isinstance(top_k, bool) or top_k <= 0:
-        raise DriftArtifactValidationError("prediction top_k 必须为正")
-    outputs = {
-        name: compare_scalar_drift(
-            reference.get(name, ()),
-            current.get(name, ()),
-            bin_edges=bin_edges,
-            quantiles=quantiles,
-        )
-        for name in sorted(set(reference) | set(current))
-    }
-    if confidence_reference is not None or confidence_current is not None:
-        if confidence_reference is None or confidence_current is None:
-            raise DriftArtifactValidationError("confidence reference/current 必须同时提供")
-        outputs["confidence"] = compare_scalar_drift(
-            confidence_reference,
-            confidence_current,
-            bin_edges=bin_edges,
-            quantiles=quantiles,
-        )
-    if interval_width_reference is not None or interval_width_current is not None:
-        if interval_width_reference is None or interval_width_current is None:
-            raise DriftArtifactValidationError("interval width reference/current 必须同时提供")
-        outputs["interval_width"] = compare_scalar_drift(
-            interval_width_reference,
-            interval_width_current,
-            bin_edges=bin_edges,
-            quantiles=quantiles,
-        )
-    if ranking_reference is None and ranking_current is None:
-        ranking: dict[str, Any] | str = "UNAVAILABLE"
-    elif ranking_reference is None or ranking_current is None:
-        raise DriftArtifactValidationError("RankingScore reference/current 必须同时提供")
-    else:
-        reference_ranked = _ranked_symbols(ranking_reference, top_k)
-        current_ranked = _ranked_symbols(ranking_current, top_k)
-        reference_top = {symbol for symbol, _ in reference_ranked}
-        current_top = {symbol for symbol, _ in current_ranked}
-        denominator = min(len(reference_top), len(current_top))
-        overlap = len(reference_top & current_top) / denominator if denominator else None
-        ranking = {
-            "status": "OK" if reference_ranked and current_ranked else "INSUFFICIENT_DATA",
-            "top_k": top_k,
-            "reference_top_k": [symbol for symbol, _ in reference_ranked],
-            "current_top_k": [symbol for symbol, _ in current_ranked],
-            "top_k_overlap": overlap,
-            "top_k_turnover": 1.0 - overlap if overlap is not None else None,
-            "reference_concentration": _top_k_concentration(reference_ranked, ranking_reference),
-            "current_concentration": _top_k_concentration(current_ranked, ranking_current),
-            "reference_universe_count": len(ranking_reference),
-            "current_universe_count": len(ranking_current),
-        }
-    result: dict[str, Any] = {
-        "status": "OK" if outputs or isinstance(ranking, dict) else "INSUFFICIENT_DATA",
-        "outputs": outputs,
-        "ranking": ranking,
-    }
-    result["artifact_hash"] = _sha256_text(_canonical_json(result))
-    return result
-
-
-def _pearson_correlation(left: Sequence[float], right: Sequence[float]) -> float | None:
-    if len(left) != len(right) or len(left) < 2:
-        return None
-    left_mean = sum(left) / len(left)
-    right_mean = sum(right) / len(right)
-    left_centered = [value - left_mean for value in left]
-    right_centered = [value - right_mean for value in right]
-    denominator = math.sqrt(
-        sum(value * value for value in left_centered)
-        * sum(value * value for value in right_centered)
-    )
-    return (
-        sum(left_value * right_value for left_value, right_value in zip(left_centered, right_centered))
-        / denominator
-        if denominator > 0.0
-        else None
-    )
-
-
-def _average_ranks(values: Sequence[float]) -> list[float]:
-    order = sorted(range(len(values)), key=lambda index: (values[index], index))
-    ranks = [0.0] * len(values)
-    position = 0
-    while position < len(order):
-        end = position + 1
-        while end < len(order) and values[order[end]] == values[order[position]]:
-            end += 1
-        rank = (position + end - 1) / 2.0 + 1.0
-        for index in order[position:end]:
-            ranks[index] = rank
-        position = end
-    return ranks
-
-
-def _ndcg_at_k(scores: Sequence[float], labels: Sequence[float], top_k: int) -> float | None:
-    if not scores or len(scores) != len(labels):
-        return None
-    selected = sorted(range(len(scores)), key=lambda index: (-scores[index], index))[:top_k]
-    ideal = sorted(range(len(labels)), key=lambda index: (-labels[index], index))[:top_k]
-    predicted_gain = sum(
-        (2.0 ** max(labels[index], 0.0) - 1.0) / math.log2(rank + 2.0)
-        for rank, index in enumerate(selected)
-    )
-    ideal_gain = sum(
-        (2.0 ** max(labels[index], 0.0) - 1.0) / math.log2(rank + 2.0)
-        for rank, index in enumerate(ideal)
-    )
-    return predicted_gain / ideal_gain if ideal_gain > 0.0 else None
-
-
-def _utility_spread(scores: Sequence[float], labels: Sequence[float], top_k: int) -> float | None:
-    if not scores or len(scores) != len(labels):
-        return None
-    order = sorted(range(len(scores)), key=lambda index: (-scores[index], index))
-    count = min(top_k, len(order))
-    if count == 0:
-        return None
-    top = order[:count]
-    bottom = order[-count:]
-    return sum(labels[index] for index in top) / count - sum(labels[index] for index in bottom) / count
-
-
-def _label_window_metrics(scores: Sequence[Any], labels: Sequence[Any], top_k: int) -> dict[str, Any]:
-    pairs = [
-        (float(score), float(label))
-        for score, label in zip(scores, labels)
-        if _finite(score) and _finite(label)
-    ]
-    if not pairs:
-        return {"status": "INSUFFICIENT_DATA", "observations": 0}
-    finite_scores = [pair[0] for pair in pairs]
-    finite_labels = [pair[1] for pair in pairs]
-    rank_ic = _pearson_correlation(_average_ranks(finite_scores), _average_ranks(finite_labels))
-    brier = (
-        sum((score - label) ** 2 for score, label in pairs) / len(pairs)
-        if all(0.0 <= score <= 1.0 and label in {0.0, 1.0} for score, label in pairs)
-        else None
-    )
-    return {
-        "status": "OK",
-        "observations": len(pairs),
-        "pearson_ic": _pearson_correlation(finite_scores, finite_labels),
-        "rank_ic": rank_ic,
-        "ndcg_at_k": _ndcg_at_k(finite_scores, finite_labels, top_k),
-        "utility_spread": _utility_spread(finite_scores, finite_labels, top_k),
-        "mae": sum(abs(score - label) for score, label in pairs) / len(pairs),
-        "brier": brier,
+    required_base = {session_column, symbol_column}
+    missing_columns = sorted(
+        (required_base | set(raw_columns) | set(categorical_raw_columns)) -
+        set(reference_raw.columns) |
+        (required_base | set(raw_columns) | set(categorical_raw_columns)) -
+        set(current_raw.columns) |
+        (required_base | set(feature_columns)) - set(reference_features.columns) |
+        (required_base | set(feature_columns)) - set(current_features.columns) |
+        (required_base | set(prediction_columns) | {score_column}) -
+        set(reference_predictions.columns) |
+        (required_base | set(prediction_columns) | {score_column}) -
+        set(current_predictions.columns))
+    duplicate_count = int(current_raw.duplicated(
+        [session_column, symbol_column]).sum())
+    current_missing = current_raw[
+        list(set(raw_columns) & set(current_raw.columns))].isna().mean()
+    maximum_missing = float(current_missing.max()) if not current_missing.empty else 0.0
+    last_session_by_symbol = current_raw.groupby(symbol_column)[session_column].max()
+    stale_cutoff = current_window.end - spec.stale_session_tolerance
+    stale_symbols = sorted(last_session_by_symbol[
+        last_session_by_symbol < stale_cutoff].index.astype(str))
+    stale_rate = len(stale_symbols) / max(1, last_session_by_symbol.size)
+    hard_failure = bool(
+        missing_columns or duplicate_count or
+        maximum_missing >= spec.hard_missing_rate or
+        stale_rate >= spec.hard_missing_rate)
+    data_quality = {
+        "status": LayerStatus.HARD_FAILURE.value if hard_failure else LayerStatus.OK.value,
+        "missing_columns": missing_columns,
+        "duplicate_session_symbol_rows": duplicate_count,
+        "maximum_raw_missing_rate": maximum_missing,
+        "stale_symbols": stale_symbols,
+        "stale_symbol_rate": stale_rate,
+        "universe": _universe_summary(reference_raw, current_raw,
+                                      session_column, symbol_column),
     }
 
+    raw_summary = {column: continuous_drift(reference_raw[column], current_raw[column], spec)
+                   for column in raw_columns if column in reference_raw and column in current_raw}
+    raw_summary.update({
+        column: categorical_drift(reference_raw[column], current_raw[column])
+        for column in categorical_raw_columns
+        if column in reference_raw and column in current_raw
+    })
+    feature_summary = {
+        column: continuous_drift(reference_features[column], current_features[column], spec)
+        for column in feature_columns if column in reference_features and column in current_features
+    }
+    feature_joint = joint_drift(reference_features[list(feature_columns)].to_numpy(),
+                                current_features[list(feature_columns)].to_numpy(), spec)
+    prediction_summary = {
+        column: continuous_drift(reference_predictions[column],
+                                 current_predictions[column], spec)
+        for column in tuple(prediction_columns) + (score_column,)
+        if column in reference_predictions and column in current_predictions
+    }
+    prediction_summary["portfolio"] = {
+        "reference": _prediction_portfolio_summary(
+            reference_predictions, session_column, symbol_column, score_column, spec.top_k),
+        "current": _prediction_portfolio_summary(
+            current_predictions, session_column, symbol_column, score_column, spec.top_k),
+    }
 
-def compare_label_concept_drift(
-    reference_labels: Sequence[Any],
-    current_labels: Sequence[Any],
-    reference_scores: Sequence[Any],
-    current_scores: Sequence[Any],
-    *,
-    top_k: int = 20,
-    reference_session_ics: Sequence[Any] | None = None,
-    current_session_ics: Sequence[Any] | None = None,
-) -> dict[str, Any]:
-    if isinstance(top_k, bool) or top_k <= 0:
-        raise DriftArtifactValidationError("label top_k 必须为正")
-    if len(reference_labels) != len(reference_scores) or len(current_labels) != len(current_scores):
-        raise DriftArtifactValidationError("label/score reference/current 必须分别等长")
-    reference = _label_window_metrics(reference_scores, reference_labels, top_k)
-    current = _label_window_metrics(current_scores, current_labels, top_k)
-    session_metrics: dict[str, Any] = {}
-    for name, values in (("reference", reference_session_ics), ("current", current_session_ics)):
-        if values is None:
-            session_metrics[name] = {"status": "INSUFFICIENT_SESSIONS", "observations": 0, "icir": None}
-            continue
-        finite_values = [float(value) for value in values if _finite(value)]
-        if len(finite_values) < 2:
-            session_metrics[name] = {
-                "status": "INSUFFICIENT_SESSIONS",
-                "observations": len(finite_values),
-                "icir": None,
+    labels_ready = reference_labels is not None and current_labels is not None
+    label_status = LayerStatus.PENDING_LABELS
+    label_summary = None
+    concept_status = LayerStatus.PENDING_LABELS
+    concept_reference = concept_current = None
+    if labels_ready:
+        reference_labels = _window(reference_labels, reference_window, session_column)
+        current_labels = _window(current_labels, current_window, session_column)
+        requested_labels = tuple(dict.fromkeys((return_column, *label_columns)))
+        available_labels = tuple(
+            column for column in requested_labels
+            if column in reference_labels and column in current_labels)
+        if available_labels:
+            label_status = LayerStatus.OK
+            label_summary = {
+                column: continuous_drift(reference_labels[column],
+                                         current_labels[column], spec)
+                for column in available_labels
             }
+        reference_merged = reference_predictions.merge(
+            reference_labels, on=[session_column, symbol_column], how="inner",
+            suffixes=("", "_label"))
+        current_merged = current_predictions.merge(
+            current_labels, on=[session_column, symbol_column], how="inner",
+            suffixes=("", "_label"))
+        concept_reference = concept_metrics(
+            reference_merged, session_column=session_column, score_column=score_column,
+            return_column=return_column, utility_column=utility_column, top_k=spec.top_k)
+        concept_current = concept_metrics(
+            current_merged, session_column=session_column, score_column=score_column,
+            return_column=return_column, utility_column=utility_column, top_k=spec.top_k)
+        if (concept_reference.get("status") == LayerStatus.OK.value and
+                concept_current.get("status") == LayerStatus.OK.value):
+            concept_status = LayerStatus.OK
+    concept_summary = None if concept_reference is None else {
+        "reference": concept_reference,
+        "current": concept_current,
+        "pearson_ic_change": concept_current.get("pearson_ic", 0.0) -
+                             concept_reference.get("pearson_ic", 0.0),
+        "rank_ic_change": concept_current.get("rank_ic", 0.0) -
+                          concept_reference.get("rank_ic", 0.0),
+    }
+
+    embedding_status = LayerStatus.UNAVAILABLE
+    embedding_summary = None
+    if reference_embeddings is not None and current_embeddings is not None:
+        if (reference_embedding_spec is None or current_embedding_spec is None or
+                reference_embedding_spec != current_embedding_spec):
+            embedding_status = LayerStatus.INCOMPATIBLE
+        else:
+            embedding_status = LayerStatus.OK
+            embedding_summary = joint_drift(reference_embeddings, current_embeddings, spec)
+            embedding_summary["diagnostic_only"] = True
+            if (reference_anchor_embeddings is not None and
+                    current_anchor_embeddings is not None):
+                if fixed_anchor_sha256 is None or len(fixed_anchor_sha256) != 64:
+                    raise ValueError("CKA 必须冻结 fixed_anchor_sha256")
+                embedding_summary["fixed_anchor_sha256"] = fixed_anchor_sha256
+                embedding_summary["linear_cka"] = linear_cka(
+                    reference_anchor_embeddings, current_anchor_embeddings)
+
+    p_values, p_columns = [], []
+    for column, summary in feature_summary.items():
+        if summary.get("status") != LayerStatus.OK.value:
             continue
-        mean = sum(finite_values) / len(finite_values)
-        variance = sum((value - mean) ** 2 for value in finite_values) / (len(finite_values) - 1)
-        session_metrics[name] = {
-            "status": "OK",
-            "observations": len(finite_values),
-            "mean_ic": mean,
-            "icir": mean / math.sqrt(variance) if variance > 0.0 else None,
-        }
-    result: dict[str, Any] = {
-        "status": "OK" if reference["status"] == "OK" and current["status"] == "OK" else "INSUFFICIENT_DATA",
-        "top_k": top_k,
-        "reference": reference,
-        "current": current,
-        "session_ic": session_metrics,
-        "delta": {
-            metric: current[metric] - reference[metric]
-            if _finite(current.get(metric)) and _finite(reference.get(metric))
-            else None
-            for metric in ("pearson_ic", "rank_ic", "ndcg_at_k", "utility_spread", "mae", "brier")
-        },
-    }
-    result["artifact_hash"] = _sha256_text(_canonical_json(result))
-    return result
+        current_daily = current_features.groupby(session_column)[column].mean().dropna()
+        if current_daily.size >= spec.minimum_sessions:
+            differences = current_daily.to_numpy() - summary["reference"]["mean"]
+            bootstrap = stationary_bootstrap_mean(
+                differences, replicates=spec.bootstrap_replicates,
+                mean_block_length=spec.mean_block_length, seed=spec.bootstrap_seed)
+            summary["stationary_bootstrap"] = _json_value(bootstrap)
+            p_values.append(bootstrap.p_value)
+            p_columns.append(column)
+    if p_values:
+        bh = benjamini_hochberg(p_values)
+        by = benjamini_yekutieli(p_values)
+        for index, column in enumerate(p_columns):
+            feature_summary[column]["bh_q"] = float(bh[index])
+            feature_summary[column]["by_q"] = float(by[index])
 
-
-def _embedding_covariance(rows: Sequence[Sequence[float]], dimension: int) -> tuple[list[float], list[list[float]]]:
-    centroid = [sum(row[index] for row in rows) / len(rows) for index in range(dimension)]
-    covariance = [
-        [
-            sum((row[left] - centroid[left]) * (row[right] - centroid[right]) for row in rows)
-            / len(rows)
-            for right in range(dimension)
-        ]
-        for left in range(dimension)
-    ]
-    return centroid, covariance
-
-
-def compare_embedding_drift(
-    reference: Sequence[Sequence[Any]],
-    current: Sequence[Sequence[Any]],
-    *,
-    reference_metadata: Mapping[str, Any],
-    current_metadata: Mapping[str, Any],
-    mmd_bandwidth: float,
-) -> dict[str, Any]:
-    if not _finite(mmd_bandwidth) or float(mmd_bandwidth) <= 0.0:
-        raise DriftArtifactValidationError("embedding MMD bandwidth 必须为正有限值")
-    metadata_keys = ("checkpoint_id", "layer", "pooling", "dimension", "anchor_sha256")
-    reference_view = {key: reference_metadata.get(key) for key in metadata_keys}
-    current_view = {key: current_metadata.get(key) for key in metadata_keys}
-    incompatible = [
-        key for key in metadata_keys if reference_view[key] != current_view[key]
-    ]
-    if not _digest_like(reference_view.get("anchor_sha256")) or not _digest_like(current_view.get("anchor_sha256")):
-        incompatible.append("anchor_sha256")
-    if incompatible:
-        return {
-            "status": "INCOMPATIBLE",
-            "diagnostic_only": True,
-            "incompatibility_reasons": sorted(set(incompatible)),
-            "reference_metadata": reference_view,
-            "current_metadata": current_view,
-        }
-    dimension = reference_view["dimension"]
-    if isinstance(dimension, bool) or not isinstance(dimension, int) or dimension <= 0:
-        raise DriftArtifactValidationError("embedding dimension 必须为正整数")
-    reference_rows = [
-        tuple(float(value) if _finite(value) else math.nan for value in row)
-        for row in reference
-    ]
-    current_rows = [
-        tuple(float(value) if _finite(value) else math.nan for value in row)
-        for row in current
-    ]
-    if any(len(row) != dimension for row in reference_rows + current_rows):
-        raise DriftArtifactValidationError("embedding 行维度与 metadata 不一致")
-    reference_rows = [row for row in reference_rows if all(math.isfinite(value) for value in row)]
-    current_rows = [row for row in current_rows if all(math.isfinite(value) for value in row)]
-    if not reference_rows or not current_rows:
-        return {
-            "status": "INSUFFICIENT_DATA",
-            "diagnostic_only": True,
-            "reference_metadata": reference_view,
-            "current_metadata": current_view,
-            "reference_count": len(reference_rows),
-            "current_count": len(current_rows),
-        }
-    reference_centroid, reference_covariance = _embedding_covariance(reference_rows, dimension)
-    current_centroid, current_covariance = _embedding_covariance(current_rows, dimension)
-    covariance_difference = [
-        [current_covariance[left][right] - reference_covariance[left][right] for right in range(dimension)]
-        for left in range(dimension)
-    ]
-    covariance_distance = math.sqrt(
-        sum(value * value for row in covariance_difference for value in row)
-    )
-    reference_eigenvalues = _jacobi_eigenvalues(reference_covariance)
-    current_eigenvalues = _jacobi_eigenvalues(current_covariance)
-    mmd = compare_rbf_mmd(
-        reference_rows,
-        current_rows,
-        bandwidth=mmd_bandwidth,
-    )
-    result: dict[str, Any] = {
-        "status": "OK",
-        "diagnostic_only": True,
-        "reference_metadata": reference_view,
-        "current_metadata": current_view,
-        "reference_count": len(reference_rows),
-        "current_count": len(current_rows),
-        "reference_centroid": reference_centroid,
-        "current_centroid": current_centroid,
-        "centroid_distance": math.sqrt(
-            sum((current_centroid[index] - reference_centroid[index]) ** 2 for index in range(dimension))
-        ),
-        "reference_covariance": reference_covariance,
-        "current_covariance": current_covariance,
-        "covariance_frobenius_distance": covariance_distance,
-        "reference_eigenvalues": reference_eigenvalues,
-        "current_eigenvalues": current_eigenvalues,
-        "reference_effective_rank": _effective_rank(reference_eigenvalues),
-        "current_effective_rank": _effective_rank(current_eigenvalues),
-        "mmd": mmd,
-    }
-    result["artifact_hash"] = _sha256_text(_canonical_json(result))
-    return result
-
-
-def _signal_state(summary: Mapping[str, Any], spec: DriftMonitorSpecV1) -> tuple[str, list[str]]:
-    state = "INFO"
-    reasons: list[str] = []
-    for name, values in summary.items():
-        psi = values.get("psi")
-        ks_d = values.get("ks_d")
-        if spec.psi_critical_threshold is not None and psi is not None and psi >= spec.psi_critical_threshold:
-            state = "CRITICAL"
-            reasons.append(f"{name}:PSI_CRITICAL")
-        elif spec.psi_warn_threshold is not None and psi is not None and psi >= spec.psi_warn_threshold:
-            if state != "CRITICAL":
-                state = "WARN"
-            reasons.append(f"{name}:PSI_WARN")
-        if spec.ks_critical_threshold is not None and ks_d is not None and ks_d >= spec.ks_critical_threshold:
-            state = "CRITICAL"
-            reasons.append(f"{name}:KS_CRITICAL")
-        elif spec.ks_warn_threshold is not None and ks_d is not None and ks_d >= spec.ks_warn_threshold:
-            if state != "CRITICAL":
-                state = "WARN"
-            reasons.append(f"{name}:KS_WARN")
-    return state, sorted(set(reasons))
-
-
-def _concept_signal(summary: Mapping[str, Any] | None) -> bool:
-    if not isinstance(summary, Mapping) or summary.get("status") != "OK":
-        return False
-    reference = summary.get("reference")
-    current = summary.get("current")
-    if not isinstance(reference, Mapping) or not isinstance(current, Mapping):
-        return False
-    deteriorations = 0
-    for metric in ("pearson_ic", "rank_ic", "ndcg_at_k", "utility_spread"):
-        if _finite(reference.get(metric)) and _finite(current.get(metric)):
-            deteriorations += int(float(current[metric]) < float(reference[metric]))
-    for metric in ("mae", "brier"):
-        if _finite(reference.get(metric)) and _finite(current.get(metric)):
-            deteriorations += int(float(current[metric]) > float(reference[metric]))
-    return deteriorations >= 2
-
-
-def transition_alert_state(
-    previous_state: str,
-    observed_state: str,
-    persistence_count: int,
-    persistence_required: int,
-    hard_failure: bool,
-    *,
-    marginal_signal: bool | None = None,
-    concept_signal: bool | None = None,
-) -> tuple[str, list[str]]:
-    """Apply the observation-only alert transition contract.
-
-    When ``marginal_signal`` and ``concept_signal`` are supplied, a non-hard
-    ``CRITICAL`` observation is promoted only when both signals are present.
-    Omitting them preserves the basic INFO/WARN/CRITICAL transition contract.
-    """
-    valid_states = {"INFO", "WARN", "CRITICAL"}
-    if previous_state not in valid_states or observed_state not in valid_states:
-        raise DriftArtifactValidationError("alert state 必须为 INFO/WARN/CRITICAL")
-    if isinstance(persistence_count, bool) or persistence_count < 0:
-        raise DriftArtifactValidationError("persistence_count 不得为负")
-    if isinstance(persistence_required, bool) or persistence_required <= 0:
-        raise DriftArtifactValidationError("persistence_required 必须为正")
-    if not isinstance(hard_failure, bool):
-        raise DriftArtifactValidationError("hard_failure 必须为布尔值")
-    if marginal_signal is not None and not isinstance(marginal_signal, bool):
-        raise DriftArtifactValidationError("marginal_signal 必须为布尔值")
-    if concept_signal is not None and not isinstance(concept_signal, bool):
-        raise DriftArtifactValidationError("concept_signal 必须为布尔值")
-    reasons: list[str] = []
+    reasons = []
     if hard_failure:
-        return "CRITICAL", ["HARD_FAILURE"]
-    effective_observed = observed_state
-    if (
-        observed_state == "CRITICAL"
-        and marginal_signal is not None
-        and concept_signal is not None
-        and not (marginal_signal and concept_signal)
-    ):
-        effective_observed = "WARN"
-        reasons.append("CRITICAL_REQUIRES_JOINT_SIGNAL")
-    if effective_observed == "INFO":
-        if previous_state != "INFO":
-            reasons.append("RECOVERED")
-        return "INFO", sorted(set(reasons))
-    if persistence_count < persistence_required:
-        reasons.append("PERSISTENCE_PENDING")
-        return "INFO", sorted(set(reasons))
-    return effective_observed, sorted(set(reasons))
+        reasons.append("DATA_QUALITY_HARD_FAILURE")
+    marginal_signal = False
+    if spec.marginal_warning_psi is not None:
+        marginal_signal = any(
+            item.get("psi", 0.0) >= spec.marginal_warning_psi
+            for item in feature_summary.values())
+        if marginal_signal:
+            reasons.append("FEATURE_MARGINAL_DRIFT")
+    joint_signal = (spec.joint_warning_mmd is not None and
+                    feature_joint.get("mmd_rbf", 0.0) >= spec.joint_warning_mmd)
+    if joint_signal:
+        reasons.append("FEATURE_JOINT_DRIFT")
+    concept_signal = False
+    if (concept_status is LayerStatus.OK and spec.concept_warning_ic_drop is not None and
+            concept_summary is not None):
+        concept_signal = concept_summary["pearson_ic_change"] <= -spec.concept_warning_ic_drop
+        if concept_signal:
+            reasons.append("CONCEPT_IC_DEGRADATION")
+    machine = alert_machine or DriftAlertMachine(spec)
+    state, persistence, reason_tuple = machine.update(
+        hard_failure=hard_failure, marginal_signal=marginal_signal,
+        joint_signal=joint_signal, concept_signal=concept_signal, reasons=reasons)
 
-
-def build_drift_artifact(
-    spec: DriftMonitorSpecV1,
-    *,
-    source_snapshot_set_sha256: str,
-    raw_reference: Mapping[str, Sequence[Any]] | None = None,
-    raw_current: Mapping[str, Sequence[Any]] | None = None,
-    raw_quality_reference: RawDataQualityWindow | None = None,
-    raw_quality_current: RawDataQualityWindow | None = None,
-    feature_reference: Mapping[str, Sequence[Any]] | None = None,
-    feature_current: Mapping[str, Sequence[Any]] | None = None,
-    correlation_reference: Mapping[str, Sequence[Any]] | None = None,
-    correlation_current: Mapping[str, Sequence[Any]] | None = None,
-    mmd_reference: Sequence[Sequence[Any]] | None = None,
-    mmd_current: Sequence[Sequence[Any]] | None = None,
-    mmd_bandwidth: float | None = None,
-    mmd_projection: Sequence[int] | None = None,
-    embedding_reference: Sequence[Sequence[Any]] | None = None,
-    embedding_current: Sequence[Sequence[Any]] | None = None,
-    embedding_reference_metadata: Mapping[str, Any] | None = None,
-    embedding_current_metadata: Mapping[str, Any] | None = None,
-    prediction_reference: Mapping[str, Sequence[Any]] | None = None,
-    prediction_current: Mapping[str, Sequence[Any]] | None = None,
-    prediction_ranking_reference: Mapping[str, Any] | None = None,
-    prediction_ranking_current: Mapping[str, Any] | None = None,
-    prediction_confidence_reference: Sequence[Any] | None = None,
-    prediction_confidence_current: Sequence[Any] | None = None,
-    prediction_interval_width_reference: Sequence[Any] | None = None,
-    prediction_interval_width_current: Sequence[Any] | None = None,
-    label_reference: Mapping[str, Sequence[Any]] | None = None,
-    label_current: Mapping[str, Sequence[Any]] | None = None,
-    labels_mature: bool = False,
-    label_available_at_utc: str | None = None,
-    label_scores_reference: Sequence[Any] | None = None,
-    label_scores_current: Sequence[Any] | None = None,
-    label_session_ics_reference: Sequence[Any] | None = None,
-    label_session_ics_current: Sequence[Any] | None = None,
-    persistence_count: int = 0,
-    bootstrap_results: Mapping[str, Mapping[str, Any]] | None = None,
-    fdr_results: Mapping[str, Mapping[str, Any]] | None = None,
-) -> str:
-    spec.validate()
-    if not _digest_like(source_snapshot_set_sha256):
-        raise DriftArtifactValidationError("source_snapshot_set_sha256 格式无效")
-    if not isinstance(labels_mature, bool):
-        raise DriftArtifactValidationError("labels_mature 必须是布尔值")
-    if isinstance(persistence_count, bool) or persistence_count < 0:
-        raise DriftArtifactValidationError("persistence_count 不得为负")
-    if labels_mature and not _valid_utc_timestamp(label_available_at_utc):
-        raise DriftArtifactValidationError("成熟标签必须提供 label_available_at_utc")
-    if labels_mature and _utc_datetime(label_available_at_utc) > _utc_datetime(spec.available_at_utc):
-        raise DriftArtifactValidationError("label_available_at_utc 晚于 artifact available_at_utc")
-    raw_summary = _family_summary(raw_reference, raw_current, spec)
-    raw_quality = (
-        compare_raw_data_quality(raw_quality_reference, raw_quality_current)
-        if raw_quality_reference is not None and raw_quality_current is not None
-        else "UNAVAILABLE"
-    )
-    if isinstance(raw_quality, dict) and _utc_datetime(raw_quality["available_at_utc"]["current"]) > _utc_datetime(spec.available_at_utc):
-        raw_quality["status"] = "HARD_FAILURE"
-        raw_quality["hard_failures"] = sorted(set(raw_quality["hard_failures"] + ["AVAILABLE_AT_AFTER_ARTIFACT"]))
-    feature_summary = _family_summary(feature_reference, feature_current, spec)
-    correlation_summary = (
-        compare_correlation_drift(correlation_reference, correlation_current)
-        if correlation_reference is not None and correlation_current is not None
-        else "UNAVAILABLE"
-    )
-    mmd_summary = (
-        compare_rbf_mmd(
-            mmd_reference,
-            mmd_current,
-            bandwidth=mmd_bandwidth,
-            projection=mmd_projection,
-        )
-        if mmd_reference is not None and mmd_current is not None and mmd_bandwidth is not None
-        else "UNAVAILABLE"
-    )
-    embedding_summary: dict[str, Any] | str = "INCOMPATIBLE"
-    if embedding_reference is not None or embedding_current is not None:
-        if embedding_reference is None or embedding_current is None:
-            raise DriftArtifactValidationError("embedding reference/current 必须同时提供")
-        default_embedding_metadata = {
-            "checkpoint_id": spec.embedding_checkpoint_id,
-            "layer": spec.embedding_layer,
-            "pooling": spec.embedding_pooling,
-            "dimension": spec.embedding_dimension,
-            "anchor_sha256": spec.embedding_anchor_sha256,
-        }
-        embedding_summary = compare_embedding_drift(
-            embedding_reference,
-            embedding_current,
-            reference_metadata=embedding_reference_metadata or default_embedding_metadata,
-            current_metadata=embedding_current_metadata or default_embedding_metadata,
-            mmd_bandwidth=spec.embedding_mmd_bandwidth,
-        )
-    prediction_summary = _family_summary(prediction_reference, prediction_current, spec)
-    prediction_relation_summary = (
-        compare_prediction_drift(
-            prediction_reference or {},
-            prediction_current or {},
-            bin_edges=spec.psi_bin_edges,
-            quantiles=spec.quantiles,
-            ranking_reference=prediction_ranking_reference,
-            ranking_current=prediction_ranking_current,
-            confidence_reference=prediction_confidence_reference,
-            confidence_current=prediction_confidence_current,
-            interval_width_reference=prediction_interval_width_reference,
-            interval_width_current=prediction_interval_width_current,
-            top_k=spec.prediction_top_k,
-        )
-        if any(value is not None for value in (
-            prediction_reference,
-            prediction_current,
-            prediction_ranking_reference,
-            prediction_ranking_current,
-            prediction_confidence_reference,
-            prediction_confidence_current,
-            prediction_interval_width_reference,
-            prediction_interval_width_current,
-        ))
-        else "UNAVAILABLE"
-    )
-    label_summary = _family_summary(label_reference, label_current, spec) if labels_mature else None
-    label_concept_summary = (
-        compare_label_concept_drift(
-            next(iter(label_reference.values()), ()) if label_reference else (),
-            next(iter(label_current.values()), ()) if label_current else (),
-            label_scores_reference or (),
-            label_scores_current or (),
-            top_k=spec.prediction_top_k,
-            reference_session_ics=label_session_ics_reference,
-            current_session_ics=label_session_ics_current,
-        )
-        if labels_mature and label_scores_reference is not None and label_scores_current is not None
-        and label_reference is not None and label_current is not None
-        else None
-    )
-    states = [_signal_state(summary, spec) for summary in (
-        raw_summary,
-        feature_summary,
-        prediction_summary,
-        label_summary or {},
-    )]
-    signal_state = "INFO"
-    reasons: list[str] = []
-    for state, state_reasons in states:
-        if state == "CRITICAL":
-            signal_state = "CRITICAL"
-        elif state == "WARN" and signal_state != "CRITICAL":
-            signal_state = "WARN"
-        reasons.extend(state_reasons)
-    raw_hard_failure = isinstance(raw_quality, dict) and raw_quality["status"] == "HARD_FAILURE"
-    raw_warning = isinstance(raw_quality, dict) and raw_quality["status"] == "WARN"
-    if raw_hard_failure:
-        signal_state = "CRITICAL"
-        reasons.append("RAW_DATA_HARD_FAILURE")
-    elif raw_warning and signal_state == "INFO":
-        signal_state = "WARN"
-        reasons.append("RAW_DATA_WARNING")
-    alert_state, transition_reasons = transition_alert_state(
-        "INFO",
-        signal_state,
-        persistence_count,
-        spec.persistence_required,
-        raw_hard_failure,
-        marginal_signal=signal_state != "INFO",
-        concept_signal=_concept_signal(label_concept_summary),
-    )
-    reasons.extend(transition_reasons)
-    payload: dict[str, Any] = {
-        "schema_version": 1,
-        "role": "drift_artifact_v1",
-        "spec_sha256": spec.spec_sha256,
-        "reference_mode": spec.reference_mode,
-        "reference_window_id": spec.reference_window_id,
-        "current_window_id": spec.current_window_id,
-        "available_at_utc": spec.available_at_utc,
-        "source_snapshot_set_sha256": source_snapshot_set_sha256,
-        "data_status": (
-            raw_quality["status"]
-            if isinstance(raw_quality, dict) and raw_quality["status"] != "OK"
-            else "OK" if raw_summary or feature_summary or prediction_summary
-            else "UNAVAILABLE"
-        ),
-        "raw_data_quality": raw_quality,
-        "raw_data_quality_summary_sha256": (
-            _summary_sha256(raw_quality) if isinstance(raw_quality, dict) else "UNAVAILABLE"
-        ),
-        "raw_drift": raw_summary,
-        "raw_drift_summary_sha256": _summary_sha256(raw_summary),
-        "feature_drift": feature_summary,
-        "feature_drift_summary_sha256": _summary_sha256(feature_summary),
-        "correlation_drift": correlation_summary,
-        "correlation_drift_summary_sha256": (
-            _summary_sha256(correlation_summary)
-            if isinstance(correlation_summary, dict)
-            else "UNAVAILABLE"
-        ),
-        "mmd_drift": mmd_summary,
-        "mmd_drift_summary_sha256": (
-            _summary_sha256(mmd_summary) if isinstance(mmd_summary, dict) else "UNAVAILABLE"
-        ),
-        "prediction_drift": prediction_summary,
-        "prediction_drift_summary_sha256": _summary_sha256(prediction_summary),
-        "prediction_relation_drift": prediction_relation_summary,
-        "prediction_relation_drift_summary_sha256": (
-            _summary_sha256(prediction_relation_summary)
-            if isinstance(prediction_relation_summary, dict)
-            else "UNAVAILABLE"
-        ),
-        "label_drift": label_summary if label_summary is not None else "PENDING_LABELS",
-        "label_drift_summary_sha256": (
-            _summary_sha256(label_summary) if label_summary is not None else "PENDING_LABELS"
-        ),
-        "concept_performance": (
-            label_concept_summary
-            if label_concept_summary is not None
-            else "PENDING_LABELS" if not labels_mature else "INSUFFICIENT_DATA"
-        ),
-        "concept_performance_summary_sha256": (
-            _summary_sha256(label_concept_summary)
-            if label_concept_summary is not None
-            else "PENDING_LABELS" if not labels_mature else "INSUFFICIENT_DATA"
-        ),
-        "embedding_drift": embedding_summary,
-        "embedding_drift_summary_sha256": (
-            _summary_sha256(embedding_summary)
-            if isinstance(embedding_summary, dict)
-            else embedding_summary
-        ),
-        "diagnostic_only": True,
-        "alert_state": alert_state,
-        "alert_reasons": sorted(set(reasons)),
-        "persistence_count": persistence_count,
-        "retraining_review_recommended": alert_state == "CRITICAL",
-        "label_available_at_utc": label_available_at_utc if labels_mature else None,
-        "inference": {
-            "bootstrap": dict(sorted((bootstrap_results or {}).items())),
-            "fdr": dict(sorted((fdr_results or {}).items())),
-        },
+    normalized_hashes = dict(artifact_hashes or {
+        f"source_{index}": value
+        for index, value in enumerate(source_snapshot_hashes)
+    })
+    if any(len(value) != 64 or any(character not in "0123456789abcdef"
+                                   for character in value)
+           for value in normalized_hashes.values()):
+        raise ValueError("artifact hashes 必须是小写 SHA-256")
+    source_frames = [
+        reference_raw, current_raw, reference_features, current_features,
+        reference_predictions, current_predictions,
+    ]
+    if labels_ready:
+        source_frames.extend((reference_labels, current_labels))
+    source_payload = {
+        "artifact_hashes": normalized_hashes,
+        "reference_window": _json_value(reference_window),
+        "current_window": _json_value(current_window),
+        "frames": [_frame_hash(frame) for frame in source_frames],
+        "embeddings": [] if (reference_embeddings is None or
+                              current_embeddings is None) else [
+            _array_hash(reference_embeddings), _array_hash(current_embeddings)],
+        "fixed_anchor_sha256": fixed_anchor_sha256,
+        "anchor_embeddings": [] if (
+            reference_anchor_embeddings is None or
+            current_anchor_embeddings is None) else [
+                _array_hash(reference_anchor_embeddings),
+                _array_hash(current_anchor_embeddings),
+            ],
     }
-    unsigned = _canonical_json(payload)
-    report_sha256 = _sha256_text(unsigned)
-    return unsigned[:-1] + ',"report_sha256":"' + report_sha256 + '"}'
-
-
-def validate_drift_artifact(value: str | Path | Mapping[str, Any]) -> Mapping[str, Any]:
-    if isinstance(value, Path):
-        try:
-            raw = Path(value).read_text(encoding="utf-8")
-        except OSError as exc:
-            raise DriftArtifactValidationError("无法读取 DriftArtifact") from exc
-    elif isinstance(value, str):
-        if value.lstrip().startswith(("{", "[")):
-            raw = value
-        else:
-            try:
-                candidate = Path(value)
-                raw = candidate.read_text(encoding="utf-8") if candidate.is_file() else value
-            except OSError:
-                raw = value
-    else:
-        raw = json.dumps(
-            value,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            allow_nan=False,
-        )
-    try:
-        parsed = json.loads(raw, parse_constant=lambda token: (_ for _ in ()).throw(ValueError(token)))
-    except (TypeError, ValueError, json.JSONDecodeError) as exc:
-        raise DriftArtifactValidationError("DriftArtifact JSON 无效") from exc
-    if not isinstance(parsed, dict) or parsed.get("schema_version") != 1 or parsed.get("role") != "drift_artifact_v1":
-        raise DriftArtifactValidationError("DriftArtifact schema 不受支持")
-    report_sha256 = parsed.get("report_sha256")
-    if not _digest_like(report_sha256):
-        raise DriftArtifactValidationError("DriftArtifact report_sha256 格式无效")
-    marker = ',"report_sha256":"'
-    marker_start = raw.rfind(marker)
-    if marker_start < 0 or not raw.endswith("}"):
-        raise DriftArtifactValidationError("DriftArtifact report hash 尾部无效")
-    unsigned = raw[:marker_start] + "}"
-    if _sha256_text(unsigned) != report_sha256:
-        raise DriftArtifactValidationError("DriftArtifact report SHA-256 校验失败")
-    if parsed.get("diagnostic_only") is not True:
-        raise DriftArtifactValidationError("DriftArtifact 必须是 diagnostic_only")
-    if parsed.get("data_status") not in {"OK", "WARN", "HARD_FAILURE", "UNAVAILABLE"}:
-        raise DriftArtifactValidationError("DriftArtifact data_status 无效")
-    if not _digest_like(parsed.get("spec_sha256")) or not _digest_like(
-        parsed.get("source_snapshot_set_sha256")
-    ):
-        raise DriftArtifactValidationError("DriftArtifact spec/source hash 格式无效")
-    if not _valid_utc_timestamp(parsed.get("available_at_utc")):
-        raise DriftArtifactValidationError("DriftArtifact available_at_utc 无效")
-    raw_quality = parsed.get("raw_data_quality")
-    if raw_quality is not None:
-        raw_quality_hash = parsed.get("raw_data_quality_summary_sha256")
-        if raw_quality == "UNAVAILABLE":
-            if raw_quality_hash != "UNAVAILABLE":
-                raise DriftArtifactValidationError("DriftArtifact raw quality hash 无效")
-        elif isinstance(raw_quality, dict):
-            if not _digest_like(raw_quality_hash) or _summary_sha256(raw_quality) != raw_quality_hash:
-                raise DriftArtifactValidationError("DriftArtifact raw quality hash 校验失败")
-            if raw_quality.get("status") not in {"OK", "WARN", "HARD_FAILURE"}:
-                raise DriftArtifactValidationError("DriftArtifact raw quality status 无效")
-        else:
-            raise DriftArtifactValidationError("DriftArtifact raw_data_quality 无效")
-    if not isinstance(parsed.get("inference", {}), dict):
-        raise DriftArtifactValidationError("DriftArtifact inference 必须是对象")
-    for relationship in ("correlation", "mmd", "prediction_relation", "embedding"):
-        summary = parsed.get(f"{relationship}_drift")
-        summary_hash = parsed.get(f"{relationship}_drift_summary_sha256")
-        if summary is None:
-            continue
-        if isinstance(summary, str) and summary in {"UNAVAILABLE", "INCOMPATIBLE"}:
-            if summary_hash != summary:
-                raise DriftArtifactValidationError(f"DriftArtifact {relationship} hash 无效")
-        elif isinstance(summary, dict):
-            if not _digest_like(summary_hash) or _summary_sha256(summary) != summary_hash:
-                raise DriftArtifactValidationError(f"DriftArtifact {relationship} summary hash 校验失败")
-            if relationship == "embedding":
-                if summary.get("diagnostic_only") is not True:
-                    raise DriftArtifactValidationError("DriftArtifact embedding 必须是 diagnostic_only")
-                if summary.get("status") not in {"OK", "INSUFFICIENT_DATA", "INCOMPATIBLE"}:
-                    raise DriftArtifactValidationError("DriftArtifact embedding status 无效")
-        else:
-            raise DriftArtifactValidationError(f"DriftArtifact {relationship} summary 无效")
-    for family in ("raw", "feature", "prediction"):
-        summary = parsed.get(f"{family}_drift")
-        summary_hash = parsed.get(f"{family}_drift_summary_sha256")
-        if not isinstance(summary, dict) or not _digest_like(summary_hash):
-            raise DriftArtifactValidationError(f"DriftArtifact {family} summary 无效")
-        if _summary_sha256(summary) != summary_hash:
-            raise DriftArtifactValidationError(f"DriftArtifact {family} summary hash 校验失败")
-    label_summary = parsed.get("label_drift")
-    label_summary_hash = parsed.get("label_drift_summary_sha256")
-    concept_summary = parsed.get("concept_performance")
-    concept_summary_hash = parsed.get("concept_performance_summary_sha256")
-    if label_summary == "PENDING_LABELS":
-        if (label_summary_hash != "PENDING_LABELS" or concept_summary != "PENDING_LABELS" or
-                concept_summary_hash != "PENDING_LABELS"):
-            raise DriftArtifactValidationError("标签未成熟时 label/concept summary 必须 pending")
-    elif isinstance(label_summary, dict):
-        if not _digest_like(label_summary_hash) or _summary_sha256(label_summary) != label_summary_hash:
-            raise DriftArtifactValidationError("DriftArtifact label summary hash 校验失败")
-    else:
-        raise DriftArtifactValidationError("DriftArtifact label_drift 无效")
-    if concept_summary == "PENDING_LABELS":
-        if concept_summary_hash != "PENDING_LABELS":
-            raise DriftArtifactValidationError("concept summary pending hash 无效")
-    elif concept_summary == "INSUFFICIENT_DATA":
-        if concept_summary_hash != "INSUFFICIENT_DATA":
-            raise DriftArtifactValidationError("concept summary insufficient hash 无效")
-    elif isinstance(concept_summary, dict):
-        if (not _digest_like(concept_summary_hash) or
-                _summary_sha256(concept_summary) != concept_summary_hash):
-            raise DriftArtifactValidationError("concept summary hash 校验失败")
-    else:
-        raise DriftArtifactValidationError("concept_performance summary 无效")
-    if parsed.get("alert_state") not in {"INFO", "WARN", "CRITICAL"}:
-        raise DriftArtifactValidationError("DriftArtifact alert_state 无效")
-    return MappingProxyType(dict(parsed))
+    source_sha = _sha256(source_payload)
+    payload = {
+        "schema_version": 1,
+        "report_version": spec.report_version,
+        "monitor_spec_sha256": spec.sha256,
+        "reference_window": _json_value(reference_window),
+        "current_window": _json_value(current_window),
+        "data_quality": data_quality,
+        "raw_drift": raw_summary,
+        "feature_drift": feature_summary,
+        "feature_joint_drift": feature_joint,
+        "prediction_drift": prediction_summary,
+        "label_status": label_status.value,
+        "label_drift": label_summary,
+        "concept_status": concept_status.value,
+        "concept_performance": concept_summary,
+        "embedding_status": embedding_status.value,
+        "embedding_drift": embedding_summary,
+        "alert_state": state.value,
+        "alert_reasons": reason_tuple,
+        "persistence_count": persistence,
+        "retraining_review_recommended": state is AlertState.CRITICAL,
+        "artifact_hashes": normalized_hashes,
+        "source_snapshot_set_sha256": source_sha,
+    }
+    report_sha = _sha256(payload)
+    return DriftReport(
+        schema_version=1,
+        report_version=spec.report_version,
+        monitor_spec_sha256=spec.sha256,
+        reference_window=reference_window,
+        current_window=current_window,
+        data_quality=_freeze(data_quality),
+        raw_drift=_freeze(raw_summary),
+        feature_drift=_freeze(feature_summary),
+        feature_joint_drift=_freeze(feature_joint),
+        prediction_drift=_freeze(prediction_summary),
+        label_status=label_status,
+        label_drift=_freeze(label_summary),
+        concept_status=concept_status,
+        concept_performance=_freeze(concept_summary),
+        embedding_status=embedding_status,
+        embedding_drift=_freeze(embedding_summary),
+        alert_state=state,
+        alert_reasons=reason_tuple,
+        persistence_count=persistence,
+        retraining_review_recommended=state is AlertState.CRITICAL,
+        artifact_hashes=_freeze(normalized_hashes),
+        source_snapshot_set_sha256=source_sha,
+        report_sha256=report_sha,
+    )

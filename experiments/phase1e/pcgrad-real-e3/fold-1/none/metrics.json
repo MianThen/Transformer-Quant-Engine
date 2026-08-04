@@ -1,0 +1,65 @@
+{
+  "train_loss": [
+    0.18482854962348938,
+    0.17944449047365832,
+    0.17825116149135053
+  ],
+  "multitask_weighting_mode": "fixed",
+  "loss_weight_diagnostics": [],
+  "gradient_optimization_mode": "none",
+  "gradient_optimization_hypothesis_id": null,
+  "gradient_optimization_spec_sha256": null,
+  "gradient_mechanism_diagnostics": [],
+  "gradient_conflict_report_sha256": null,
+  "validation_loss": 0.1839313166482108,
+  "test_loss": 0.18364745668239063,
+  "validation_ndcg_at_k": 0.469509029627871,
+  "test_ndcg_at_k": 0.4938876874060365,
+  "validation_cross_sections": 126,
+  "test_cross_sections": 126,
+  "validation_ranking": {
+    "cross_sections": 126,
+    "transition_count": 125,
+    "ndcg_at_cutoff": 0.469509029627871,
+    "rank_ic": 0.040754039324505255,
+    "precision_at_cutoff": 0.176984126984127,
+    "top_k_overlap": 0.87,
+    "top_k_turnover": 0.13,
+    "top_bottom_utility_spread": -0.0008436516787263656,
+    "head_metrics": {
+      "return_mae": 0.05870610103011131,
+      "direction_brier": 0.22985440492630005,
+      "volatility_mae": 0.02047094888985157,
+      "interval_coverage": 0.5096052353810429,
+      "interval_width": 0.07972178608179092
+    }
+  },
+  "test_ranking": {
+    "cross_sections": 126,
+    "transition_count": 125,
+    "ndcg_at_cutoff": 0.4938876874060365,
+    "rank_ic": 0.08537006627256385,
+    "precision_at_cutoff": 0.1658730158730159,
+    "top_k_overlap": 0.8635999999999999,
+    "top_k_turnover": 0.13640000000000008,
+    "top_bottom_utility_spread": 0.005781955203755865,
+    "head_metrics": {
+      "return_mae": 0.060246262699365616,
+      "direction_brier": 0.2324562668800354,
+      "volatility_mae": 0.019798563793301582,
+      "interval_coverage": 0.4984839734334392,
+      "interval_width": 0.08289673924446106
+    }
+  },
+  "train_samples": 58689,
+  "validation_samples": 14211,
+  "test_samples": 13852,
+  "split": {
+    "train_first": 1635318000000000000,
+    "train_last": 1700550000000000000,
+    "validation_first": 1701327600000000000,
+    "validation_last": 1718089200000000000,
+    "test_first": 1719471600000000000,
+    "test_last": 1735542000000000000
+  }
+}

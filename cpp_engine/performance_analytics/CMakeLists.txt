@@ -1,5 +1,6 @@
 add_library(performance_analytics STATIC
     src/active_attribution.cpp
+    src/factor_attribution_v2.cpp
     src/implementation_shortfall.cpp
     src/period_contribution_coordinator.cpp
     src/period_contribution_replay_sink.cpp
@@ -59,3 +60,9 @@ target_link_libraries(test_active_attribution PRIVATE performance_analytics)
 qbt_enable_warnings(test_active_attribution)
 qbt_static_test_runtime(test_active_attribution)
 add_test(NAME test_active_attribution COMMAND test_active_attribution)
+
+add_executable(test_factor_attribution_v2 tests/test_factor_attribution_v2.cpp)
+target_link_libraries(test_factor_attribution_v2 PRIVATE performance_analytics)
+qbt_enable_warnings(test_factor_attribution_v2)
+qbt_static_test_runtime(test_factor_attribution_v2)
+add_test(NAME test_factor_attribution_v2 COMMAND test_factor_attribution_v2)

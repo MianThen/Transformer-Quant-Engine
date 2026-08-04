@@ -1,4 +1,5 @@
 #include "portfolio_math/covariance.h"
+#include "portfolio_math/rmt_denoising.h"
 
 #include <algorithm>
 #include <bit>
@@ -454,6 +455,20 @@ estimate_research_covariance(quant_math::MatrixView returns,
     output.covariance = std::move(nonlinear.covariance);
     output.nonlinear_diagnostics = std::move(nonlinear.diagnostics);
     output.has_nonlinear_diagnostics = true;
+    return output;
+  }
+  case CovarianceEstimator::RMT_CONSTANT_RESIDUAL: {
+    auto rmt = rmt_constant_residual_denoising(returns);
+    output.covariance = std::move(rmt.covariance);
+    output.rmt_diagnostics = std::move(rmt.diagnostics);
+    output.has_rmt_diagnostics = true;
+    return output;
+  }
+  case CovarianceEstimator::RMT_TARGETED_SHRINKAGE: {
+    auto rmt = rmt_targeted_shrinkage_denoising(returns);
+    output.covariance = std::move(rmt.covariance);
+    output.rmt_diagnostics = std::move(rmt.diagnostics);
+    output.has_rmt_diagnostics = true;
     return output;
   }
   default:
