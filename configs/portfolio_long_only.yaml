@@ -1,0 +1,8 @@
+{
+  "enabled": false,
+  "mode": "long_only",
+  "max_positions": 20,
+  "max_position_weight": 0.05,
+  "minimum_confidence": 0.55,
+  "maximum_turnover": 0.20
+}

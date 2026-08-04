@@ -1,0 +1,99 @@
+{
+  "created_at": "2026-07-20T04:17:49.876448+00:00",
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.4.1-arm64-arm-64bit",
+    "python": "3.9.13 (v3.9.13:6de2ca5339, May 17 2022, 11:37:23) \n[Clang 13.0.0 (clang-1300.0.29.30)]"
+  },
+  "lineage": {
+    "catalog_generation": 1,
+    "dataset_fingerprint": "924726a0340335051c8b9d3fc770c7ae4a4740121156db6211c8742438fe99e7",
+    "query_fingerprint": "f4ff5e7e1ab28ee5d5d86d159b45c6fb629e300f98f9831a0581e879f52e12b6",
+    "schema_hash": "e11b2501a2fc15a6c7f8874d0af33f8bbebe3608375a9eaa29a9ac3e482c927b",
+    "source_fingerprints": [
+      "5568ceb0c243be3123886014ff8f2742a5e6eb5be71f5345f793e2d31d77164b"
+    ]
+  },
+  "query": {
+    "cache_state": "warm",
+    "columns": [
+      "timestamp",
+      "symbol",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "end": null,
+    "start": null,
+    "symbols": null,
+    "target_bytes": 67108864
+  },
+  "stages": [
+    {
+      "bytes": 2519942,
+      "details": {
+        "files": 64
+      },
+      "megabytes_per_second": 147.6935913396581,
+      "name": "io",
+      "peak_rss_bytes": 33193984,
+      "rows": 0,
+      "rows_per_second": 0.0,
+      "seconds": 0.017061958999999988
+    },
+    {
+      "bytes": 14100000,
+      "details": {
+        "batch_latency_p50_ms": 0.05566700000003699,
+        "batch_latency_p95_ms": 0.41670799999993235,
+        "compute_sample_bytes": 14100000
+      },
+      "megabytes_per_second": 25.406654726151586,
+      "name": "decode",
+      "peak_rss_bytes": 112492544,
+      "rows": 240000,
+      "rows_per_second": 432453.69746640994,
+      "seconds": 0.5549727090000001
+    },
+    {
+      "bytes": 14100000,
+      "details": {
+        "close_sum": 3590868.000000001,
+        "sampled": false
+      },
+      "megabytes_per_second": 5424.641723573997,
+      "name": "compute",
+      "peak_rss_bytes": 112721920,
+      "rows": 240000,
+      "rows_per_second": 92334327.20977017,
+      "seconds": 0.002599250000000053
+    },
+    {
+      "bytes": 12960000,
+      "details": {
+        "batches": 1,
+        "decode_seconds": 0.7083688279998882
+      },
+      "megabytes_per_second": 11.115085659526862,
+      "name": "bridge",
+      "peak_rss_bytes": 157024256,
+      "rows": 240000,
+      "rows_per_second": 205834.91962086782,
+      "seconds": 1.165982917
+    },
+    {
+      "bytes": 12960000,
+      "details": {
+        "equity": 1000000.0
+      },
+      "megabytes_per_second": 0.0,
+      "name": "execution",
+      "peak_rss_bytes": 157024256,
+      "rows": 240000,
+      "rows_per_second": 806767.9684193912,
+      "seconds": 0.29748330299999975
+    }
+  ]
+}

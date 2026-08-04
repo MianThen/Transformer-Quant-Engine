@@ -1,0 +1,51 @@
+{
+  "policy": {
+    "max_positions": 20,
+    "max_position_weight": 0.05,
+    "minimum_expected_return": 0.0,
+    "minimum_confidence": 0.55
+  },
+  "risk": {
+    "kill_switch": false,
+    "require_trusted_market": true,
+    "max_order_quantity": 1000000
+  },
+  "runtime": {
+    "intra_op_threads": 1,
+    "inter_op_threads": 1,
+    "max_batch_size": 4096,
+    "deadline_ns": 0,
+    "max_order_intents": 1024
+  },
+  "execution": {
+    "max_volume_participation": 0.1,
+    "slippage_bps": 5.0,
+    "enforce_price_limits": true,
+    "enforce_t_plus_one": true,
+    "enforce_board_lot": true,
+    "allow_short": false,
+    "enforce_cash": true,
+    "market_order_price_buffer_bps": 100.0
+  },
+  "fees": {
+    "point_in_time": true,
+    "schedules": [
+      {
+        "effective_from": 0,
+        "effective_to": 1693152000000000000,
+        "commission_rate": 0.0003,
+        "min_commission": 5.0,
+        "stamp_tax_rate": 0.001,
+        "transfer_fee_rate": 0.0
+      },
+      {
+        "effective_from": 1693152000000000000,
+        "effective_to": null,
+        "commission_rate": 0.0003,
+        "min_commission": 5.0,
+        "stamp_tax_rate": 0.0005,
+        "transfer_fee_rate": 0.0
+      }
+    ]
+  }
+}

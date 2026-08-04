@@ -1,0 +1,123 @@
+{
+  "benchmark_executable_sha256": "926ddc3f9d7943df9eb9d693aaa484cb04104ae950b31394bb65505c1c7379fb",
+  "benchmark_scope": "engineering_test_artifact",
+  "build_type": "Release",
+  "calendar_id": "test-calendar",
+  "chunk_size": 512,
+  "compiler_id": "AppleClang",
+  "compiler_version": "21.0.0.21000101",
+  "execution_provider": "CPUExecutionProvider",
+  "feature_schema_sha256": "eeadd5df9e7474a6d2c6ee419acb8b9f4bad778d0bb294ed9306c6c3719310c8",
+  "frequency": "1d",
+  "generated_at_utc": "2026-07-29T10:25:06.111247+00:00",
+  "hardware": "Apple M4 Pro",
+  "inter_op_threads": 1,
+  "intra_op_threads": 1,
+  "iterations": 100,
+  "lto_enabled": true,
+  "model_id": "test-transformer-v1-1",
+  "model_sha256": "bdea993bac76e1ddcfb6a67dd67cf396c106f424c6de387f1577f601e6e1d6c1",
+  "model_version": "test-v2",
+  "onnxruntime_version": "1.17.3",
+  "results": [
+    {
+      "batch_size": 1,
+      "end_to_end": {
+        "p50_ns": 56625,
+        "p99_ns": 145375
+      },
+      "feature": {
+        "p50_ns": 667,
+        "p99_ns": 2583
+      },
+      "infer": {
+        "p50_ns": 55583,
+        "p99_ns": 141500
+      },
+      "peak_rss_bytes": 23527424,
+      "policy": {
+        "p50_ns": 84,
+        "p99_ns": 666
+      },
+      "risk": {
+        "p50_ns": 42,
+        "p99_ns": 459
+      }
+    },
+    {
+      "batch_size": 64,
+      "end_to_end": {
+        "p50_ns": 252584,
+        "p99_ns": 410417
+      },
+      "feature": {
+        "p50_ns": 32167,
+        "p99_ns": 51291
+      },
+      "infer": {
+        "p50_ns": 218167,
+        "p99_ns": 375083
+      },
+      "peak_rss_bytes": 25018368,
+      "policy": {
+        "p50_ns": 792,
+        "p99_ns": 3333
+      },
+      "risk": {
+        "p50_ns": 833,
+        "p99_ns": 2209
+      }
+    },
+    {
+      "batch_size": 512,
+      "end_to_end": {
+        "p50_ns": 1724250,
+        "p99_ns": 1922125
+      },
+      "feature": {
+        "p50_ns": 327417,
+        "p99_ns": 444458
+      },
+      "infer": {
+        "p50_ns": 1362750,
+        "p99_ns": 1524084
+      },
+      "peak_rss_bytes": 34013184,
+      "policy": {
+        "p50_ns": 6417,
+        "p99_ns": 12875
+      },
+      "risk": {
+        "p50_ns": 6666,
+        "p99_ns": 14042
+      }
+    },
+    {
+      "batch_size": 4096,
+      "end_to_end": {
+        "p50_ns": 14411166,
+        "p99_ns": 14840500
+      },
+      "feature": {
+        "p50_ns": 3285208,
+        "p99_ns": 3653542
+      },
+      "infer": {
+        "p50_ns": 10957709,
+        "p99_ns": 11284875
+      },
+      "peak_rss_bytes": 88326144,
+      "policy": {
+        "p50_ns": 64209,
+        "p99_ns": 101416
+      },
+      "risk": {
+        "p50_ns": 61625,
+        "p99_ns": 75083
+      }
+    }
+  ],
+  "revision": "3e9293c6b8a39e12be077c5b8a4a4f91f5616277",
+  "schema_version": 1,
+  "training_dataset_fingerprint": "16ede76a8a4b5b1d248bd69f0673a427cfe290689024a6c806ef754ad5f7ccf9"
+}

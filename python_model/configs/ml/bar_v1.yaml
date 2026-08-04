@@ -1,0 +1,20 @@
+{
+  "enabled": false,
+  "profile": "BAR_V1",
+  "execution_alignment": "NEXT_OPEN",
+  "lookback": 64,
+  "label_horizon_bars": 5,
+  "frequency": "1d",
+  "price_adjustment_mode": "pit_adjusted_signal_raw_execution",
+  "calendar_id": "CONFIGURE_ON_TRAINING_HOST",
+  "universe_id": "CONFIGURE_ON_TRAINING_HOST",
+  "data_cutoff_utc": "CONFIGURE_ON_TRAINING_HOST",
+  "data": {
+    "source": "CONFIGURE_ON_TRAINING_HOST",
+    "dataset_output": "CONFIGURE_ON_TRAINING_HOST",
+    "point_in_time_required": true,
+    "execution_reference_mode": "optional_for_model_evaluation",
+    "random_split_allowed": false
+  },
+  "split": {"purge_bars": 5, "embargo_bars": 5}
+}

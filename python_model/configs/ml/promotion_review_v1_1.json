@@ -1,0 +1,35 @@
+{
+  "enabled": false,
+  "output": "CONFIGURE_ON_REVIEW_HOST",
+  "evidence": {
+    "transformer_run": "CONFIGURE_TRANSFORMER_WALK_FORWARD_RUN",
+    "model_benchmark": "CONFIGURE_MODEL_BENCHMARK_RUN",
+    "feature_ablation": "CONFIGURE_TRANSFORMER_FEATURE_ABLATION_RUN",
+    "portfolio_ablation": "CONFIGURE_CPP_PORTFOLIO_ABLATION_JSON",
+    "portfolio_backtest": "CONFIGURE_CPP_PORTFOLIO_BACKTEST_JSON",
+    "ort_cpp_parity": "CONFIGURE_CPP_PARITY_JSON",
+    "runtime_benchmark": "CONFIGURE_PRODUCTION_CANDIDATE_RUNTIME_JSON"
+  },
+  "thresholds": {
+    "candidate_model": "transformer_v1_1",
+    "required_baselines": [
+      "momentum_20", "reversal_5", "equal_weight", "cash",
+      "ridge_multitask", "mlp", "tcn", "gru"
+    ],
+    "minimum_windows": 3,
+    "min_rank_ic_median": 0.02,
+    "min_net_sharpe": 1.0,
+    "min_sharpe_improvement": 0.10,
+    "max_drawdown": 0.20,
+    "min_winning_window_fraction": 0.6666666666666666,
+    "min_cvar_95": -0.03,
+    "max_period_top1_share": 0.50,
+    "max_symbol_top1_share": 0.10,
+    "max_symbol_top5_share": 0.30,
+    "max_industry_top1_share": 0.30,
+    "required_slippage_bps": [0, 5, 10],
+    "primary_slippage_bps": 5,
+    "runtime_batch_size": 4096,
+    "max_runtime_p99_ns": 50000000
+  }
+}

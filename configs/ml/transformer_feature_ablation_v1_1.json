@@ -1,0 +1,52 @@
+{
+  "enabled": false,
+  "dataset": "CONFIGURE_ON_TRAINING_HOST",
+  "output": "analysis/transformer-feature-ablation-v1-1",
+  "seeds": [20260724, 20260725, 20260726],
+  "groups": [
+    "returns",
+    "bar_structure",
+    "volume",
+    "volatility",
+    "trend_position",
+    "cross_section",
+    "trade_state"
+  ],
+  "walk_forward": {
+    "enabled": true,
+    "seed": 20260724,
+    "windows": {
+      "minimum_train_timestamps": 1260,
+      "validation_timestamps": 252,
+      "test_timestamps": 252,
+      "step_timestamps": 252,
+      "purge_timestamps": 5,
+      "embargo_timestamps": 5,
+      "minimum_windows": 3
+    },
+    "model": {
+      "d_model": 64,
+      "nhead": 4,
+      "num_layers": 3,
+      "dim_feedforward": 128,
+      "dropout": 0.1,
+      "normalization_clip": 8.0
+    },
+    "training": {
+      "device": "mps",
+      "epochs": 50,
+      "early_stopping_patience": 8,
+      "timestamps_per_batch": 1,
+      "learning_rate": 0.0003,
+      "weight_decay": 0.01,
+      "gradient_clip_norm": 1.0,
+      "loss_weights": {
+        "return": 1.0,
+        "direction": 0.25,
+        "volatility": 0.25,
+        "quantile": 0.25,
+        "rank": 0.1
+      }
+    }
+  }
+}

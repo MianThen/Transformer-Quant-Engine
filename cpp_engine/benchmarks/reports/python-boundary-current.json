@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-07-22T05:50:35.955309+00:00",
+  "artifact": {
+    "path": "C:\\Users\\arcom005\\PycharmProjects\\PythonProject5\\quant-backtester-cpp\\build\\python-codex\\cpp_engine\\cpp_engine.cp312-win_amd64.pyd",
+    "sha256": "c2b1fab68dfa1672d02617854678bc782e67d8da4b29abb46e3ef54bdfef3ebc"
+  },
+  "build": {
+    "type": "Release",
+    "compiler_id": "GNU",
+    "compiler_version": "13.1.0",
+    "lto": false
+  },
+  "dataset": {
+    "name": "python-boundary",
+    "symbols": 10000
+  },
+  "hardware": {
+    "platform": "Windows-11-10.0.26100-SP0",
+    "processor": "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+  },
+  "run_count": 5,
+  "results": [
+    {
+      "name": "pure-cpp-no-callback",
+      "median_ns_per_row": 812.31,
+      "p95_ns_per_row": 1080.13,
+      "samples_ns_per_row": [
+        812.31,
+        794.18,
+        733.24,
+        916.32,
+        1080.13
+      ]
+    },
+    {
+      "name": "cross-section-view-python",
+      "median_ns_per_row": 879.74,
+      "p95_ns_per_row": 932.51,
+      "samples_ns_per_row": [
+        932.51,
+        796.38,
+        891.4,
+        879.74,
+        732.83
+      ]
+    },
+    {
+      "name": "columnar-orders-python",
+      "median_ns_per_row": 806.2,
+      "p95_ns_per_row": 945.58,
+      "samples_ns_per_row": [
+        938.56,
+        799.94,
+        806.2,
+        945.58,
+        750.41
+      ]
+    },
+    {
+      "name": "cross-section-python",
+      "median_ns_per_row": 1423.19,
+      "p95_ns_per_row": 1463.12,
+      "samples_ns_per_row": [
+        1463.12,
+        1350.17,
+        1423.19,
+        1370.06,
+        1425.02
+      ]
+    },
+    {
+      "name": "per-row-python",
+      "median_ns_per_row": 1591.59,
+      "p95_ns_per_row": 1743.94,
+      "samples_ns_per_row": [
+        1591.59,
+        1611.01,
+        1501.14,
+        1541.94,
+        1743.94
+      ]
+    }
+  ]
+}

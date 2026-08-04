@@ -1,0 +1,18 @@
+{
+  "enabled": false,
+  "dataset": "CONFIGURE_ON_TRAINING_HOST",
+  "output": "runs/walk-forward-v1-1",
+  "windows": {
+    "minimum_train_timestamps": 1260,
+    "validation_timestamps": 252,
+    "test_timestamps": 252,
+    "step_timestamps": 252,
+    "purge_timestamps": 5,
+    "embargo_timestamps": 5,
+    "minimum_windows": 3
+  },
+  "model": {
+    "ridge_alpha_candidates": [0.1, 1.0, 10.0],
+    "normalization_clip": 8.0
+  }
+}

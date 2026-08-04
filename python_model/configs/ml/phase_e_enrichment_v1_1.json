@@ -1,0 +1,13 @@
+{
+  "execution_reference_mode": "optional_for_model_evaluation",
+  "frequency": "1d",
+  "calendar_id": "CONFIGURE_TRUSTED_A_SHARE_CALENDAR_ID",
+  "bars_root": "CONFIGURE_BAOSTOCK_RAW_BAR_ROOT",
+  "state_root": "CONFIGURE_BAOSTOCK_SECURITY_STATE_ROOT",
+  "adjustment_root": "CONFIGURE_BAOSTOCK_ADJUSTMENT_FACTOR_ROOT",
+  "corporate_action_root": "CONFIGURE_BAOSTOCK_CORPORATE_ACTION_ROOT",
+  "industry_root": "CONFIGURE_BAOSTOCK_INDUSTRY_ROOT",
+  "execution_rules_root": null,
+  "adjustment_history_complete": false,
+  "output": "runs/phase-e/enriched-bars-v1"
+}

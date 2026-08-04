@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "dataset": "CONFIGURE_ON_TRAINING_HOST",
+  "output": "analysis/leakage",
+  "split": {
+    "train_fraction": 0.7,
+    "validation_fraction": 0.15,
+    "test_fraction": 0.15,
+    "purge_timestamps": 5,
+    "embargo_timestamps": 5
+  }
+}

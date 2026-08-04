@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mianthen.github.io/Transformer-Quant-Engine/phase_e_portfolio_ablation.schema.json",
+  "title": "Phase E C++ portfolio feature ablation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at_utc", "engine", "net_of_cost",
+    "dataset_fingerprint", "groups", "seeds", "slippage_scenarios_bps", "results",
+    "execution_reference_mode", "promotion_eligible", "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": 2},
+    "generated_at_utc": {"type": "string", "minLength": 1},
+    "engine": {"const": "cpp"},
+    "net_of_cost": {"const": true},
+    "execution_reference_mode": {
+      "enum": ["required_for_promotion", "optional_for_model_evaluation"]
+    },
+    "promotion_eligible": {"type": "boolean"},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "dataset_fingerprint": {"type": "string", "minLength": 1},
+    "groups": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "seeds": {"type": "array", "minItems": 3, "items": {"type": "integer"}},
+    "slippage_scenarios_bps": {"const": [0, 5, 10]},
+    "results": {
+      "type": "array", "minItems": 3,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["seed", "group", "scenarios"],
+        "properties": {
+          "seed": {"type": "integer"},
+          "group": {"type": "string"},
+          "scenarios": {
+            "type": "array", "minItems": 3, "maxItems": 3,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["slippage_bps", "windows"],
+              "properties": {
+                "slippage_bps": {"enum": [0, 5, 10]},
+                "windows": {
+                  "type": "array", "minItems": 3,
+                  "items": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["window_id", "full", "drop", "delta_drop_minus_full"],
+                    "properties": {
+                      "window_id": {"type": "integer"},
+                      "full": {"type": "object"},
+                      "drop": {"type": "object"},
+                      "delta_drop_minus_full": {
+                        "type": "object",
+                        "required": [
+                          "net_return", "sharpe", "max_drawdown", "turnover", "cvar_95"
+                        ],
+                        "additionalProperties": {"type": "number"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

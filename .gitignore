@@ -1,0 +1,57 @@
+# macOS / IDE
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+.venv-ml/
+venv/
+*.egg-info/
+dist/
+
+# CMake / native binaries
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.whl
+
+# Local data and state
+*.db
+*.sqlite
+*.sqlite3
+data/lake/
+python_model/data/lake/
+/models/
+/runs/
+/analysis/
+/checkpoints/
+*.onnx
+*.pt
+*.pth
+
+# Experiments and reports are local unless explicitly curated
+experiments/*
+!experiments/README.md
+!experiments/phase1e/
+!experiments/phase1e/**
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json

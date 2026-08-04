@@ -1,0 +1,65 @@
+{
+  "enabled": false,
+  "execution_reference_mode": "required_for_promotion",
+  "dataset": "CONFIGURE_FROZEN_DATASET_NPZ",
+  "model_benchmark": "CONFIGURE_MODEL_BENCHMARK_RUN",
+  "bars": "CONFIGURE_PIT_BAR_TABLE",
+  "output": "CONFIGURE_ON_REVIEW_HOST",
+  "initial_cash": 1000000.0,
+  "required_models": [
+    "momentum_20", "reversal_5", "equal_weight", "cash",
+    "ridge_multitask", "mlp", "tcn", "gru", "transformer_v1_1"
+  ],
+  "slippage_scenarios_bps": [0, 5, 10],
+  "policy": {
+    "max_positions": 20,
+    "max_position_weight": 0.05,
+    "minimum_expected_return": 0.0,
+    "minimum_confidence": 0.55,
+    "max_turnover_weight": 0.20
+  },
+  "risk": {
+    "kill_switch": false,
+    "require_trusted_market": true,
+    "max_order_quantity": 1000000,
+    "max_gross_exposure": 1.0,
+    "max_net_exposure": 1.0,
+    "max_orders_per_batch": 1024
+  },
+  "runtime": {"max_order_intents": 1024},
+  "execution": {
+    "max_volume_participation": 0.10,
+    "slippage_bps": 5.0,
+    "enforce_price_limits": true,
+    "enforce_t_plus_one": true,
+    "enforce_board_lot": true,
+    "allow_short": false,
+    "enforce_cash": true,
+    "market_order_price_buffer_bps": 100.0
+  },
+  "fees": {
+    "point_in_time": true,
+    "schedules": [
+      {
+        "effective_from": 0,
+        "effective_to": 1693152000000000000,
+        "commission_rate": 0.0003,
+        "min_commission": 5.0,
+        "stamp_tax_rate": 0.001,
+        "transfer_fee_rate": 0.0
+      },
+      {
+        "effective_from": 1693152000000000000,
+        "effective_to": null,
+        "commission_rate": 0.0003,
+        "min_commission": 5.0,
+        "stamp_tax_rate": 0.0005,
+        "transfer_fee_rate": 0.0
+      }
+    ]
+  },
+  "corporate_actions": {
+    "source": "CONFIGURE_PIT_CORPORATE_ACTION_TABLE",
+    "point_in_time": true
+  }
+}

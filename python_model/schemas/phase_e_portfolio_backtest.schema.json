@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mianthen.github.io/Transformer-Quant-Engine/phase_e_portfolio_backtest.schema.json",
+  "title": "Phase E C++ net-of-cost portfolio benchmark",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "engine", "net_of_cost", "dataset_fingerprint",
+    "frequency", "calendar_id", "engine_build", "cost_model", "scenarios",
+    "execution_reference_mode", "promotion_eligible", "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": 2},
+    "engine": {"const": "cpp"},
+    "net_of_cost": {"const": true},
+    "execution_reference_mode": {
+      "enum": ["required_for_promotion", "optional_for_model_evaluation"]
+    },
+    "promotion_eligible": {"type": "boolean"},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "dataset_fingerprint": {"type": "string", "minLength": 1},
+    "generated_at_utc": {"type": "string", "minLength": 1},
+    "frequency": {"type": "string", "minLength": 1},
+    "calendar_id": {"type": "string", "minLength": 1},
+    "engine_build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["build_type", "lto_enabled", "compiler_id"],
+      "properties": {
+        "build_type": {"const": "Release"},
+        "lto_enabled": {"const": true},
+        "compiler_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "cost_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "point_in_time_fees", "enforce_t_plus_one", "enforce_price_limits",
+        "enforce_board_lot", "max_volume_participation"
+      ],
+      "properties": {
+        "point_in_time_fees": {"const": true},
+        "enforce_t_plus_one": {"const": true},
+        "enforce_price_limits": {"type": "boolean"},
+        "enforce_board_lot": {"type": "boolean"},
+        "max_volume_participation": {
+          "type": "number", "exclusiveMinimum": 0, "maximum": 0.1
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 3,
+      "items": {"$ref": "#/$defs/scenario"}
+    }
+  },
+  "$defs": {
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slippage_bps", "windows"],
+      "properties": {
+        "slippage_bps": {"enum": [0, 5, 10]},
+        "windows": {
+          "type": "array", "minItems": 3,
+          "items": {"$ref": "#/$defs/window"}
+        }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_id", "test_start", "test_end", "models"],
+      "properties": {
+        "window_id": {"type": ["integer", "string"]},
+        "test_start": {"type": ["integer", "string"]},
+        "test_end": {"type": ["integer", "string"]},
+        "models": {
+          "type": "object", "minProperties": 2,
+          "additionalProperties": {"$ref": "#/$defs/modelMetrics"}
+        }
+      }
+    },
+    "modelMetrics": {
+      "type": "object",
+      "required": ["net_return", "sharpe", "max_drawdown", "turnover", "cvar_95"],
+      "properties": {
+        "net_return": {"type": "number"},
+        "sharpe": {"type": "number"},
+        "max_drawdown": {"type": "number", "minimum": 0},
+        "turnover": {"type": "number", "minimum": 0},
+        "cvar_95": {"type": "number"},
+        "symbol_contributions": {
+          "type": "object", "additionalProperties": {"type": "number"}
+        },
+        "industry_contributions": {
+          "type": "object", "additionalProperties": {"type": "number"}
+        }
+      }
+    }
+  }
+}

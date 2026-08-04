@@ -1,0 +1,9 @@
+{
+  "enabled": false,
+  "fail_closed": true,
+  "max_gross_exposure": 1.0,
+  "max_net_exposure": 1.0,
+  "reject_stale_input": true,
+  "reject_non_finite_prediction": true,
+  "require_schema_match": true
+}

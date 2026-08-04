@@ -1,0 +1,30 @@
+{
+  "enabled": false,
+  "execution": "external_training_host_only",
+  "seed": 20260724,
+  "model": {
+    "name": "TemporalTransformerV1",
+    "lookback": 64,
+    "d_model": 64,
+    "nhead": 4,
+    "num_layers": 3,
+    "dim_feedforward": 128,
+    "dropout": 0.1
+  },
+  "training": {
+    "dataset": "CONFIGURE_ON_TRAINING_HOST",
+    "output": "CONFIGURE_ON_TRAINING_HOST",
+    "epochs": 50,
+    "batch_size": 256,
+    "learning_rate": 0.0003,
+    "device": "CONFIGURE_ON_TRAINING_HOST"
+  },
+  "split": {
+    "train_fraction": 0.70,
+    "validation_fraction": 0.15,
+    "test_fraction": 0.15,
+    "purge_timestamps": 5,
+    "embargo_timestamps": 5
+  },
+  "export": {"format": "onnx", "opset": 17, "provider": "CPUExecutionProvider"}
+}

@@ -1,0 +1,165 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "QBT_BUILD_LIVE_ENGINE": "OFF",
+        "QBT_ENABLE_ML": "OFF",
+        "QBT_ENABLE_WARNINGS": "ON"
+      }
+    },
+    {
+      "name": "dev",
+      "inherits": "base",
+      "displayName": "Debug backtest engine",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QBT_BUILD_PYTHON": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "displayName": "Release backtest engine",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "QBT_BUILD_PYTHON": "ON"
+      }
+    },
+    {
+      "name": "cpp-only",
+      "inherits": "base",
+      "displayName": "C++ core only",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "QBT_BUILD_PYTHON": "OFF"
+      }
+    },
+    {
+      "name": "benchmark-release",
+      "inherits": "base",
+      "displayName": "Release LTO C++ benchmarks",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "QBT_BUILD_PYTHON": "OFF",
+        "QBT_BUILD_BENCHMARKS": "ON",
+        "QBT_ENABLE_LTO": "ON"
+      }
+    },
+    {
+      "name": "live-release",
+      "inherits": "base",
+      "displayName": "Release live trading engine",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "QBT_BUILD_PYTHON": "OFF",
+        "QBT_BUILD_LIVE_ENGINE": "ON"
+      }
+    },
+    {
+      "name": "live-benchmark-release",
+      "inherits": "benchmark-release",
+      "displayName": "Release live engine benchmarks",
+      "cacheVariables": {
+        "QBT_BUILD_LIVE_ENGINE": "ON"
+      }
+    },
+    {
+      "name": "sanitize",
+      "inherits": "base",
+      "displayName": "ASan and UBSan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QBT_BUILD_PYTHON": "OFF",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "ci-gcc",
+      "inherits": "live-release",
+      "displayName": "Linux GCC Release CI",
+      "cacheVariables": {
+        "QBT_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "ci-clang-sanitize",
+      "inherits": "base",
+      "displayName": "Clang ASan UBSan CI",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QBT_BUILD_PYTHON": "OFF",
+        "QBT_BUILD_LIVE_ENGINE": "ON",
+        "QBT_BUILD_FUZZERS": "ON",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "ci-clang-tsan",
+      "inherits": "base",
+      "displayName": "Clang TSan CI",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QBT_BUILD_PYTHON": "OFF",
+        "QBT_BUILD_LIVE_ENGINE": "ON",
+        "CMAKE_CXX_FLAGS": "-fsanitize=thread -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread"
+      }
+    },
+    {
+      "name": "all-modules",
+      "inherits": "dev",
+      "displayName": "Backtest and experimental live modules",
+      "cacheVariables": {
+        "QBT_BUILD_LIVE_ENGINE": "ON"
+      }
+    },
+    {
+      "name": "phase1c-closure",
+      "inherits": "dev",
+      "displayName": "Phase 1C Replay and CVaR closure",
+      "cacheVariables": {
+        "QBT_ENABLE_PERFORMANCE_ANALYTICS": "ON",
+        "QBT_ENABLE_PORTFOLIO_MATH": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {"name": "dev", "configurePreset": "dev"},
+    {"name": "release", "configurePreset": "release"},
+    {"name": "cpp-only", "configurePreset": "cpp-only"},
+    {"name": "benchmark-release", "configurePreset": "benchmark-release"},
+    {"name": "live-release", "configurePreset": "live-release"},
+    {"name": "live-benchmark-release", "configurePreset": "live-benchmark-release"},
+    {"name": "sanitize", "configurePreset": "sanitize"},
+    {"name": "ci-gcc", "configurePreset": "ci-gcc"},
+    {"name": "ci-clang-sanitize", "configurePreset": "ci-clang-sanitize"},
+    {"name": "ci-clang-tsan", "configurePreset": "ci-clang-tsan"},
+    {"name": "all-modules", "configurePreset": "all-modules"},
+    {"name": "phase1c-closure", "configurePreset": "phase1c-closure"}
+  ],
+  "testPresets": [
+    {"name": "dev", "configurePreset": "dev", "output": {"outputOnFailure": true}},
+    {"name": "cpp-only", "configurePreset": "cpp-only", "output": {"outputOnFailure": true}},
+    {"name": "benchmark-release", "configurePreset": "benchmark-release", "output": {"outputOnFailure": true}},
+    {"name": "live-release", "configurePreset": "live-release", "output": {"outputOnFailure": true}},
+    {"name": "live-benchmark-release", "configurePreset": "live-benchmark-release", "output": {"outputOnFailure": true}},
+    {"name": "sanitize", "configurePreset": "sanitize", "output": {"outputOnFailure": true}},
+    {"name": "ci-gcc", "configurePreset": "ci-gcc", "output": {"outputOnFailure": true}},
+    {"name": "ci-clang-sanitize", "configurePreset": "ci-clang-sanitize", "output": {"outputOnFailure": true}},
+    {"name": "ci-clang-tsan", "configurePreset": "ci-clang-tsan", "output": {"outputOnFailure": true}},
+    {"name": "all-modules", "configurePreset": "all-modules", "output": {"outputOnFailure": true}},
+    {"name": "phase1c-closure", "configurePreset": "phase1c-closure", "output": {"outputOnFailure": true}}
+  ]
+}

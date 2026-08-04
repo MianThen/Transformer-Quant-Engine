@@ -1,0 +1,211 @@
+{
+  "created_at": "2026-07-21T13:29:30.348801+00:00",
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.4.1-arm64-arm-64bit",
+    "python": "3.9.13 (v3.9.13:6de2ca5339, May 17 2022, 11:37:23) \n[Clang 13.0.0 (clang-1300.0.29.30)]",
+    "rss_fields": "rss_start/end/delta are current resident memory at stage boundaries where supported; process_peak is the process high-water mark",
+    "rss_source": "mach-task-basic-info"
+  },
+  "lineage": {
+    "catalog_generation": 1,
+    "dataset_fingerprint": "4df67b75b549bea5d40a3aa074331017982605bb53e9552f077ddf049fc4307e",
+    "query_fingerprint": "4639bc8e7eac446db05fff18db1a64a149938d735451d1e4b2dbd80edabc859e",
+    "schema_hash": "e11b2501a2fc15a6c7f8874d0af33f8bbebe3608375a9eaa29a9ac3e482c927b",
+    "source_fingerprints": [
+      "5568ceb0c243be3123886014ff8f2742a5e6eb5be71f5345f793e2d31d77164b"
+    ]
+  },
+  "query": {
+    "cache_state": "warm",
+    "columns": [
+      "timestamp",
+      "symbol",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "end": null,
+    "start": null,
+    "strategy": {
+      "name": "two_batch_round_trip",
+      "parameters": {
+        "commission_rate": 0.0003,
+        "enforce_t_plus_one": false,
+        "quantity": 1,
+        "symbols": 10
+      }
+    },
+    "symbols": null,
+    "target_bytes": 67108864
+  },
+  "stages": [
+    {
+      "bytes": 2519942,
+      "details": {
+        "cache": {
+          "files": 64,
+          "method": "sequential-preread",
+          "preparation_seconds": 0.017481375000000007,
+          "prepared_bytes": 2519942,
+          "requested_state": "warm"
+        },
+        "files": 64
+      },
+      "megabytes_per_second": 822.7374607190976,
+      "name": "storage_io",
+      "process_peak_rss_bytes": 31588352,
+      "rows": 0,
+      "rows_per_second": 0.0,
+      "rss_delta_bytes": 0,
+      "rss_end_bytes": 31440896,
+      "rss_start_bytes": 31440896,
+      "seconds": 0.0030628749999999927
+    },
+    {
+      "bytes": 14100000,
+      "details": {
+        "batch_bytes_p50": 211500,
+        "batch_bytes_p95": 282000,
+        "batch_latency_p50_ms": 0.12704100000004992,
+        "batch_latency_p95_ms": 0.5516250000000555,
+        "batch_rows_p50": 3600,
+        "batch_rows_p95": 4800,
+        "batches": 71,
+        "cache": {
+          "files": 64,
+          "method": "sequential-preread",
+          "preparation_seconds": 0.0011368750000000094,
+          "prepared_bytes": 2519942,
+          "requested_state": "warm"
+        },
+        "compute_sample_bytes": 14100000
+      },
+      "megabytes_per_second": 21.610851406238027,
+      "name": "arrow_decode",
+      "process_peak_rss_bytes": 132104192,
+      "rows": 240000,
+      "rows_per_second": 367844.27925511537,
+      "rss_delta_bytes": 100663296,
+      "rss_end_bytes": 132104192,
+      "rss_start_bytes": 31440896,
+      "seconds": 0.65245
+    },
+    {
+      "bytes": 14100000,
+      "details": {
+        "close_sum": 3590868.000000001,
+        "sampled": false
+      },
+      "megabytes_per_second": 6585.833731519387,
+      "name": "arrow_compute",
+      "process_peak_rss_bytes": 132317184,
+      "rows": 240000,
+      "rows_per_second": 112099297.5577768,
+      "rss_delta_bytes": 212992,
+      "rss_end_bytes": 132317184,
+      "rss_start_bytes": 132104192,
+      "seconds": 0.002140958999999998
+    },
+    {
+      "bytes": 12960000,
+      "details": {
+        "c_stream_calls": 1,
+        "cache": {
+          "files": 64,
+          "method": "sequential-preread",
+          "preparation_seconds": 0.0016217499999999774,
+          "prepared_bytes": 2519942,
+          "requested_state": "warm"
+        },
+        "call_rows_p50": 240000,
+        "call_rows_p95": 240000,
+        "decode_seconds": 0.7508978379999038,
+        "equity": 1000000.0,
+        "execution_seconds": 0.2902828279999999,
+        "input_batches": 1,
+        "stream_batch_bytes_p50": 13950000,
+        "stream_batch_bytes_p95": 13950000,
+        "stream_batch_rows_p50": 240000,
+        "stream_batch_rows_p95": 240000
+      },
+      "megabytes_per_second": 10.89747526452217,
+      "name": "c_stream_replay",
+      "process_peak_rss_bytes": 166199296,
+      "rows": 240000,
+      "rows_per_second": 201805.09749115127,
+      "rss_delta_bytes": 33685504,
+      "rss_end_bytes": 166199296,
+      "rss_start_bytes": 132513792,
+      "seconds": 1.1892662920000001
+    },
+    {
+      "bytes": 12960000,
+      "details": {
+        "c_stream_calls": 5,
+        "cache": {
+          "files": 64,
+          "method": "sequential-preread",
+          "preparation_seconds": 0.0014155420000001584,
+          "prepared_bytes": 2519942,
+          "requested_state": "warm"
+        },
+        "call_rows_p50": 48000,
+        "call_rows_p95": 48000,
+        "decode_seconds": 0.7484623430000135,
+        "equity": 1000000.0,
+        "events": 15,
+        "execution_seconds": 0.28832964099999997,
+        "input_batches": 5,
+        "market_batches": 5
+      },
+      "megabytes_per_second": 10.545479714946309,
+      "name": "event_replay",
+      "process_peak_rss_bytes": 172310528,
+      "rows": 240000,
+      "rows_per_second": 195286.66138789462,
+      "rss_delta_bytes": 6111232,
+      "rss_end_bytes": 172310528,
+      "rss_start_bytes": 166199296,
+      "seconds": 1.228962584
+    },
+    {
+      "bytes": 12960000,
+      "details": {
+        "c_stream_calls": 5,
+        "cache": {
+          "files": 64,
+          "method": "sequential-preread",
+          "preparation_seconds": 0.0014027919999999305,
+          "prepared_bytes": 2519942,
+          "requested_state": "warm"
+        },
+        "call_rows_p50": 48000,
+        "call_rows_p95": 48000,
+        "decode_seconds": 0.7469342250000123,
+        "events": 15,
+        "execution_seconds": 0.7217311899999999,
+        "input_batches": 5,
+        "market_batches": 5,
+        "result": {
+          "equity": 999999.9382991,
+          "round_trips": 10,
+          "total_return": -6.170089994483874e-08,
+          "trades": 20
+        },
+        "strategy_callback_calls": 1200
+      },
+      "megabytes_per_second": 7.810687262131122,
+      "name": "strategy_backtest",
+      "process_peak_rss_bytes": 176766976,
+      "rows": 240000,
+      "rows_per_second": 144642.3567061319,
+      "rss_delta_bytes": 4456448,
+      "rss_end_bytes": 176766976,
+      "rss_start_bytes": 172310528,
+      "seconds": 1.6592650000000004
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68", "wheel>=0.43", "pybind11>=3,<4"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quant-backtester-cpp-engine"
+version = "0.3.0"
+description = "C++ execution engine for quant-backtester"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+ml = [
+    "numpy>=1.26,<3",
+    "torch>=2.2",
+]
