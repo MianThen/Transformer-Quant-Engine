@@ -1,23 +1,31 @@
 # Phase 2B 状态：鲁棒训练
 
-更新时间：2026-08-04
+更新时间：2026-08-05
 
 ## 当前结论
 
-Phase 2B 已完成第一批工程施工，但尚未满足研究退出条件：
+Phase 2B 的 APL、latent-FGM、feature-PGD 三折候选训练和配对 OOS 报告已经完成，但研究退出条件仍未满足：
 
 ```text
 phase_exit_eligible = false
 promotion_eligible = false
 ```
 
-原因不是代码缺失，而是尚未在预注册的真实 clean/noisy/stress 数据上完成至少三个 purged walk-forward 窗口的候选配对 OOS 报告。现阶段所有候选仍是 research-only。
+原因不是训练结果缺失，而是候选没有同时通过 clean 不退化、压力集稳定改善和三个窗口方向一致门槛。所有候选仍是 research-only。
+
+本次外部算力结果包：
+
+- `/Users/Zhuanz/Downloads/output.zip`
+- archive SHA-256：`0aed4f7638f014adff72084ce0b78a8b0e15012de3be1e394f6ad1a407b14975`
+- 三窗口报告 SHA-256：`0adf2a7788bd46ad685a62025b2136fb7fde49b55ff9d5d64bb268cb549c8153`
+- preregistered contract SHA-256：`22e87cbaa0e40284df5d51f2bea6bd179e8eea7a38ada3994f04aff3c823fd7a`
+- dataset SHA-256：`4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554`
 
 已生成 frozen champion 的三窗口 baseline OOS 参照报告，但这不等于 Phase 2B 退出：
 
 - 报告：`/Users/Zhuanz/PycharmProjects/PythonProject/runs/phase2b-oos-baseline-real/phase2b_oos_report.json`
 - 合同：`/Users/Zhuanz/PycharmProjects/PythonProject/runs/phase2b-oos-baseline-real/preregistered_contract.json`
-- clean/noisy/stress 均覆盖 fold 1--3；`promotion_eligible=false`。
+- clean/noisy/stress 均覆盖 fold 1--3；报告状态为 `research_only_no_promotion`。
 
 ## 已交付
 
@@ -57,26 +65,28 @@ promotion_eligible = false
 
 跳过项来自未安装的可选组件，不构成 Phase 2B OOS 证据。
 
-## 下一步
+## 外部 Feature-PGD 结果
 
-用同一冻结训练合同分别运行 APL、latent FGM、feature PGD 与 frozen champion，覆盖至少三个 purged walk-forward 窗口；分别输出 clean、人工噪声、四类压力集的 head/ranking 指标和配对退化。任一候选未同时满足 clean 不退化、压力集稳定改善和窗口方向一致，均保留报告但不得进入下一阶段组合。
+- `feature_pgd` 已完成三折、每折 50 epochs；每折都有 checkpoint、ONNX、validation/test predictions 和 embedding snapshots。
+- 汇总 clean：`composite_error=0.0956173`、`return_mae=0.0493726`、`direction_brier=0.2274944`、`volatility_mae=0.0099849`、`NDCG@20=0.5032469`、`RankIC=0.0586506`。
+- gates：`clean_non_degraded=false`、`stress_non_degraded=false`、`all_three_window_consistent=false`、`research_gate_passed=false`、`promotion_eligible=false`。
+- missing stress 的 composite error delta 为 `+0.0706924`，是当前最明显的稳定性退化；不能把 PGD 当作 champion 或进入生产组合。
+- 三折训练已解除“缺少 PGD checkpoint”的阻塞，但不解除 Phase 2B 退出或晋级门槛。
 
-当前 baseline 三窗口平均值（仅作 frozen champion 参照）：`return MAE=0.0649495`、`direction Brier=0.2273957`、`volatility MAE=0.0099349`、`NDCG@20=0.5105553`、`RankIC=0.0673630`。候选 robust training 因单机 CPU 运行时间较长，尚未形成正式配对结论；不得将 baseline 结果解释为 APL/FGM/PGD 的改善证据。
-
-## 本次推进记录（2026-08-04）
+## 历史记录：本机资源限制（2026-08-04）
 
 - 已按冻结 50 epochs、3 个 purged fold 启动正式候选训练。
 - APL 与 latent-FGM 已各生成 3 个 fold checkpoint，目录为 `/Users/Zhuanz/PycharmProjects/PythonProject/runs/phase2b-oos-real-v2/runs/`；尚未因 PGD 未完成而写入汇总报告。
-- feature-PGD 的 `pgd_steps=3` 三进程并发触发 macOS 内存压缩；改为单 worker 恢复后首个 epoch 仍过慢，已安全停止，未改变正式参数。
+- 当时 feature-PGD 的 `pgd_steps=3` 三进程并发触发 macOS 内存压缩；改为单 worker 恢复后首个 epoch 仍过慢，已安全停止，未改变正式参数。
 - 可用 `/Users/Zhuanz/PycharmProjects/PythonProject/configs/ml/phase2b_oos_resume.local.json` 恢复；runner 会校验既有 preregistered contract hash。
 
 ### Feature-PGD 重试
 
-已优化 PGD 内层只对输入特征求梯度，并分别用 `cpu_threads=1` 与 `cpu_threads=6` 重试；两次首 epoch 均约 4 分钟，确认瓶颈是 3-step 序列化 PGD 前向/反向而非并发争抢。两次均安全停止在首 epoch，未生成 PGD checkpoint，也未写入候选 OOS 报告。需要 GPU/更高效运行时后才能继续正式 50-epoch 三 fold 训练。
+当时已优化 PGD 内层只对输入特征求梯度，并分别用 `cpu_threads=1` 与 `cpu_threads=6` 重试；两次首 epoch 均约 4 分钟，确认瓶颈是 3-step 序列化 PGD 前向/反向而非并发争抢。该本机尝试未生成 PGD checkpoint；后续外部算力结果已补齐正式 50-epoch 三折训练和 OOS 报告。
 
-### 用户决策：延期 Feature-PGD（2026-08-04）
+### 外部训练完成登记（2026-08-05）
 
-- 本轮不再在本机重试 `feature_pgd`，不改变已注册的 `epsilon=0.01`、`beta=0.5`、`pgd_steps=3` 和三窗口合同。
-- `feature_pgd` 记录为 `DEFERRED_EXTERNAL_TRAINING`，不是通过，也不是自动替换为 APL 或 latent-FGM。
-- Phase 2B 仍保持 `phase_exit_eligible=false`、`promotion_eligible=false`；缺失的 PGD 配对 OOS 证据必须在外部算力完成后单独补齐。
-- 不让该候选阻塞后续 Phase 3A 的独立数学与风险工程；未来补回 checkpoint 后仍需重新执行三窗口 clean/noisy/stress gate。
+- `epsilon=0.01`、`beta=0.5`、`pgd_steps=3` 和三窗口合同与压缩包中的 `robust_training_spec` 一致。
+- 外部训练结果已登记为 `TRAINING_COMPLETE_GATE_FAILED`，不再记录为 `DEFERRED_EXTERNAL_TRAINING`。
+- 不自动 fallback 到 APL/latent-FGM；后续若重新调 PGD，必须新建 hypothesis/config 并重新运行三窗口 gate。
+- 不让失败候选阻塞后续 Phase 3A/3B 独立数学与风险工程。
