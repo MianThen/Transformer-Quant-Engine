@@ -254,6 +254,8 @@ bool valid_view_spec(const ViewSpecV1& view, std::size_t asset_count,
          (view.family != PosteriorViewFamily::DIRECTION ||
           (view.kind == PosteriorViewKind::MEAN &&
            view.target >= 0.0 && view.target <= 1.0)) &&
+         (view.family != PosteriorViewFamily::VOLATILITY ||
+          (view.kind == PosteriorViewKind::MEAN && view.target > 0.0)) &&
          view.source_artifact_hash != 0;
 }
 
@@ -751,7 +753,8 @@ PosteriorScenarioArtifactV1 apply_ffv_views(
   for (const auto& view : views) {
     if (!valid_view_spec(view, prior.asset_count, prior.decision_at) ||
         (view.family != PosteriorViewFamily::MEAN &&
-         view.family != PosteriorViewFamily::DIRECTION)) {
+         view.family != PosteriorViewFamily::DIRECTION &&
+         view.family != PosteriorViewFamily::VOLATILITY)) {
       return finish(view.available_at > prior.decision_at
                         ? PosteriorStatus::FUTURE_DATA
                         : PosteriorStatus::INVALID_INPUT);
@@ -820,6 +823,9 @@ PosteriorScenarioArtifactV1 apply_ffv_views(
       }
       if (view.family == PosteriorViewFamily::DIRECTION) {
         value = value >= view.statistic_threshold ? 1.0 : 0.0;
+      } else if (view.family == PosteriorViewFamily::VOLATILITY) {
+        const double centered = value - view.statistic_threshold;
+        value = centered * centered;
       }
       functions(row, scenario) = value;
       prior_view += prior.prior_probabilities[static_cast<std::size_t>(scenario)] * value;
@@ -830,7 +836,10 @@ PosteriorScenarioArtifactV1 apply_ffv_views(
         !std::isfinite(minimum) || !std::isfinite(maximum)) {
       return finish(PosteriorStatus::NUMERICAL_FAILURE);
     }
-    const double signed_target = sign * view.target;
+    const double signed_target =
+        view.family == PosteriorViewFamily::VOLATILITY
+            ? view.target * view.target
+            : sign * view.target;
     targets(row) = prior_view + view.confidence * (signed_target - prior_view);
     const double floor_mass = options.min_probability *
                               static_cast<double>(prior.scenario_count);

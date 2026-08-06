@@ -289,6 +289,40 @@ bool test_direction_ffv_probability_oracle() {
   return ok;
 }
 
+bool test_volatility_ffv_second_moment_oracle() {
+  const auto prior = make_prior();
+  auto volatility = make_view(1.0);
+  volatility.view_id = "volatility-second-moment";
+  volatility.family = portfolio_math::PosteriorViewFamily::VOLATILITY;
+  volatility.calibration_artifact_hash = 456;
+  volatility.loading = {1.0, 1.0};
+  volatility.statistic_threshold = 1.0;
+  volatility.target = std::sqrt(0.75);
+  const auto ffv = portfolio_math::apply_ffv_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&volatility, 1));
+  double second_moment = 0.0;
+  for (std::size_t scenario = 0; scenario < prior.scenario_count; ++scenario) {
+    const double combined =
+        prior.scenario_values[scenario * prior.asset_count] +
+        prior.scenario_values[scenario * prior.asset_count + 1];
+    const double centered = combined - volatility.statistic_threshold;
+    second_moment += ffv.posterior_probabilities[scenario] * centered * centered;
+  }
+  bool ok = check(ffv.status == portfolio_math::PosteriorStatus::OK &&
+                      std::abs(second_moment -
+                               volatility.target * volatility.target) < 1e-10 &&
+                      ffv.maximum_view_residual < 1e-10,
+                  "FFV volatility second-moment equality oracle");
+  const auto gaussian = portfolio_math::apply_gaussian_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&volatility, 1));
+  const auto legacy = portfolio_math::apply_ffv_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&volatility, 1));
+  ok &= check(gaussian.status == portfolio_math::PosteriorStatus::INVALID_INPUT &&
+                  legacy.status == portfolio_math::PosteriorStatus::INVALID_INPUT,
+              "mean-only solvers reject volatility view");
+  return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -297,7 +331,8 @@ int main() {
         test_relative_mean_view_and_duplicate_guard() &&
         test_ffv_mean_inequality_views() &&
         test_rich_view_family_calibration_gate() &&
-        test_direction_ffv_probability_oracle())) return 1;
+        test_direction_ffv_probability_oracle() &&
+        test_volatility_ffv_second_moment_oracle())) return 1;
   std::printf("test_posterior: all checks passed\n");
   return 0;
 }
