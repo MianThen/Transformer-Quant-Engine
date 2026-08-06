@@ -1,6 +1,6 @@
 # Phase 2B 状态：鲁棒训练
 
-更新时间：2026-08-05
+更新时间：2026-08-06
 
 ## 当前结论
 
@@ -13,7 +13,18 @@ promotion_eligible = false
 
 原因不是训练结果缺失，而是候选没有同时通过 clean 不退化、压力集稳定改善和三个窗口方向一致门槛。所有候选仍是 research-only。
 
-本次外部算力结果包：
+## 最新 r3 登记（2026-08-06）
+
+`/Users/Zhuanz/Downloads/output` 中的 V2 r3 validation 与 short-OOS 结果已完成完整性审计；它们是当前 Feature-PGD 结论，取代下文历史 `output.zip` 记录的结果解释，但不改变 Phase 2B 仍未退出的状态。
+
+- 分析与 r4 施工合同：`docs/phase2b_feature_pgd_v2_r3_analysis_and_iteration_plan.md`
+- V2 status：`docs/phase2b_feature_pgd_v2_status.md`
+- validation archive SHA-256：`b20e30e9be73d8654db7996c78fb4186ec078d111dcf11688293e40e21446b8d`
+- short-OOS archive SHA-256：`f3b3d959a008912af3c4f8445c4be94cb699d2b721c1bfbac701cfe55f84fe57`
+- 研究判定：`TRAINING_COMPLETE_GATE_FAILED`；`research_gate_passed=false`；`promotion_eligible=false`
+- r3 的核心失败为 clean return MAE 退化、extreme-volatility/跨窗口不稳定，以及当前 Feature-PGD 与 10% structured missing 混杂；不得把 r3 short OOS 重新用于调参。
+
+历史 V1 外部算力结果包（仅保留 provenance，不作为当前 r3 结论）：
 
 - `/Users/Zhuanz/Downloads/output.zip`
 - archive SHA-256：`0aed4f7638f014adff72084ce0b78a8b0e15012de3be1e394f6ad1a407b14975`
@@ -65,9 +76,9 @@ promotion_eligible = false
 
 跳过项来自未安装的可选组件，不构成 Phase 2B OOS 证据。
 
-## 外部 Feature-PGD 结果
+## 历史 V1 外部 Feature-PGD 结果（保留，不作为 r3 结论）
 
-- `feature_pgd` 已完成三折、每折 50 epochs；每折都有 checkpoint、ONNX、validation/test predictions 和 embedding snapshots。
+- 历史 `feature_pgd` 已完成三折、每折 50 epochs；每折都有 checkpoint、ONNX、validation/test predictions 和 embedding snapshots。
 - 汇总 clean：`composite_error=0.0956173`、`return_mae=0.0493726`、`direction_brier=0.2274944`、`volatility_mae=0.0099849`、`NDCG@20=0.5032469`、`RankIC=0.0586506`。
 - gates：`clean_non_degraded=false`、`stress_non_degraded=false`、`all_three_window_consistent=false`、`research_gate_passed=false`、`promotion_eligible=false`。
 - missing stress 的 composite error delta 为 `+0.0706924`，是当前最明显的稳定性退化；不能把 PGD 当作 champion 或进入生产组合。

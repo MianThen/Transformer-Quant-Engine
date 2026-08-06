@@ -1,0 +1,19 @@
+{
+  "checkpoint_count": 9,
+  "checkpoint_sha256": {
+    "fold-1/feature_pgd": "c6dd5a762d046cc9db5f05089623195e075c14b68e4b5ac75fa68e4e455dddd8",
+    "fold-1/none": "486ad5a244854fcfd39a81642f10803f2b24f5633d43f3bd1489bf24460b82cb",
+    "fold-1/structured_missing": "5bfa592239e4a8e851973fa3d5a17c1403bf5fe239c46d64ee2dada13f7eb8bd",
+    "fold-2/feature_pgd": "c46ec02d32b26373dfd7fd43d379dcd2762f162a4b71c05641967698c097a0b0",
+    "fold-2/none": "b8bc4493d718b50404687a3202efe343142533bf702c8ac61e882646ea430934",
+    "fold-2/structured_missing": "60a198129181f826bbf95220110982f5884602735e2cf9e46d41d64d93f85572",
+    "fold-3/feature_pgd": "a0ea98a6656b8c45296b56f4bc3bec463543b9ca0dc501f3bcef36920ae37a7c",
+    "fold-3/none": "d09b5976e34b9a1f6cb62365380244820c8d94ab0d945a8815886b0d17d6ebb8",
+    "fold-3/structured_missing": "cf3509b10b09ac93ce65e8caf05cc2c9d3fdcc1fcb9b5c2a8c44ffe693344a43"
+  },
+  "failures": [],
+  "mode": "validation",
+  "root": "runs\\phase2b-feature-pgd-v2-validation-r3",
+  "schema_version": 1,
+  "status": "PASS"
+}

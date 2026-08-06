@@ -1,0 +1,24 @@
+{
+  "compute_capability": [
+    7,
+    5
+  ],
+  "cuda_runtime": "12.8",
+  "cudnn": 90701,
+  "dataset_feature_shape": [
+    173242,
+    64,
+    23
+  ],
+  "dataset_sha256": "4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554",
+  "dataset_timestamp_count": 1521,
+  "device_count": 1,
+  "device_name": "NVIDIA GeForce RTX 2080 Ti",
+  "device_total_memory_bytes": 11810832384,
+  "platform": "Windows-11-10.0.26100-SP0",
+  "probe_sum": 22898102272.0,
+  "python": "3.12.10",
+  "schema_version": 1,
+  "status": "CUDA_PREFLIGHT_PASS",
+  "torch": "2.7.1+cu128"
+}

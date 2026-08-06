@@ -1,0 +1,111 @@
+{
+  "bootstrap": {
+    "block_length": 6,
+    "draws": 2000,
+    "method": "circular_moving_block_bootstrap",
+    "seed": 20260805
+  },
+  "contract_sha256": "de8a04f52bfd6a542769c6c9bf4c915bd3f6accf48f0742f26f76367e07cea8d",
+  "data_audit_sha256": "5aedcc0bbbcd5cebda11a5e2e15be0a8420f65810c43cf7e71b77ff22c7c3c47",
+  "dataset_sha256": "4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554",
+  "evaluation_split": "test",
+  "folds": [
+    {
+      "fold": 1,
+      "test_first": 1768460400000000000,
+      "test_last": 1773817200000000000,
+      "train_first": 1684393200000000000,
+      "train_last": 1750143600000000000,
+      "validation_first": 1750921200000000000,
+      "validation_last": 1766732400000000000
+    },
+    {
+      "fold": 2,
+      "test_first": 1773903600000000000,
+      "test_last": 1779087600000000000,
+      "train_first": 1689318000000000000,
+      "train_last": 1754895600000000000,
+      "validation_first": 1755673200000000000,
+      "validation_last": 1772521200000000000
+    },
+    {
+      "fold": 3,
+      "test_first": 1779174000000000000,
+      "test_last": 1783926000000000000,
+      "train_first": 1694070000000000000,
+      "train_last": 1760338800000000000,
+      "validation_first": 1761116400000000000,
+      "validation_last": 1777359600000000000
+    }
+  ],
+  "hypothesis_suffix": "v2-r3-short-new-oos",
+  "implementation_sha256": "37058d141aa4015291d9d91fb3c70c58febd473fcd9588cb1f0866e94f361bd0",
+  "label_provenance": {
+    "clean": {
+      "direction": "dataset.direction soft label; source=phase1e_label_v2",
+      "noisy": "not an input column"
+    },
+    "noisy": {
+      "direction": "dataset.direction soft label",
+      "noisy": "deterministic derived label: 1-direction on seeded flip mask",
+      "rates": [
+        0.05,
+        0.1,
+        0.2
+      ],
+      "seed": 20260805
+    },
+    "stress": {
+      "features": "deterministic derived perturbations from dataset.features",
+      "modes": [
+        "price",
+        "volume",
+        "missing",
+        "extreme_volatility"
+      ]
+    }
+  },
+  "missing_mode": "continuous_center_impute",
+  "missing_rate": 0.1,
+  "noise_rates": [
+    0.05,
+    0.1,
+    0.2
+  ],
+  "oos_cutoff_timestamp": 1768374000000000000,
+  "phase1b_last_timestamp": 1768374000000000000,
+  "preprocessing": {
+    "mode": "train_fold_standardizer_v1",
+    "scale_floor": 1e-06
+  },
+  "promotion_allowed": false,
+  "ranking_cutoff": 20,
+  "registered_before_training": true,
+  "schema_version": 2,
+  "stress_missing_mode": "continuous_center_impute",
+  "training_config_sha256": "35ab5dbb0a0b2568e807559fa86539488d69de37c34709d99303f5be77221035",
+  "training_contract": {
+    "batch_size": 256,
+    "beta": 0.5,
+    "deterministic_algorithms": true,
+    "device": "cuda",
+    "epochs": 50,
+    "epsilon": 0.01,
+    "learning_rate": 0.0003,
+    "model": {
+      "d_model": 64,
+      "dim_feedforward": 128,
+      "dropout": 0.1,
+      "nhead": 4,
+      "num_layers": 3
+    },
+    "pgd_steps": 3,
+    "seed": 20260805
+  },
+  "variants": [
+    "none",
+    "structured_missing",
+    "feature_pgd"
+  ],
+  "window_count": 3
+}

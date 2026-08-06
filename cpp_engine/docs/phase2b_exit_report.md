@@ -1,5 +1,7 @@
 # Phase 2B 退出报告（2026-08-05）
 
+> 本文登记的是历史 V1/`output.zip` 结果。当前 V2 r3 的完整审计、失败原因和 r4 方案见 `docs/phase2b_feature_pgd_v2_r3_analysis_and_iteration_plan.md`；r3 同样保持 `phase_exit_eligible=false`。
+
 ## 状态
 
 | 门槛 | 结果 | 说明 |
