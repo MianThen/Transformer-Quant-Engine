@@ -2,6 +2,14 @@
 
 更新时间：2026-08-06
 
+## r4 已实施记录（2026-08-06）
+
+- feature_pgd 现在强制为纯 PGD；structured missing 必须作为独立候选，不再隐式叠加。
+- PGD 更新屏蔽受保护状态、横截面派生和离散语义特征，训练检查会拒绝混合配置。
+- 研究门禁注册 non-inferiority 与 relative-stress margin，并保留逐窗口 bootstrap CI；门禁仍禁止直接晋级生产。
+- 每个训练输出 checkpoint.pt、checkpoint_last.pt 和按最低训练损失选择的 checkpoint_best.pt，同时记录 PGD 的 return/direction 头级诊断。
+- GPU 迁移包：phase2b_feature_pgd_v2_gpu_training_bundle_20260806_r4.tar.gz，数据集随包携带，SHA-256 通过 sidecar 固化。
+
 ## 1. 结论
 
 本次回传结果完整、可校验，训练链路确实完成；失败不是压缩包损坏，也不是 CUDA 训练未生效。
