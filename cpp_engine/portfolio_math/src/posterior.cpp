@@ -256,6 +256,9 @@ bool valid_view_spec(const ViewSpecV1& view, std::size_t asset_count,
            view.target >= 0.0 && view.target <= 1.0)) &&
          (view.family != PosteriorViewFamily::VOLATILITY ||
           (view.kind == PosteriorViewKind::MEAN && view.target > 0.0)) &&
+         (view.family != PosteriorViewFamily::RANKING ||
+          (view.kind == PosteriorViewKind::MEAN &&
+           view.target >= 0.0 && view.target <= 1.0)) &&
          view.source_artifact_hash != 0;
 }
 
@@ -754,7 +757,8 @@ PosteriorScenarioArtifactV1 apply_ffv_views(
     if (!valid_view_spec(view, prior.asset_count, prior.decision_at) ||
         (view.family != PosteriorViewFamily::MEAN &&
          view.family != PosteriorViewFamily::DIRECTION &&
-         view.family != PosteriorViewFamily::VOLATILITY)) {
+         view.family != PosteriorViewFamily::VOLATILITY &&
+         view.family != PosteriorViewFamily::RANKING)) {
       return finish(view.available_at > prior.decision_at
                         ? PosteriorStatus::FUTURE_DATA
                         : PosteriorStatus::INVALID_INPUT);
@@ -826,6 +830,8 @@ PosteriorScenarioArtifactV1 apply_ffv_views(
       } else if (view.family == PosteriorViewFamily::VOLATILITY) {
         const double centered = value - view.statistic_threshold;
         value = centered * centered;
+      } else if (view.family == PosteriorViewFamily::RANKING) {
+        value = value > view.statistic_threshold ? 1.0 : 0.0;
       }
       functions(row, scenario) = value;
       prior_view += prior.prior_probabilities[static_cast<std::size_t>(scenario)] * value;

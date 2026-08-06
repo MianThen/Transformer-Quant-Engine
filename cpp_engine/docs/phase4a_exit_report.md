@@ -16,9 +16,11 @@
 | Rich view calibration/fail-closed contract | PASS/REFERENCE | `test_posterior`：未校准 rich view 拒绝；已校准元数据可审计但暂不进入 mean solver |
 | Direction FFV probability equality oracle | PASS/REFERENCE | `test_posterior`：threshold event probability、confidence target、support/KL/ESS 与 solver fail-closed |
 | Volatility FFV second-moment oracle | PASS/REFERENCE | `test_posterior`：固定中心二阶矩、目标方差转换、posterior 重算与 solver fail-closed |
+| Ranking FFV pairwise probability oracle | PASS/REFERENCE | `test_posterior`：relative loading、strict-margin tie policy、目标 outrank probability 与 solver fail-closed |
 | Posterior Direct fixed downstream anchor | PASS/REFERENCE | 固定 capped-simplex projected-gradient；BL/FFV 只替换 posterior artifact |
 | direction view | PASS/REFERENCE | 校准后的 threshold event probability equality；尚无正式 OOS |
-| ranking/quantile/volatility views | NOT IMPLEMENTED | 后续独立 solver/oracle |
+| direction/volatility/ranking views | PASS/REFERENCE | 独立 scenario-function oracle；尚无正式 OOS |
+| quantile view | NOT IMPLEMENTED | 后续独立 solver/oracle |
 | 完整 inequality active-set solver | NOT IMPLEMENTED | 当前冲突或负对偶 multiplier 一律失败关闭 |
 | BL vs FFV Posterior Direct policy 对照 | NOT RUN | policy 已冻结，OOS/cost 尚未运行 |
 | 三个新 purged OOS、成本与稳定性 gate | NOT RUN | 当前没有 Phase 4A formal OOS |

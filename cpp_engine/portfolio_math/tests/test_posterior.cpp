@@ -323,6 +323,40 @@ bool test_volatility_ffv_second_moment_oracle() {
   return ok;
 }
 
+bool test_ranking_ffv_pairwise_probability_oracle() {
+  const auto prior = make_prior();
+  auto ranking = make_view(1.0);
+  ranking.view_id = "pairwise-outrank-probability";
+  ranking.family = portfolio_math::PosteriorViewFamily::RANKING;
+  ranking.calibration_artifact_hash = 789;
+  ranking.loading = {1.0, -1.0};
+  ranking.statistic_threshold = 0.5;
+  ranking.target = 0.50;
+  const auto ffv = portfolio_math::apply_ffv_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&ranking, 1));
+  double outrank_probability = 0.0;
+  for (std::size_t scenario = 0; scenario < prior.scenario_count; ++scenario) {
+    const double relative =
+        prior.scenario_values[scenario * prior.asset_count] -
+        prior.scenario_values[scenario * prior.asset_count + 1];
+    if (relative > ranking.statistic_threshold) {
+      outrank_probability += ffv.posterior_probabilities[scenario];
+    }
+  }
+  bool ok = check(ffv.status == portfolio_math::PosteriorStatus::OK &&
+                      std::abs(outrank_probability - ranking.target) < 1e-10 &&
+                      ffv.maximum_view_residual < 1e-10,
+                  "FFV pairwise outrank probability oracle");
+  const auto gaussian = portfolio_math::apply_gaussian_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&ranking, 1));
+  const auto legacy = portfolio_math::apply_ffv_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&ranking, 1));
+  ok &= check(gaussian.status == portfolio_math::PosteriorStatus::INVALID_INPUT &&
+                  legacy.status == portfolio_math::PosteriorStatus::INVALID_INPUT,
+              "mean-only solvers reject ranking view");
+  return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -332,7 +366,8 @@ int main() {
         test_ffv_mean_inequality_views() &&
         test_rich_view_family_calibration_gate() &&
         test_direction_ffv_probability_oracle() &&
-        test_volatility_ffv_second_moment_oracle())) return 1;
+        test_volatility_ffv_second_moment_oracle() &&
+        test_ranking_ffv_pairwise_probability_oracle())) return 1;
   std::printf("test_posterior: all checks passed\n");
   return 0;
 }
