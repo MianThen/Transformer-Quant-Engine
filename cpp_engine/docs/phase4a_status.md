@@ -69,6 +69,9 @@ promotion_eligible = false
   OOS 对照或真实成本 gate；当前 mean inequality 和 Posterior Direct 都是严格失败关闭的 reference。
 - 完整 inequality adapter 已显式暴露为 apply_ffv_active_set_views：只接受 mean lower/upper bound，
   支持 mixed active/inactive constraints、KKT sign、support guard、冲突失败关闭和 artifact hash。
+- 新增 compare_posterior_direct_policies：在相同 capped-simplex/risk-aversion downstream 下对照
+  Gaussian BL 与 FFV，输出两边 expected return、variance、objective、weight L1 distance 和 artifact hashes；
+  no-view parity 与 deterministic replay 已测试，不自动选择 winner。
 - 当前只允许已校准的 direction/volatility reference；未校准 direction/volatility/ranking/quantile head 不得接入 view。
 - 当前 artifact 明确 `eligible_for_official_risk=false`，不构成 Phase 4A 退出或生产/实盘晋级。
 

@@ -22,8 +22,9 @@
 | direction/volatility/ranking views | PASS/REFERENCE | 独立 scenario-function oracle；尚无正式 OOS |
 | Quantile FFV CDF oracle | PASS/REFERENCE | `test_posterior`：target 下 CDF equality、`<=` tie policy、quantile 重算与浮点容差 |
 | Explicit inequality active-set adapter | PASS/REFERENCE | `apply_ffv_active_set_views`：mixed active/inactive、KKT sign、support guard、冲突 fail-closed |
+| BL/FFV fixed-downstream policy comparison | PASS/REFERENCE | `test_posterior_direct`：no-view parity、收益/方差/objective/L1 diagnostics、artifact hash 与 deterministic replay |
 | 完整 inequality active-set solver | PASS/REFERENCE | lower/upper bound adapter 与多约束 KKT 参考路径；尚无正式 OOS |
-| BL vs FFV Posterior Direct policy 对照 | NOT RUN | policy 已冻结，OOS/cost 尚未运行 |
+| BL vs FFV Posterior Direct policy 对照 | PASS/REFERENCE | 固定 downstream reference 已完成；正式 OOS/cost 尚未运行 |
 | 三个新 purged OOS、成本与稳定性 gate | NOT RUN | 当前没有 Phase 4A formal OOS |
 
 ## 判定
