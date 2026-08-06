@@ -237,13 +237,41 @@ bool test_ffv_mean_inequality_views() {
   return ok;
 }
 
+bool test_rich_view_family_calibration_gate() {
+  const auto prior = make_prior();
+  auto rich = make_view(0.8);
+  rich.view_id = "direction-head-view";
+  rich.family = portfolio_math::PosteriorViewFamily::DIRECTION;
+  bool ok = check(
+      !portfolio_math::valid_view_spec(rich, prior.asset_count, prior.decision_at),
+      "uncalibrated rich view fails contract");
+  rich.calibration_artifact_hash = 99;
+  ok &= check(
+      portfolio_math::valid_view_spec(rich, prior.asset_count, prior.decision_at),
+      "calibrated rich view passes contract layer");
+  const auto gaussian = portfolio_math::apply_gaussian_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&rich, 1));
+  const auto ffv = portfolio_math::apply_ffv_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&rich, 1));
+  ok &= check(gaussian.status == portfolio_math::PosteriorStatus::INVALID_INPUT &&
+                  ffv.status == portfolio_math::PosteriorStatus::INVALID_INPUT,
+              "rich view cannot enter mean-only solvers");
+  const auto serialized = portfolio_math::serialize_view_spec(rich);
+  ok &= check(serialized.find("\"family\":\"direction\"") != std::string::npos &&
+                  serialized.find("\"calibration_artifact_hash\":99") !=
+                      std::string::npos,
+              "rich view provenance serialization");
+  return ok;
+}
+
 }  // namespace
 
 int main() {
   if (!(test_prior_and_no_view() && test_confidence_limits_and_future_guard() &&
         test_ffv_probability_projection_and_statistics() &&
         test_relative_mean_view_and_duplicate_guard() &&
-        test_ffv_mean_inequality_views())) return 1;
+        test_ffv_mean_inequality_views() &&
+        test_rich_view_family_calibration_gate())) return 1;
   std::printf("test_posterior: all checks passed\n");
   return 0;
 }

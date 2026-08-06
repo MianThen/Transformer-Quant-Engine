@@ -13,6 +13,7 @@
 | posterior mean/covariance/quantile/ES 重算 parity | PASS/REFERENCE | 同一 posterior probability vector 独立重算 |
 | FFV mean lower/upper bound | PASS/REFERENCE | 仅对被触发 bound 重加权；inactive bound 保持 prior parity，KKT 符号/近共线失败关闭 |
 | FFV coupled active-set bounds | PASS/REFERENCE | `test_posterior`：双资产同时约束、active count、residual 和 artifact contract |
+| Rich view calibration/fail-closed contract | PASS/REFERENCE | `test_posterior`：未校准 rich view 拒绝；已校准元数据可审计但暂不进入 mean solver |
 | Posterior Direct fixed downstream anchor | PASS/REFERENCE | 固定 capped-simplex projected-gradient；BL/FFV 只替换 posterior artifact |
 | direction/ranking/quantile/volatility views | NOT IMPLEMENTED | 后续独立 solver/oracle |
 | 完整 inequality active-set solver | NOT IMPLEMENTED | 当前冲突或负对偶 multiplier 一律失败关闭 |

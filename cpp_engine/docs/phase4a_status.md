@@ -37,6 +37,9 @@ promotion_eligible = false
   rejection 和 mapping provenance fail-closed。
 - 新增 coupled active-set oracle：同一 FFV posterior 同时满足两个资产的 lower/upper mean bound，
   并验证 active constraint count、view residual 与 posterior artifact contract。
+- 新增 rich view family contract：direction、volatility、ranking、quantile view 必须绑定非零
+  calibration artifact hash；在对应 solver 尚未实现前，Gaussian/FFV mean solver 明确拒绝这些 family，
+  防止未校准 head 进入后验。
 - `portfolio_math/posterior_direct.h` / `src/posterior_direct.cpp`：固定 long-only、fully-invested、capped-simplex
   mean-variance `Posterior Direct` anchor；BL/FFV 只替换 posterior artifact，cost/hard-constraint 仍交给同一
   `SinglePeriodReconciler`。
