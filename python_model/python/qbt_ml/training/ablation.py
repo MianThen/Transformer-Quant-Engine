@@ -41,7 +41,10 @@ def implementation_hash() -> str:
         training / "walk_forward.py",
         training / "gradient_methods.py",
         training / "phase1e.py",
+        training / "phase2b.py",
+        training / "robust_training.py",
         package / "cli.py",
+        package / "features" / "scaling.py",
         package / "models" / "temporal_transformer.py",
     )
     digest = hashlib.sha256()
@@ -89,7 +92,8 @@ def _checkpoint_head_metrics(checkpoint_path: Path, dataset_path: Path) -> dict:
     model = TemporalTransformerV1(
         TemporalTransformerConfig(**checkpoint["model_config"])
     )
-    model.load_state_dict(checkpoint["model_state_dict"])
+    from ..models.temporal_transformer import load_temporal_transformer_state_dict
+    load_temporal_transformer_state_dict(model, checkpoint["model_state_dict"])
     model.eval()
     with np.load(dataset_path, allow_pickle=False) as data:
         timestamps = data["timestamps"]

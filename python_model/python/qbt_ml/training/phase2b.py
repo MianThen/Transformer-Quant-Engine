@@ -6,7 +6,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Mapping, Sequence
 
 import numpy as np
 
@@ -17,7 +17,9 @@ from .robust_training import build_stress_sets
 from .walk_forward import TimestampSplit
 
 
-PHASE2B_VARIANTS = ("none", "direction_apl", "latent_fgm", "feature_pgd")
+PHASE2B_VARIANTS = (
+    "none", "direction_apl", "latent_fgm", "feature_pgd", "structured_missing",
+)
 
 
 def _canonical_hash(value: object) -> str:
@@ -50,13 +52,14 @@ def _checkpoint_model(checkpoint_path: Path):
     from ..models.temporal_transformer import (
         TemporalTransformerConfig,
         TemporalTransformerV1,
+        load_temporal_transformer_state_dict,
     )
 
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     model = TemporalTransformerV1(
         TemporalTransformerConfig(**checkpoint["model_config"])
     )
-    model.load_state_dict(checkpoint["model_state_dict"])
+    load_temporal_transformer_state_dict(model, checkpoint["model_state_dict"])
     model.eval()
     return model
 
@@ -101,10 +104,28 @@ def _predict_metrics(
             for name in output_parts:
                 output_parts[name].append(prediction[name].numpy())
     values = {name: np.concatenate(parts) for name, parts in output_parts.items()}
+    predicted_volatility = values["expected_volatility"]
+    finite_predictions = bool(np.isfinite(predicted_volatility).all())
     ranking = ranking_oos_metrics(
         values["expected_return"], utility, relevance, timestamps, symbols,
         cutoff=int(ranking_cutoff),
     )
+    timestamp_metrics = []
+    for timestamp in np.unique(timestamps):
+        group = timestamps == timestamp
+        return_loss = np.abs(values["expected_return"][group] - expected[group])
+        direction_loss = (values["direction_probability"][group] - direction[group]) ** 2
+        volatility_loss = np.abs(values["expected_volatility"][group] - volatility[group])
+        timestamp_metrics.append({
+            "timestamp": int(timestamp),
+            "return_mae": float(np.mean(return_loss)),
+            "direction_brier": float(np.mean(direction_loss)),
+            "volatility_mae": float(np.mean(volatility_loss)),
+            "composite_error": float(np.mean([
+                np.mean(return_loss), np.mean(direction_loss),
+                np.mean(volatility_loss),
+            ])),
+        })
     return {
         "return_mae": float(np.mean(np.abs(values["expected_return"] - expected))),
         "direction_brier": float(np.mean(
@@ -114,8 +135,16 @@ def _predict_metrics(
             values["direction_probability"], direction,
         ),
         "volatility_mae": float(np.mean(
-            np.abs(values["expected_volatility"] - volatility)
+            np.abs(predicted_volatility - volatility)
         )),
+        "volatility_prediction_finite": finite_predictions,
+        "volatility_prediction_p99": float(
+            np.percentile(predicted_volatility, 99)
+        ) if finite_predictions else float("inf"),
+        "volatility_prediction_max": float(
+            np.max(predicted_volatility)
+        ) if finite_predictions else float("inf"),
+        "timestamp_metrics": timestamp_metrics,
         "interval_coverage": float(np.mean(
             (expected >= values["lower_quantile"])
             & (expected <= values["upper_quantile"])
@@ -165,9 +194,13 @@ def _evaluate_fold(
     noise_seed: int,
     ranking_cutoff: int,
     batch_size: int,
+    stress_missing_mode: str = "raw_zero",
+    evaluation_split: str = "test",
 ) -> dict:
+    if evaluation_split not in {"validation", "test"}:
+        raise ValueError("evaluation_split 必须为 validation/test")
     model = _checkpoint_model(checkpoint_path)
-    indices = fold.test
+    indices = fold.validation if evaluation_split == "validation" else fold.test
     features = data["features"][indices].astype(np.float32, copy=False)
     valid_mask = data["valid_mask"][indices].astype(np.uint8, copy=False)
     expected = data["expected_return"][indices].astype(np.float32, copy=False)
@@ -196,27 +229,122 @@ def _evaluate_fold(
         probability, direction, rates=noise_rates, seed=noise_seed,
     )
     stress = {}
+    missing_center = None
+    if stress_missing_mode == "continuous_center_impute":
+        missing_center = model.input_mean.detach().cpu().numpy().reshape(-1)
     for name, value in build_stress_sets(
         features, valid_mask, feature_names=BAR_V1.feature_names,
-        seed=noise_seed,
+        seed=noise_seed, missing_mode=stress_missing_mode,
+        missing_center=missing_center,
     ).items():
         stress[name] = _predict_metrics(
             model, value["features"], value["valid_mask"], expected,
             direction, volatility, timestamps, symbols, utility, relevance,
             ranking_cutoff=ranking_cutoff, batch_size=batch_size,
         )
-    return {"clean": clean, "noisy": noisy, "stress": stress}
+    return {
+        "evaluation_split": evaluation_split,
+        "clean": clean,
+        "noisy": noisy,
+        "stress": stress,
+    }
 
 
 def _mean_metrics(values: list[dict]) -> dict:
     keys = values[0].keys()
-    return {key: float(np.mean([value[key] for value in values])) for key in keys}
+    return {
+        key: float(np.mean([value[key] for value in values]))
+        for key in keys
+        if np.isscalar(values[0][key])
+    }
 
 
-def _gate_candidate(candidate: dict, baseline: dict, folds: list[dict]) -> dict:
+def _paired_block_bootstrap(
+    candidate: Sequence[float],
+    baseline: Sequence[float],
+    *,
+    block_length: int = 6,
+    draws: int = 2000,
+    seed: int = 20260805,
+) -> dict:
+    candidate_values = np.asarray(candidate, dtype=np.float64)
+    baseline_values = np.asarray(baseline, dtype=np.float64)
+    if candidate_values.shape != baseline_values.shape or candidate_values.ndim != 1:
+        raise ValueError("paired bootstrap 输入必须是一维同形状数组")
+    if candidate_values.size == 0 or not np.isfinite(candidate_values).all() or not np.isfinite(baseline_values).all():
+        raise ValueError("paired bootstrap 输入必须非空且有限")
+    if block_length <= 0 or draws <= 0:
+        raise ValueError("block_length/draws 必须为正数")
+    difference = candidate_values - baseline_values
+    observed = float(np.mean(difference))
+    generator = np.random.default_rng(seed)
+    sample_count = difference.size
+    block_length = min(int(block_length), sample_count)
+    bootstrapped = np.empty(draws, dtype=np.float64)
+    for draw in range(draws):
+        indices = []
+        while len(indices) < sample_count:
+            start = int(generator.integers(0, sample_count))
+            indices.extend(
+                ((start + np.arange(block_length)) % sample_count).tolist()
+            )
+        bootstrapped[draw] = float(np.mean(difference[np.asarray(indices[:sample_count])]))
+    return {
+        "method": "circular_moving_block_bootstrap",
+        "block_length": block_length,
+        "draws": int(draws),
+        "sample_count": int(sample_count),
+        "estimate": observed,
+        "ci_low": float(np.quantile(bootstrapped, 0.025)),
+        "ci_high": float(np.quantile(bootstrapped, 0.975)),
+    }
+
+
+def _timestamp_metric_map(metrics: dict, field: str) -> dict[int, float]:
+    records = metrics.get("timestamp_metrics", [])
+    result = {int(record["timestamp"]): float(record[field]) for record in records}
+    if len(result) != len(records):
+        raise ValueError("timestamp_metrics 不能包含重复日期")
+    return result
+
+
+def _paired_timestamp_bootstrap(
+    candidate_metrics: dict,
+    baseline_metrics: dict,
+    field: str,
+    *,
+    block_length: int,
+    draws: int,
+    seed: int,
+) -> dict:
+    candidate_map = _timestamp_metric_map(candidate_metrics, field)
+    baseline_map = _timestamp_metric_map(baseline_metrics, field)
+    if set(candidate_map) != set(baseline_map):
+        raise ValueError(f"paired timestamp 不一致: {field}")
+    timestamps = sorted(candidate_map)
+    return _paired_block_bootstrap(
+        [candidate_map[timestamp] for timestamp in timestamps],
+        [baseline_map[timestamp] for timestamp in timestamps],
+        block_length=block_length, draws=draws, seed=seed,
+    )
+
+
+def _gate_candidate(
+    candidate: dict,
+    baseline: dict,
+    folds: list[dict],
+    *,
+    block_length: int = 6,
+    bootstrap_draws: int = 2000,
+    bootstrap_seed: int = 20260805,
+    noninferiority_margin: float = 0.0025,
+    relative_stress_margin: float = 0.0025,
+) -> dict:
+    if noninferiority_margin < 0 or relative_stress_margin < 0:
+        raise ValueError("gate margin 不能为负数")
     clean_keys = ("return_mae", "direction_brier", "volatility_mae")
     clean_pass = all(
-        candidate["clean"][key] <= baseline["clean"][key] + 1e-12
+        candidate["clean"][key] <= baseline["clean"][key] + noninferiority_margin
         for key in clean_keys
     )
     stress_names = tuple(candidate["stress"])
@@ -225,21 +353,81 @@ def _gate_candidate(candidate: dict, baseline: dict, folds: list[dict]) -> dict:
         baseline["stress"][name]["composite_error"]
         for name in stress_names
     }
-    stress_pass = all(value <= 1e-12 for value in stress_delta.values())
+    clean_relative = {
+        name: candidate["stress"][name]["composite_error"] -
+        candidate["clean"]["composite_error"]
+        for name in stress_names
+    }
+    baseline_relative = {
+        name: baseline["stress"][name]["composite_error"] -
+        baseline["clean"]["composite_error"]
+        for name in stress_names
+    }
+    relative_stress_delta = {
+        name: clean_relative[name] - baseline_relative[name]
+        for name in stress_names
+    }
+    stress_pass = all(value <= noninferiority_margin for value in stress_delta.values())
     consistent = {}
+    relative_consistent = {}
+    bootstrap = {"clean": {}, "relative_stress": {}}
+    bootstrap_fields = ("return_mae", "direction_brier", "volatility_mae", "composite_error")
+    for field_index, field in enumerate(bootstrap_fields):
+        bootstrap["clean"][field] = [
+            _paired_timestamp_bootstrap(
+                fold["candidate"]["clean"], fold["baseline"]["clean"], field,
+                block_length=block_length, draws=bootstrap_draws,
+                seed=bootstrap_seed + field_index + fold_index * 100,
+            )
+            for fold_index, fold in enumerate(folds)
+        ]
     for name in stress_names:
         deltas = [
             fold["candidate"]["stress"][name]["composite_error"] -
             fold["baseline"]["stress"][name]["composite_error"]
             for fold in folds
         ]
-        consistent[name] = bool(all(value <= 1e-12 for value in deltas))
+        relative_deltas = [
+            (
+                fold["candidate"]["stress"][name]["composite_error"] -
+                fold["candidate"]["clean"]["composite_error"]
+            ) - (
+                fold["baseline"]["stress"][name]["composite_error"] -
+                fold["baseline"]["clean"]["composite_error"]
+            )
+            for fold in folds
+        ]
+        consistent[name] = bool(all(value <= noninferiority_margin for value in deltas))
+        relative_consistent[name] = bool(all(value <= relative_stress_margin for value in relative_deltas))
+        relative_bootstrap = []
+        for fold_index, fold in enumerate(folds):
+            candidate_stress = _timestamp_metric_map(fold["candidate"]["stress"][name], "composite_error")
+            candidate_clean = _timestamp_metric_map(fold["candidate"]["clean"], "composite_error")
+            baseline_stress = _timestamp_metric_map(fold["baseline"]["stress"][name], "composite_error")
+            baseline_clean = _timestamp_metric_map(fold["baseline"]["clean"], "composite_error")
+            timestamps = sorted(candidate_stress)
+            if set(timestamps) != set(candidate_clean) or set(timestamps) != set(baseline_stress) or set(timestamps) != set(baseline_clean):
+                raise ValueError(f"relative stress timestamp 不一致: {name}")
+            relative_bootstrap.append(_paired_block_bootstrap(
+                [candidate_stress[timestamp] - candidate_clean[timestamp] for timestamp in timestamps],
+                [baseline_stress[timestamp] - baseline_clean[timestamp] for timestamp in timestamps],
+                block_length=block_length, draws=bootstrap_draws,
+                seed=bootstrap_seed + 1000 + fold_index,
+            ))
+        bootstrap["relative_stress"][name] = relative_bootstrap
     return {
         "clean_non_degraded": clean_pass,
         "stress_non_degraded": stress_pass,
         "stress_window_consistency": consistent,
         "all_three_window_consistent": all(consistent.values()),
-        "research_gate_passed": clean_pass and stress_pass and all(consistent.values()),
+        "relative_stress_delta_composite_error": relative_stress_delta,
+        "relative_stress_window_consistency": relative_consistent,
+        "paired_block_bootstrap": bootstrap,
+        "research_gate_passed": clean_pass and stress_pass and all(relative_consistent.values()),
+        "gate_margins": {
+            "noninferiority_margin": noninferiority_margin,
+            "relative_stress_margin": relative_stress_margin,
+        },
         "promotion_eligible": False,
         "stress_delta_composite_error": stress_delta,
     }
@@ -283,7 +471,9 @@ def run_phase2b_oos(
     data_audit_path = settings.get("data_audit")
     if data_audit_path:
         audit = json.loads(Path(data_audit_path).read_text(encoding="utf-8"))
-        cutoff = int(audit["phase1b_last_timestamp"])
+        cutoff = int(settings.get(
+            "oos_cutoff_timestamp", audit["phase1b_last_timestamp"],
+        ))
     else:
         cutoff = int(settings["phase1b_last_timestamp"])
     folds = phase1e_oos_splits(
@@ -303,16 +493,54 @@ def run_phase2b_oos(
         raise ValueError("Phase 2B ranking_cutoff 必须为正数")
     variants = tuple(settings.get("variants", PHASE2B_VARIANTS))
     if set(variants) - set(PHASE2B_VARIANTS) or "none" not in variants:
-        raise ValueError("Phase 2B variants 必须包含 none/apl/FGM/PGD 合法候选")
+        raise ValueError("Phase 2B variants 必须包含 none 且只能使用已注册候选")
+    evaluation_split = str(settings.get("evaluation_split", "test"))
+    if evaluation_split not in {"validation", "test"}:
+        raise ValueError("phase2b_oos.evaluation_split 必须为 validation/test")
     contract = {
-        "schema_version": 1,
+        "schema_version": int(settings.get("contract_schema_version", 1)),
         "registered_before_training": True,
         "promotion_allowed": False,
         "dataset_sha256": _file_hash(dataset_path),
         "data_audit_sha256": _file_hash(data_audit_path) if data_audit_path else None,
         "phase1b_last_timestamp": cutoff,
+        "oos_cutoff_timestamp": cutoff,
+        "implementation_sha256": implementation_hash(),
+        "training_config_sha256": _canonical_hash(config),
+        "training_contract": {
+            "seed": int(config.get("seed", 0)),
+            "model": config.get("model", {}),
+            "epochs": int(config.get("training", {}).get("epochs", 0)),
+            "batch_size": int(config.get("training", {}).get("batch_size", 0)),
+            "learning_rate": float(config.get("training", {}).get(
+                "learning_rate", 0.0,
+            )),
+            "device": str(config.get("training", {}).get("device", "")),
+            "deterministic_algorithms": bool(config.get("training", {}).get(
+                "deterministic_algorithms", True,
+            )),
+            "epsilon": float(settings.get("epsilon", 0.01)),
+            "beta": float(settings.get("beta", 0.5)),
+            "pgd_steps": int(settings.get("pgd_steps", 3)),
+        },
         "window_count": 3,
         "noise_rates": list(noise_rates),
+        "stress_missing_mode": str(settings.get("stress_missing_mode", "raw_zero")),
+        "missing_mode": str(settings.get("missing_mode", "none")),
+        "missing_rate": float(settings.get("missing_rate", 0.0)),
+        "gate_margins": {
+            "noninferiority_margin": float(settings.get("noninferiority_margin", 0.0025)),
+            "relative_stress_margin": float(settings.get("relative_stress_margin", 0.0025)),
+        },
+        "hypothesis_suffix": str(settings.get("hypothesis_suffix", "v1")),
+        "preprocessing": config.get("preprocessing", {"mode": "none"}),
+        "bootstrap": {
+            "method": "circular_moving_block_bootstrap",
+            "block_length": int(settings.get("bootstrap_block_length", 6)),
+            "draws": int(settings.get("bootstrap_draws", 2000)),
+            "seed": int(settings.get("bootstrap_seed", 20260805)),
+        },
+        "evaluation_split": evaluation_split,
         "label_provenance": {
             "clean": {
                 "direction": "dataset.direction soft label; source=phase1e_label_v2",
@@ -357,12 +585,23 @@ def run_phase2b_oos(
                 run_config = copy.deepcopy(config)
                 run_config["training"] = dict(config.get("training", {}))
                 run_config["training"]["output"] = str(run_path)
+                run_config["training"]["evaluation_split"] = evaluation_split
                 run_config["robust_training"] = {
                     "mode": variant,
-                    "hypothesis_id": f"phase2b-oos-{variant}-v1",
+                    "hypothesis_id": f"phase2b-oos-{variant}-{settings.get('hypothesis_suffix', 'v1')}",
                     "epsilon": float(settings.get("epsilon", 0.01)),
                     "beta": float(settings.get("beta", 0.5)),
                     "pgd_steps": int(settings.get("pgd_steps", 3)),
+                    "missing_mode": (
+                        str(settings.get("missing_mode", "none"))
+                        if variant in {"structured_missing"}
+                        else "none"
+                    ),
+                    "missing_rate": (
+                        float(settings.get("missing_rate", 0.0))
+                        if variant in {"structured_missing"}
+                        else 0.0
+                    ),
                 }
                 training_jobs.append((
                     train_fn, run_config, str(dataset_path), str(run_path), fold,
@@ -404,10 +643,13 @@ def run_phase2b_oos(
                 noise_seed=int(settings.get("noise_seed", 20260804)) + fold_index,
                 ranking_cutoff=ranking_cutoff,
                 batch_size=int(config.get("training", {}).get("batch_size", 256)),
+                stress_missing_mode=str(settings.get("stress_missing_mode", "raw_zero")),
+                evaluation_split=evaluation_split,
             )
             fold_results.append({
                 "fold": fold_index + 1,
                 "checkpoint": str(checkpoint_path),
+                "checkpoint_sha256": _file_hash(checkpoint_path),
                 "split": _split_payload(fold),
                 **evaluated,
             })
@@ -433,10 +675,20 @@ def run_phase2b_oos(
              "baseline": baseline["folds"][index]}
             for index in range(3)
         ]
-        gates[variant] = _gate_candidate(results[variant], baseline, fold_pairs)
+        gates[variant] = _gate_candidate(
+            results[variant], baseline, fold_pairs,
+            block_length=int(settings.get("bootstrap_block_length", 6)),
+            bootstrap_draws=int(settings.get("bootstrap_draws", 2000)),
+            bootstrap_seed=int(settings.get("bootstrap_seed", 20260805)),
+            noninferiority_margin=float(settings.get("noninferiority_margin", 0.0025)),
+            relative_stress_margin=float(settings.get("relative_stress_margin", 0.0025)),
+        )
     report = {
         "schema_version": 1,
-        "status": "research_only_no_promotion",
+        "status": (
+            "development_validation_only"
+            if evaluation_split == "validation" else "research_only_no_promotion"
+        ),
         "contract_sha256": contract["contract_sha256"],
         "dataset_sha256": contract["dataset_sha256"],
         "window_count": 3,

@@ -352,6 +352,7 @@ def _train(
     except ImportError as exc:
         raise RuntimeError("训练机需要安装项目的 ml 可选依赖") from exc
     from .models.temporal_transformer import TemporalTransformerConfig, TemporalTransformerV1
+    from .features.scaling import FeatureStandardizerV1
     from .training.ranking import CrossSectionBatchSampler, ranking_oos_metrics
     from .training.gradient_methods import (
         GRADIENT_TASKS,
@@ -374,11 +375,15 @@ def _train(
         apl_direction_loss,
         feature_pgd_perturbation,
         latent_fgm_loss,
+        structured_missing_augmentation,
         validate_robust_training_config,
     )
     from .training.walk_forward import chronological_timestamp_split
 
     training = config.get("training", {})
+    evaluation_split = str(training.get("evaluation_split", "test"))
+    if evaluation_split not in {"validation", "test"}:
+        raise ValueError("training.evaluation_split 必须为 validation/test")
     cpu_threads = int(training.get("cpu_threads", 0))
     if cpu_threads < 0:
         raise ValueError("training.cpu_threads 不能为负数")
@@ -389,6 +394,27 @@ def _train(
     device = training.get("device")
     if not dataset_path or not output or not device or "CONFIGURE_" in str(device):
         raise ValueError("必须配置 training.dataset、training.output 和 training.device")
+    device = str(device)
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        raise RuntimeError("配置要求 CUDA，但当前 PyTorch/CUDA 不可用；禁止静默回退 CPU")
+    deterministic_algorithms = bool(training.get("deterministic_algorithms", True))
+    torch.use_deterministic_algorithms(deterministic_algorithms)
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = deterministic_algorithms
+    runtime_backend = {
+        "requested_device": device,
+        "resolved_device": str(torch.device(device)),
+        "torch_version": str(torch.__version__),
+        "cuda_available": bool(torch.cuda.is_available()),
+        "cuda_runtime_version": str(torch.version.cuda),
+        "cuda_device_count": int(torch.cuda.device_count()),
+        "cuda_device_name": (
+            torch.cuda.get_device_name(torch.device(device))
+            if device.startswith("cuda") else None
+        ),
+        "deterministic_algorithms": deterministic_algorithms,
+    }
     with np.load(dataset_path, allow_pickle=False) as data:
         features = data["features"].astype(np.float32, copy=False)
         valid_mask = data["valid_mask"].astype(np.uint8, copy=False)
@@ -510,6 +536,24 @@ def _train(
     if robust_spec.mode != "none" and gradient_mode != "none":
         raise ValueError("Phase 2B 候选必须与 Phase 1E 梯度 challenger 分开实验")
 
+    preprocessing_config = config.get("preprocessing", {})
+    if not isinstance(preprocessing_config, dict):
+        raise ValueError("preprocessing 必须是对象")
+    _reject_unknown_keys(
+        preprocessing_config, {"mode", "scale_floor"}, "preprocessing",
+    )
+    preprocessing_mode = str(preprocessing_config.get("mode", "none"))
+    if preprocessing_mode not in {"none", "train_fold_standardizer_v1"}:
+        raise ValueError(
+            "preprocessing.mode 必须为 none/train_fold_standardizer_v1"
+        )
+    standardizer = None
+    if preprocessing_mode == "train_fold_standardizer_v1":
+        standardizer = FeatureStandardizerV1.fit(
+            features[split.train], valid_mask[split.train], dataset_feature_names,
+            scale_floor=float(preprocessing_config.get("scale_floor", 1e-6)),
+        )
+
     def tensors_for(indices):
         return TensorDataset(
             torch.from_numpy(features[indices]), torch.from_numpy(valid_mask[indices]),
@@ -534,6 +578,9 @@ def _train(
     model_config = TemporalTransformerConfig(
         feature_count=features.shape[2], lookback=features.shape[1],
         **{key: value for key, value in config.get("model", {}).items() if key in allowed},
+        input_mean=standardizer.mean if standardizer is not None else (),
+        input_scale=standardizer.scale if standardizer is not None else (),
+        input_protected=standardizer.protected if standardizer is not None else (),
     )
     model = TemporalTransformerV1(model_config).to(device)
     kendall = None
@@ -670,25 +717,35 @@ def _train(
                 "timestamp": batch_timestamps.to(device),
                 "symbol_tie_breaker": tie_breaker.to(device),
             }
+            feature_input = feature
+            missing_update = None
+            if robust_spec.missing_mode == "continuous_center_impute":
+                feature_input, missing_update = structured_missing_augmentation(
+                    feature, mask,
+                    feature_names=robust_spec.feature_names,
+                    center=model.input_mean.reshape(-1),
+                    rate=robust_spec.missing_rate,
+                )
             optimizer.zero_grad(set_to_none=True)
             clean_loss_fn = lambda prediction, clean_target: compute_loss(
                 prediction, clean_target,
             )[0]
             if robust_spec.mode == "direction_apl":
                 loss, components, weighted = compute_loss(
-                    model(feature, mask), target, use_robust_direction=True,
+                    model(feature_input, mask), target, use_robust_direction=True,
                 )
             elif robust_spec.mode == "latent_fgm":
                 loss, robust_batch = latent_fgm_loss(
-                    model, feature, mask, target, clean_loss_fn,
+                    model, feature_input, mask, target, clean_loss_fn,
                     epsilon=robust_spec.epsilon, beta=robust_spec.beta,
                 )
                 components, weighted = None, None
                 if len(robust_diagnostics) < 256:
                     robust_diagnostics.append(robust_batch)
             elif robust_spec.mode == "feature_pgd":
-                clean_prediction = model(feature, mask)
+                clean_prediction = model(feature_input, mask)
                 clean_loss = clean_loss_fn(clean_prediction, target)
+                standardized_input = model.normalize_features(feature_input, mask)
                 parameter_grad_state = [
                     parameter.requires_grad for parameter in model.parameters()
                 ]
@@ -696,9 +753,9 @@ def _train(
                     parameter.requires_grad_(False)
                 try:
                     adversarial_features = feature_pgd_perturbation(
-                        feature, mask,
+                        standardized_input, mask,
                         lambda perturbed: clean_loss_fn(
-                            model(perturbed, mask), target,
+                            model.forward_standardized(perturbed, mask), target,
                         ),
                         epsilon=robust_spec.epsilon,
                         steps=robust_spec.pgd_steps,
@@ -711,7 +768,7 @@ def _train(
                     ):
                         parameter.requires_grad_(requires_grad)
                 adversarial_loss = clean_loss_fn(
-                    model(adversarial_features, mask), target,
+                    model.forward_standardized(adversarial_features, mask), target,
                 )
                 loss = clean_loss + robust_spec.beta * adversarial_loss
                 components, weighted = None, None
@@ -719,12 +776,35 @@ def _train(
                     robust_diagnostics.append({
                         "clean_loss": float(clean_loss.detach()),
                         "adversarial_loss": float(adversarial_loss.detach()),
+                        "clean_return_mae": float(torch.mean(torch.abs(
+                            clean_prediction["expected_return"] - target["expected_return"]
+                        )).detach()),
+                        "adversarial_return_mae": float(torch.mean(torch.abs(
+                            model.forward_standardized(adversarial_features, mask)["expected_return"]
+                            - target["expected_return"]
+                        )).detach()),
+                        "clean_direction_brier": float(torch.mean(torch.square(
+                            clean_prediction["direction_probability"] - target["direction"]
+                        )).detach()),
                         "feature_perturbation_linf": float(
-                            (adversarial_features - feature).abs().max().detach()
+                            (adversarial_features - standardized_input).abs().max().detach()
                         ),
                     })
+            elif robust_spec.mode == "structured_missing":
+                loss, components, weighted = compute_loss(
+                    model(feature_input, mask), target,
+                )
             else:
-                loss, components, weighted = compute_loss(model(feature, mask), target)
+                loss, components, weighted = compute_loss(
+                    model(feature_input, mask), target,
+                )
+            if missing_update is not None and len(robust_diagnostics) < 256:
+                robust_diagnostics.append({
+                    "missing_mode": robust_spec.missing_mode,
+                    "missing_rate": robust_spec.missing_rate,
+                    "missing_token_count": int(missing_update.any(dim=-1).sum().detach()),
+                    "missing_feature_count": int(missing_update.sum().detach()),
+                })
             if gradient_recorder is not None:
                 gradient_recorder.sample(
                     components,
@@ -971,7 +1051,7 @@ def _train(
         }
 
     validation_metrics = evaluate(split.validation)
-    test_metrics = evaluate(split.test)
+    test_metrics = evaluate(split.test) if evaluation_split == "test" else None
     gradient_artifact = None
     if gradient_recorder is not None:
         model_contract = {
@@ -1001,12 +1081,15 @@ def _train(
         )
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    test_predictions = test_metrics.pop("predictions")
     validation_predictions = validation_metrics.pop("predictions")
-    test_embeddings = test_predictions.pop("embedding")
     validation_embeddings = validation_predictions.pop("embedding")
-    np.savez_compressed(output / "test_predictions.npz", **test_predictions)
     np.savez_compressed(output / "validation_predictions.npz", **validation_predictions)
+    test_predictions = None
+    test_embeddings = None
+    if test_metrics is not None:
+        test_predictions = test_metrics.pop("predictions")
+        test_embeddings = test_predictions.pop("embedding")
+        np.savez_compressed(output / "test_predictions.npz", **test_predictions)
 
     anchor_candidates = np.flatnonzero(
         valid_mask.all(axis=1) & np.isfinite(features).all(axis=(1, 2))
@@ -1021,15 +1104,16 @@ def _train(
             torch.from_numpy(valid_mask[anchor_indices]).to(device),
             return_embedding=True,
         )["embedding"].detach().cpu().numpy()
-    np.savez_compressed(
-        output / "test_embeddings.npz",
-        embeddings=test_embeddings,
-        timestamps=test_predictions["timestamps"],
-        symbols=test_predictions["symbols"],
-        anchor_embeddings=anchor_embedding,
-        anchor_timestamps=timestamps[anchor_indices].astype(np.int64, copy=False),
-        anchor_symbols=symbols[anchor_indices],
-    )
+    if test_predictions is not None and test_embeddings is not None:
+        np.savez_compressed(
+            output / "test_embeddings.npz",
+            embeddings=test_embeddings,
+            timestamps=test_predictions["timestamps"],
+            symbols=test_predictions["symbols"],
+            anchor_embeddings=anchor_embedding,
+            anchor_timestamps=timestamps[anchor_indices].astype(np.int64, copy=False),
+            anchor_symbols=symbols[anchor_indices],
+        )
     np.savez_compressed(
         output / "validation_embeddings.npz",
         embeddings=validation_embeddings,
@@ -1043,9 +1127,20 @@ def _train(
         (output / "gradient_conflict_artifact.json").write_text(
             json.dumps(gradient_artifact, indent=2) + "\n", encoding="utf-8"
         )
-    torch.save({
+    checkpoint_payload = {
         "model_config": dataclasses.asdict(model_config),
         "model_state_dict": model.cpu().state_dict(), "seed": seed,
+        "runtime_backend": runtime_backend,
+        "evaluation_split": evaluation_split,
+        "preprocessing_mode": preprocessing_mode,
+        "preprocessing_spec": (
+            standardizer.canonical_payload if standardizer is not None else {
+                "mode": "none",
+            }
+        ),
+        "preprocessing_spec_sha256": (
+            standardizer.sha256 if standardizer is not None else None
+        ),
         "feature_schema_sha256": schema_hash, "history": history,
         "label_spec_sha256": label_spec_hash,
         "ranking_score_spec_sha256": ranking_spec_hash,
@@ -1081,7 +1176,13 @@ def _train(
             "validation_timestamps": split.validation_timestamps.tolist(),
             "test_timestamps": split.test_timestamps.tolist(),
         },
-    }, output / "checkpoint.pt")
+    }
+    torch.save(checkpoint_payload, output / "checkpoint.pt")
+    shutil.copy2(output / "checkpoint.pt", output / "checkpoint_last.pt")
+    best_epoch = int(np.argmin(np.asarray(history, dtype=np.float64))) + 1
+    checkpoint_payload["selected_epoch"] = best_epoch
+    checkpoint_payload["checkpoint_selection"] = "minimum_train_loss"
+    torch.save(checkpoint_payload, output / "checkpoint_best.pt")
     pooling_spec = {
         "layer_id": "shared",
         "sequence_pooling": "last_valid_token",
@@ -1111,6 +1212,9 @@ def _train(
             "anchor_sample_count": int(anchor_embedding.shape[0]),
             "anchor_values_sha256": _array_sha256(anchor_embedding),
             "source_dataset_sha256": sha256_file(dataset_path),
+            "preprocessing_spec_sha256": (
+                standardizer.sha256 if standardizer is not None else None
+            ),
             "prediction_artifact_sha256": sha256_file(prediction_path),
             "checkpoint_sha256": sha256_file(output / "checkpoint.pt"),
             "snapshot_split": split_name,
@@ -1128,12 +1232,23 @@ def _train(
         "validation", validation_embeddings, output / "validation_predictions.npz",
         "validation_embedding_manifest.json",
     )
-    embedding_manifest = write_embedding_manifest(
-        "test", test_embeddings, output / "test_predictions.npz",
-        "embedding_manifest.json",
-    )
+    embedding_manifest = None
+    if test_embeddings is not None:
+        embedding_manifest = write_embedding_manifest(
+            "test", test_embeddings, output / "test_predictions.npz",
+            "embedding_manifest.json",
+        )
     metrics_payload = {
         "train_loss": history,
+        "preprocessing_mode": preprocessing_mode,
+        "preprocessing_spec": (
+            standardizer.canonical_payload if standardizer is not None else {
+                "mode": "none",
+            }
+        ),
+        "preprocessing_spec_sha256": (
+            standardizer.sha256 if standardizer is not None else None
+        ),
         "multitask_weighting_mode": weighting_mode,
         "loss_weight_diagnostics": weight_diagnostics,
         "gradient_optimization_mode": gradient_mode,
@@ -1149,37 +1264,21 @@ def _train(
         "gradient_conflict_report_sha256": (
             gradient_artifact["report_sha256"] if gradient_artifact is not None else None
         ),
+        "runtime_backend": runtime_backend,
+        "evaluation_split": evaluation_split,
         "validation_loss": validation_metrics["loss"],
-        "test_loss": test_metrics["loss"],
         "validation_ndcg_at_k": validation_metrics["ndcg_at_cutoff"],
-        "test_ndcg_at_k": test_metrics["ndcg_at_cutoff"],
         "validation_cross_sections": validation_metrics["cross_sections"],
-        "test_cross_sections": test_metrics["cross_sections"],
         "validation_ranking": {
             key: value for key, value in validation_metrics.items() if key != "loss"
         },
-        "test_ranking": {
-            key: value for key, value in test_metrics.items() if key != "loss"
-        },
         "train_samples": len(split.train),
         "validation_samples": len(split.validation),
-        "test_samples": len(split.test),
-        "prediction_artifact": {
-            "schema_version": 1,
-            "path": "test_predictions.npz",
-            "sha256": sha256_file(output / "test_predictions.npz"),
-            "outputs": list(OUTPUT_NAMES),
-        },
         "validation_prediction_artifact": {
             "schema_version": 1,
             "path": "validation_predictions.npz",
             "sha256": sha256_file(output / "validation_predictions.npz"),
             "outputs": list(OUTPUT_NAMES),
-        },
-        "embedding_snapshot": {
-            "path": "test_embeddings.npz",
-            "manifest_path": "embedding_manifest.json",
-            "manifest_sha256": embedding_manifest["manifest_sha256"],
         },
         "validation_embedding_snapshot": {
             "path": "validation_embeddings.npz",
@@ -1191,10 +1290,33 @@ def _train(
             "train_last": int(split.train_timestamps[-1]),
             "validation_first": int(split.validation_timestamps[0]),
             "validation_last": int(split.validation_timestamps[-1]),
-            "test_first": int(split.test_timestamps[0]),
-            "test_last": int(split.test_timestamps[-1]),
         },
     }
+    if test_metrics is not None and embedding_manifest is not None:
+        metrics_payload.update({
+            "test_loss": test_metrics["loss"],
+            "test_ndcg_at_k": test_metrics["ndcg_at_cutoff"],
+            "test_cross_sections": test_metrics["cross_sections"],
+            "test_ranking": {
+                key: value for key, value in test_metrics.items() if key != "loss"
+            },
+            "test_samples": len(split.test),
+            "prediction_artifact": {
+                "schema_version": 1,
+                "path": "test_predictions.npz",
+                "sha256": sha256_file(output / "test_predictions.npz"),
+                "outputs": list(OUTPUT_NAMES),
+            },
+            "embedding_snapshot": {
+                "path": "test_embeddings.npz",
+                "manifest_path": "embedding_manifest.json",
+                "manifest_sha256": embedding_manifest["manifest_sha256"],
+            },
+            "test_split": {
+                "first": int(split.test_timestamps[0]),
+                "last": int(split.test_timestamps[-1]),
+            },
+        })
     (output / "metrics.json").write_text(
         json.dumps(metrics_payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
@@ -1218,7 +1340,8 @@ def _export(config: dict, run_path: str, output_path: str) -> Path:
     run, output = Path(run_path), Path(output_path)
     checkpoint = torch.load(run / "checkpoint.pt", map_location="cpu", weights_only=True)
     model = TemporalTransformerV1(TemporalTransformerConfig(**checkpoint["model_config"]))
-    model.load_state_dict(checkpoint["model_state_dict"])
+    from .models.temporal_transformer import load_temporal_transformer_state_dict
+    load_temporal_transformer_state_dict(model, checkpoint["model_state_dict"])
     output.mkdir(parents=True, exist_ok=False)
     opset = int(config.get("export", {}).get("opset", 18))
     model_path = export_temporal_transformer(model, output / "model.onnx", opset=opset)

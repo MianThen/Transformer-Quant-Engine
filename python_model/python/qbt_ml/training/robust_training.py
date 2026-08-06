@@ -15,8 +15,12 @@ import numpy as np
 
 PROTECTED_FEATURE_NAMES = frozenset({
     "is_suspended", "is_listed", "is_st", "is_tradable",
+    "cross_section_return_rank", "price_position_20", "breakout_20",
 })
-VALID_MODES = frozenset({"none", "direction_apl", "latent_fgm", "feature_pgd"})
+VALID_MODES = frozenset({
+    "none", "direction_apl", "latent_fgm", "feature_pgd", "structured_missing",
+})
+VALID_MISSING_MODES = frozenset({"none", "continuous_center_impute"})
 
 
 @dataclass(frozen=True)
@@ -31,11 +35,13 @@ class RobustTrainingSpec:
     apl_beta: float = 1.0
     apl_label_clip: float = 1e-4
     feature_names: tuple[str, ...] = ()
+    missing_mode: str = "none"
+    missing_rate: float = 0.0
 
     def validate(self) -> "RobustTrainingSpec":
         if self.mode not in VALID_MODES:
             raise ValueError(
-                "robust_training.mode 必须为 none/direction_apl/latent_fgm/feature_pgd"
+                "robust_training.mode 必须为 none/direction_apl/latent_fgm/feature_pgd/structured_missing"
             )
         if self.mode != "none" and not self.hypothesis_id:
             raise ValueError("Phase 2B challenger 必须提供 hypothesis_id")
@@ -55,9 +61,21 @@ class RobustTrainingSpec:
             raise ValueError("APL 至少需要一个正权重")
         if not 0 < self.apl_label_clip < 0.5:
             raise ValueError("APL label_clip 必须位于 (0, 0.5)")
+        if self.missing_mode not in VALID_MISSING_MODES:
+            raise ValueError("missing_mode 必须为 none/continuous_center_impute")
+        if not 0 <= self.missing_rate <= 1 or not np.isfinite(self.missing_rate):
+            raise ValueError("missing_rate 必须位于 [0, 1]")
+        if self.mode == "structured_missing" and self.missing_mode == "none":
+            raise ValueError("structured_missing 必须指定 missing_mode")
+        if self.mode == "structured_missing" and self.missing_rate <= 0:
+            raise ValueError("structured_missing 的 missing_rate 必须为正数")
+        if self.missing_mode != "none" and self.missing_rate <= 0:
+            raise ValueError("启用 missing_mode 时 missing_rate 必须为正数")
         if self.mode == "feature_pgd":
             if not self.feature_names:
                 raise ValueError("feature_pgd 必须提供训练特征名")
+            if self.missing_mode != "none":
+                raise ValueError("feature_pgd 默认必须是纯 PGD；缺失增强请单独使用 structured_missing")
         return self
 
     @property
@@ -83,7 +101,7 @@ def validate_robust_training_config(
     allowed = {
         "mode", "hypothesis_id", "epsilon", "beta", "pgd_steps",
         "pgd_step_size", "apl_alpha", "apl_beta", "apl_label_clip",
-        "production_eval", "feature_names",
+        "production_eval", "feature_names", "missing_mode", "missing_rate",
     }
     unknown = sorted(set(value) - allowed)
     if unknown:
@@ -109,6 +127,8 @@ def validate_robust_training_config(
         apl_beta=float(value.get("apl_beta", 1.0)),
         apl_label_clip=float(value.get("apl_label_clip", 1e-4)),
         feature_names=configured_names,
+        missing_mode=str(value.get("missing_mode", "none")),
+        missing_rate=float(value.get("missing_rate", 0.0)),
     )
     return spec.validate()
 
@@ -266,6 +286,45 @@ def feature_pgd_perturbation(
     return adversarial.detach()
 
 
+def structured_missing_augmentation(
+    features,
+    valid_mask,
+    *,
+    feature_names: Sequence[str],
+    center,
+    rate: float,
+    generator=None,
+):
+    """Replace continuous features at valid tokens with train-fold centers."""
+    import torch
+
+    if not 0 < rate <= 1 or not np.isfinite(rate):
+        raise ValueError("missing augmentation rate 必须位于 (0, 1]")
+    if features.ndim != 3 or valid_mask.shape != features.shape[:2]:
+        raise ValueError("features/valid_mask 形状不一致")
+    if len(feature_names) != features.shape[-1]:
+        raise ValueError("feature_names 长度必须等于 feature_count")
+    center = torch.as_tensor(center, dtype=features.dtype, device=features.device)
+    if center.ndim != 1 or center.numel() != features.shape[-1]:
+        raise ValueError("center 长度必须等于 feature_count")
+    continuous = torch.tensor(
+        [name not in PROTECTED_FEATURE_NAMES for name in feature_names],
+        dtype=torch.bool, device=features.device,
+    )
+    if generator is None:
+        selector = torch.rand(
+            valid_mask.shape, device=features.device,
+        ) < rate
+    else:
+        selector = torch.rand(
+            valid_mask.shape, generator=generator, device=features.device,
+        ) < rate
+    selector = selector & valid_mask.to(dtype=torch.bool)
+    update = selector.unsqueeze(-1) & continuous.view(1, 1, -1)
+    augmented = torch.where(update, center.view(1, 1, -1), features)
+    return augmented, update
+
+
 def latent_fgm_loss(
     model,
     features,
@@ -307,6 +366,8 @@ def build_stress_sets(
     *,
     feature_names: Sequence[str],
     seed: int = 20260804,
+    missing_mode: str = "raw_zero",
+    missing_center: Sequence[float] | None = None,
 ) -> dict[str, dict[str, object]]:
     """Create deterministic price/volume/missing/extreme-volatility fixtures."""
     values = np.asarray(features, dtype=np.float32)
@@ -340,10 +401,31 @@ def build_stress_sets(
             volume[..., index[name]] += generator.normal(0.0, 0.25, size=volume[..., index[name]].shape).astype(np.float32) * masks
     stress["volume"] = {"features": volume, "valid_mask": masks.copy(), "metadata": {"kind": "volume", "scale": 0.25}}
 
+    if missing_mode not in {"raw_zero", "continuous_center_impute"}:
+        raise ValueError("missing_mode 必须为 raw_zero/continuous_center_impute")
+    if missing_mode == "continuous_center_impute":
+        if missing_center is None:
+            raise ValueError("continuous_center_impute 需要 missing_center")
+        center = np.asarray(missing_center, dtype=np.float32)
+        if center.shape != (values.shape[-1],) or not np.isfinite(center).all():
+            raise ValueError("missing_center 必须是有限的 [F] 向量")
+    else:
+        center = np.zeros(values.shape[-1], dtype=np.float32)
     missing = fresh()
     missing_selector = generator.random(values.shape[:2]) < 0.10
-    missing[..., :] = np.where(missing_selector[..., None] & valid & continuous, 0.0, missing)
-    stress["missing"] = {"features": missing, "valid_mask": masks.copy(), "metadata": {"kind": "missing", "rate": 0.10}}
+    missing[..., :] = np.where(
+        missing_selector[..., None] & valid & continuous,
+        center.reshape(1, 1, -1), missing,
+    )
+    stress["missing"] = {
+        "features": missing,
+        "valid_mask": masks.copy(),
+        "metadata": {
+            "kind": "missing",
+            "mode": missing_mode,
+            "rate": 0.10,
+        },
+    }
 
     volatility = fresh()
     vol_names = [name for name in names if "volatility" in name or name.startswith("log_return") or name in {"intraday_range", "close_open_return", "overnight_gap"}]
@@ -367,5 +449,6 @@ def stress_degradation(
 __all__ = [
     "PROTECTED_FEATURE_NAMES", "RobustTrainingSpec", "apl_direction_loss",
     "build_stress_sets", "direction_noise_audit", "feature_pgd_perturbation",
+    "structured_missing_augmentation",
     "latent_fgm_loss", "stress_degradation", "validate_robust_training_config",
 ]
