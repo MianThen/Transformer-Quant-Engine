@@ -264,6 +264,31 @@ bool test_rich_view_family_calibration_gate() {
   return ok;
 }
 
+bool test_direction_ffv_probability_oracle() {
+  const auto prior = make_prior();
+  auto direction = make_view(1.0);
+  direction.view_id = "direction-probability";
+  direction.family = portfolio_math::PosteriorViewFamily::DIRECTION;
+  direction.calibration_artifact_hash = 123;
+  direction.statistic_threshold = 0.5;
+  direction.target = 0.75;
+  const auto gaussian = portfolio_math::apply_gaussian_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&direction, 1));
+  const auto ffv = portfolio_math::apply_ffv_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&direction, 1));
+  bool ok = check(gaussian.status == portfolio_math::PosteriorStatus::INVALID_INPUT,
+                  "Gaussian rejects direction view");
+  ok &= check(ffv.status == portfolio_math::PosteriorStatus::OK &&
+                  ffv.maximum_view_residual < 1e-10 &&
+                  ffv.posterior_mean[0] > 0.6,
+              "FFV direction probability equality oracle");
+  const auto legacy = portfolio_math::apply_ffv_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&direction, 1));
+  ok &= check(legacy.status == portfolio_math::PosteriorStatus::INVALID_INPUT,
+              "mean-only FFV wrapper rejects direction view");
+  return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -271,7 +296,8 @@ int main() {
         test_ffv_probability_projection_and_statistics() &&
         test_relative_mean_view_and_duplicate_guard() &&
         test_ffv_mean_inequality_views() &&
-        test_rich_view_family_calibration_gate())) return 1;
+        test_rich_view_family_calibration_gate() &&
+        test_direction_ffv_probability_oracle())) return 1;
   std::printf("test_posterior: all checks passed\n");
   return 0;
 }

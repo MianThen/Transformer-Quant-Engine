@@ -47,6 +47,7 @@ struct ViewSpecV1 {
   engine_common::TimestampNs available_at{0};
   std::vector<double> loading;
   double target{0.0};
+  double statistic_threshold{0.0};
   double confidence{0.0};
   double observation_variance{0.0};
   std::uint64_t confidence_mapping_hash{0};
@@ -164,6 +165,12 @@ struct PosteriorScenarioStatisticsV1 {
     std::span<const double> quantile_levels = {});
 
 [[nodiscard]] PosteriorScenarioArtifactV1 apply_ffv_mean_views(
+    const PriorScenarioArtifactV1& prior,
+    std::span<const ViewSpecV1> views,
+    std::span<const double> quantile_levels = {},
+    FFVOptions options = {});
+
+[[nodiscard]] PosteriorScenarioArtifactV1 apply_ffv_views(
     const PriorScenarioArtifactV1& prior,
     std::span<const ViewSpecV1> views,
     std::span<const double> quantile_levels = {},

@@ -40,6 +40,9 @@ promotion_eligible = false
 - 新增 rich view family contract：direction、volatility、ranking、quantile view 必须绑定非零
   calibration artifact hash；在对应 solver 尚未实现前，Gaussian/FFV mean solver 明确拒绝这些 family，
   防止未校准 head 进入后验。
+- 新增 direction FFV equality oracle：以 loading 组合收益超过 statistic threshold 的事件概率作为
+  scenario function，支持校准目标概率、confidence mapping、support/KL/ESS/hash 重算；Gaussian BL 和
+  mean-only FFV wrapper 对 direction view 失败关闭。
 - `portfolio_math/posterior_direct.h` / `src/posterior_direct.cpp`：固定 long-only、fully-invested、capped-simplex
   mean-variance `Posterior Direct` anchor；BL/FFV 只替换 posterior artifact，cost/hard-constraint 仍交给同一
   `SinglePeriodReconciler`。
@@ -57,9 +60,9 @@ promotion_eligible = false
 
 ## 尚未完成
 
-全量 CTest 已使用 CLion bundled CMake 重建验证：29/29 tests passed。
+全量 CTest 已使用 CLion bundled CMake 重建验证：29/29 tests passed（含 direction FFV oracle）。
 
-- 尚无 direction/ranking/quantile/volatility FFV views、完整 active-set adapter、BL-vs-FFV Posterior Direct
+- direction FFV 已有 equality reference；尚无 ranking/quantile/volatility FFV views、完整 active-set adapter、BL-vs-FFV Posterior Direct
   OOS 对照或真实成本 gate；当前 mean inequality 和 Posterior Direct 都是严格失败关闭的 reference。
 - 当前只允许均值 equality/bound view；未校准 direction/volatility/ranking/quantile head 不得接入 view。
 - 当前 artifact 明确 `eligible_for_official_risk=false`，不构成 Phase 4A 退出或生产/实盘晋级。

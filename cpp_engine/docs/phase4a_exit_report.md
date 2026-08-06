@@ -14,8 +14,10 @@
 | FFV mean lower/upper bound | PASS/REFERENCE | 仅对被触发 bound 重加权；inactive bound 保持 prior parity，KKT 符号/近共线失败关闭 |
 | FFV coupled active-set bounds | PASS/REFERENCE | `test_posterior`：双资产同时约束、active count、residual 和 artifact contract |
 | Rich view calibration/fail-closed contract | PASS/REFERENCE | `test_posterior`：未校准 rich view 拒绝；已校准元数据可审计但暂不进入 mean solver |
+| Direction FFV probability equality oracle | PASS/REFERENCE | `test_posterior`：threshold event probability、confidence target、support/KL/ESS 与 solver fail-closed |
 | Posterior Direct fixed downstream anchor | PASS/REFERENCE | 固定 capped-simplex projected-gradient；BL/FFV 只替换 posterior artifact |
-| direction/ranking/quantile/volatility views | NOT IMPLEMENTED | 后续独立 solver/oracle |
+| direction view | PASS/REFERENCE | 校准后的 threshold event probability equality；尚无正式 OOS |
+| ranking/quantile/volatility views | NOT IMPLEMENTED | 后续独立 solver/oracle |
 | 完整 inequality active-set solver | NOT IMPLEMENTED | 当前冲突或负对偶 multiplier 一律失败关闭 |
 | BL vs FFV Posterior Direct policy 对照 | NOT RUN | policy 已冻结，OOS/cost 尚未运行 |
 | 三个新 purged OOS、成本与稳定性 gate | NOT RUN | 当前没有 Phase 4A formal OOS |

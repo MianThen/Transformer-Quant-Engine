@@ -240,6 +240,7 @@ bool valid_view_spec(const ViewSpecV1& view, std::size_t asset_count,
          view.available_at > 0 && decision_at > 0 &&
          view.available_at <= decision_at && view.loading.size() == asset_count &&
          finite_vector(view.loading) && std::isfinite(view.target) &&
+         std::isfinite(view.statistic_threshold) &&
          std::isfinite(view.confidence) && view.confidence >= 0.0 &&
          view.confidence <= 1.0 && std::isfinite(view.observation_variance) &&
          view.observation_variance > 0.0 && view.confidence_mapping_hash != 0 &&
@@ -250,6 +251,9 @@ bool valid_view_spec(const ViewSpecV1& view, std::size_t asset_count,
           view.family == PosteriorViewFamily::QUANTILE) &&
          (view.family == PosteriorViewFamily::MEAN ||
           view.calibration_artifact_hash != 0) &&
+         (view.family != PosteriorViewFamily::DIRECTION ||
+          (view.kind == PosteriorViewKind::MEAN &&
+           view.target >= 0.0 && view.target <= 1.0)) &&
          view.source_artifact_hash != 0;
 }
 
@@ -262,6 +266,7 @@ std::uint64_t view_spec_hash(const ViewSpecV1& view) noexcept {
   hash_value(hash, static_cast<std::uint64_t>(view.available_at));
   for (double value : view.loading) hash_double(hash, value);
   hash_double(hash, view.target);
+  hash_double(hash, view.statistic_threshold);
   hash_double(hash, view.confidence);
   hash_double(hash, view.observation_variance);
   hash_value(hash, view.confidence_mapping_hash);
@@ -702,7 +707,7 @@ PosteriorScenarioStatisticsV1 recompute_posterior_statistics(
   return statistics;
 }
 
-PosteriorScenarioArtifactV1 apply_ffv_mean_views(
+PosteriorScenarioArtifactV1 apply_ffv_views(
     const PriorScenarioArtifactV1& prior,
     std::span<const ViewSpecV1> views,
     std::span<const double> quantile_levels,
@@ -745,7 +750,8 @@ PosteriorScenarioArtifactV1 apply_ffv_mean_views(
   }
   for (const auto& view : views) {
     if (!valid_view_spec(view, prior.asset_count, prior.decision_at) ||
-        view.family != PosteriorViewFamily::MEAN) {
+        (view.family != PosteriorViewFamily::MEAN &&
+         view.family != PosteriorViewFamily::DIRECTION)) {
       return finish(view.available_at > prior.decision_at
                         ? PosteriorStatus::FUTURE_DATA
                         : PosteriorStatus::INVALID_INPUT);
@@ -811,6 +817,9 @@ PosteriorScenarioArtifactV1 apply_ffv_mean_views(
       for (Eigen::Index asset = 0; asset < assets; ++asset) {
         value += sign * view.loading[static_cast<std::size_t>(asset)] *
                  prior.scenario_values[static_cast<std::size_t>(scenario * assets + asset)];
+      }
+      if (view.family == PosteriorViewFamily::DIRECTION) {
+        value = value >= view.statistic_threshold ? 1.0 : 0.0;
       }
       functions(row, scenario) = value;
       prior_view += prior.prior_probabilities[static_cast<std::size_t>(scenario)] * value;
@@ -968,6 +977,32 @@ PosteriorScenarioArtifactV1 apply_ffv_mean_views(
   return finish(PosteriorStatus::OK);
 }
 
+PosteriorScenarioArtifactV1 apply_ffv_mean_views(
+    const PriorScenarioArtifactV1& prior,
+    std::span<const ViewSpecV1> views,
+    std::span<const double> quantile_levels,
+    FFVOptions options) {
+  for (const auto& view : views) {
+    if (view.family != PosteriorViewFamily::MEAN) {
+      PosteriorScenarioArtifactV1 artifact;
+      artifact.engine = PosteriorEngineKind::FULLY_FLEXIBLE_VIEWS;
+      artifact.status = PosteriorStatus::INVALID_INPUT;
+      artifact.fit_start = prior.fit_start;
+      artifact.fit_end = prior.fit_end;
+      artifact.available_at = prior.available_at;
+      artifact.decision_at = prior.decision_at;
+      artifact.scenario_count = prior.scenario_count;
+      artifact.asset_count = prior.asset_count;
+      artifact.prior_scenario_hash = prior.scenario_hash;
+      artifact.view_spec_hash = view_set_hash(views);
+      artifact.view_count = views.size();
+      artifact.artifact_hash = posterior_hash_without_self(artifact);
+      return artifact;
+    }
+  }
+  return apply_ffv_views(prior, views, quantile_levels, options);
+}
+
 std::string serialize_view_spec(const ViewSpecV1& view) {
   std::ostringstream output;
   output << "{\"schema_version\":" << view.schema_version
@@ -977,6 +1012,7 @@ std::string serialize_view_spec(const ViewSpecV1& view) {
          << view.available_at << ",\"loading\":";
   json_vector(output, view.loading);
   output << ",\"target\":" << std::setprecision(17) << view.target
+         << ",\"statistic_threshold\":" << view.statistic_threshold
          << ",\"confidence\":" << view.confidence
          << ",\"observation_variance\":" << view.observation_variance
          << ",\"confidence_mapping_hash\":" << view.confidence_mapping_hash
