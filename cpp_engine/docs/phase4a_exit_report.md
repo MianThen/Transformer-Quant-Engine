@@ -20,7 +20,7 @@
 | Posterior Direct fixed downstream anchor | PASS/REFERENCE | 固定 capped-simplex projected-gradient；BL/FFV 只替换 posterior artifact |
 | direction view | PASS/REFERENCE | 校准后的 threshold event probability equality；尚无正式 OOS |
 | direction/volatility/ranking views | PASS/REFERENCE | 独立 scenario-function oracle；尚无正式 OOS |
-| quantile view | NOT IMPLEMENTED | 后续独立 solver/oracle |
+| Quantile FFV CDF oracle | PASS/REFERENCE | `test_posterior`：target 下 CDF equality、`<=` tie policy、quantile 重算与浮点容差 |
 | 完整 inequality active-set solver | NOT IMPLEMENTED | 当前冲突或负对偶 multiplier 一律失败关闭 |
 | BL vs FFV Posterior Direct policy 对照 | NOT RUN | policy 已冻结，OOS/cost 尚未运行 |
 | 三个新 purged OOS、成本与稳定性 gate | NOT RUN | 当前没有 Phase 4A formal OOS |

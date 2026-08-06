@@ -259,6 +259,10 @@ bool valid_view_spec(const ViewSpecV1& view, std::size_t asset_count,
          (view.family != PosteriorViewFamily::RANKING ||
           (view.kind == PosteriorViewKind::MEAN &&
            view.target >= 0.0 && view.target <= 1.0)) &&
+         (view.family != PosteriorViewFamily::QUANTILE ||
+          (view.kind == PosteriorViewKind::MEAN &&
+           view.statistic_threshold > 0.0 &&
+           view.statistic_threshold < 1.0)) &&
          view.source_artifact_hash != 0;
 }
 
@@ -690,7 +694,7 @@ PosteriorScenarioStatisticsV1 recompute_posterior_statistics(
         tail_mass += included;
         tail_value += included * value;
         cumulative += weight;
-        if (cumulative + 1e-15 >= level) {
+        if (cumulative + 1e-12 >= level) {
           quantile = value;
           break;
         }
@@ -758,7 +762,8 @@ PosteriorScenarioArtifactV1 apply_ffv_views(
         (view.family != PosteriorViewFamily::MEAN &&
          view.family != PosteriorViewFamily::DIRECTION &&
          view.family != PosteriorViewFamily::VOLATILITY &&
-         view.family != PosteriorViewFamily::RANKING)) {
+         view.family != PosteriorViewFamily::RANKING &&
+         view.family != PosteriorViewFamily::QUANTILE)) {
       return finish(view.available_at > prior.decision_at
                         ? PosteriorStatus::FUTURE_DATA
                         : PosteriorStatus::INVALID_INPUT);
@@ -832,6 +837,8 @@ PosteriorScenarioArtifactV1 apply_ffv_views(
         value = centered * centered;
       } else if (view.family == PosteriorViewFamily::RANKING) {
         value = value > view.statistic_threshold ? 1.0 : 0.0;
+      } else if (view.family == PosteriorViewFamily::QUANTILE) {
+        value = value <= view.target ? 1.0 : 0.0;
       }
       functions(row, scenario) = value;
       prior_view += prior.prior_probabilities[static_cast<std::size_t>(scenario)] * value;
@@ -845,7 +852,9 @@ PosteriorScenarioArtifactV1 apply_ffv_views(
     const double signed_target =
         view.family == PosteriorViewFamily::VOLATILITY
             ? view.target * view.target
-            : sign * view.target;
+            : view.family == PosteriorViewFamily::QUANTILE
+                  ? view.statistic_threshold
+                  : sign * view.target;
     targets(row) = prior_view + view.confidence * (signed_target - prior_view);
     const double floor_mass = options.min_probability *
                               static_cast<double>(prior.scenario_count);

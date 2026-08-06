@@ -64,10 +64,11 @@ promotion_eligible = false
 
 - direction 与 volatility FFV 已有 reference：volatility 采用固定中心的二阶矩约束，目标波动率在
   solver 内平方为目标方差；ranking 采用 pairwise loading 超过预注册 margin 的 outrank probability，
-  ties 使用严格大于策略；尚无 quantile view、完整 active-set adapter、BL-vs-FFV Posterior Direct
+  ties 使用严格大于策略；quantile 采用 target 下 CDF equality、level 使用小于等于 tie policy，并在
+  posterior quantile 重算时使用 1e-12 数值容差；尚无完整 active-set adapter、BL-vs-FFV Posterior Direct
   OOS 对照或真实成本 gate；当前 mean inequality 和 Posterior Direct 都是严格失败关闭的 reference。
 - 当前只允许已校准的 direction/volatility reference；未校准 direction/volatility/ranking/quantile head 不得接入 view。
 - 当前 artifact 明确 `eligible_for_official_risk=false`，不构成 Phase 4A 退出或生产/实盘晋级。
 
-下一步按路线图补 quantile view 的独立 oracle，完成 inequality active-set adapter，再用已固定的
+下一步按路线图完成 inequality active-set adapter，再用已固定的
 Posterior Direct policy 做 BL/FFV 对照；真实 OOS 和成本 gate 之前不晋级。

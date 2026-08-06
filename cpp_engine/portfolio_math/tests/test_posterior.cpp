@@ -357,6 +357,43 @@ bool test_ranking_ffv_pairwise_probability_oracle() {
   return ok;
 }
 
+bool test_quantile_ffv_cdf_probability_oracle() {
+  const auto prior = make_prior();
+  auto quantile = make_view(1.0);
+  quantile.view_id = "asset-quantile-cdf";
+  quantile.family = portfolio_math::PosteriorViewFamily::QUANTILE;
+  quantile.calibration_artifact_hash = 987;
+  quantile.loading = {1.0, 0.0};
+  quantile.target = 0.0;
+  quantile.statistic_threshold = 0.75;
+  const std::vector<double> levels{quantile.statistic_threshold};
+  const auto ffv = portfolio_math::apply_ffv_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&quantile, 1), levels);
+  double cdf_probability = 0.0;
+  for (std::size_t scenario = 0; scenario < prior.scenario_count; ++scenario) {
+    const double value = prior.scenario_values[scenario * prior.asset_count];
+    if (value <= quantile.target) {
+      cdf_probability += ffv.posterior_probabilities[scenario];
+    }
+  }
+  bool ok = check(ffv.status == portfolio_math::PosteriorStatus::OK &&
+                      std::abs(cdf_probability - quantile.statistic_threshold) <
+                          1e-10 &&
+                      ffv.posterior_quantile_levels == levels &&
+                      std::abs(ffv.posterior_quantiles[0] - quantile.target) <
+                          1e-10 &&
+                      ffv.maximum_view_residual < 1e-10,
+                  "FFV quantile CDF equality and recomputation oracle");
+  const auto gaussian = portfolio_math::apply_gaussian_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&quantile, 1));
+  const auto legacy = portfolio_math::apply_ffv_mean_views(
+      prior, std::span<const portfolio_math::ViewSpecV1>(&quantile, 1));
+  ok &= check(gaussian.status == portfolio_math::PosteriorStatus::INVALID_INPUT &&
+                  legacy.status == portfolio_math::PosteriorStatus::INVALID_INPUT,
+              "mean-only solvers reject quantile view");
+  return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -367,7 +404,8 @@ int main() {
         test_rich_view_family_calibration_gate() &&
         test_direction_ffv_probability_oracle() &&
         test_volatility_ffv_second_moment_oracle() &&
-        test_ranking_ffv_pairwise_probability_oracle())) return 1;
+        test_ranking_ffv_pairwise_probability_oracle() &&
+        test_quantile_ffv_cdf_probability_oracle())) return 1;
   std::printf("test_posterior: all checks passed\n");
   return 0;
 }
