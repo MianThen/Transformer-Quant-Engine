@@ -24,6 +24,13 @@ promotion_eligible = false
 - 研究判定：`TRAINING_COMPLETE_GATE_FAILED`；`research_gate_passed=false`；`promotion_eligible=false`
 - r3 的核心失败为 clean return MAE 退化、extreme-volatility/跨窗口不稳定，以及当前 Feature-PGD 与 10% structured missing 混杂；不得把 r3 short OOS 重新用于调参。
 
+## r4 训练包（待 GPU validation）
+
+- 路径：/Users/Zhuanz/Downloads/phase2b_feature_pgd_v2_gpu_training_bundle_20260806_r4.tar.gz
+- SHA-256：ef380f1619a7eca03327e02998273dc5f0b5b72232dc91793c318af8fa87e207
+- 内容：纯 Feature-PGD、独立 structured-missing 消融、预注册 margin/bootstrap gate、best/last checkpoint 和头级攻击诊断。
+- 状态：代码与数据已打包并完成完整性校验；尚未产生 r4 GPU validation 结果，因此 Phase 2B 状态不变。
+
 历史 V1 外部算力结果包（仅保留 provenance，不作为当前 r3 结论）：
 
 - `/Users/Zhuanz/Downloads/output.zip`
