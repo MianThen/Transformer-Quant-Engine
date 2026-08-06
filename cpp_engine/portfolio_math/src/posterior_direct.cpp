@@ -1,15 +1,45 @@
 #include "portfolio_math/posterior_direct.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
+#include <iomanip>
 #include <limits>
 #include <numeric>
+#include <sstream>
 #include <vector>
 
 #include <Eigen/Eigenvalues>
 
 namespace portfolio_math {
 namespace {
+
+constexpr std::uint64_t kFnvOffset = 1469598103934665603ULL;
+constexpr std::uint64_t kFnvPrime = 1099511628211ULL;
+
+void hash_byte(std::uint64_t& hash, std::uint8_t value) {
+  hash ^= value;
+  hash *= kFnvPrime;
+}
+
+void hash_value(std::uint64_t& hash, std::uint64_t value) {
+  for (int byte = 0; byte < 8; ++byte) {
+    hash_byte(hash, static_cast<std::uint8_t>((value >> (byte * 8)) & 0xffU));
+  }
+}
+
+void hash_double(std::uint64_t& hash, double value) {
+  hash_value(hash, std::bit_cast<std::uint64_t>(value));
+}
+
+void json_weights(std::ostringstream& output, std::span<const double> values) {
+  output << '[';
+  for (std::size_t index = 0; index < values.size(); ++index) {
+    if (index != 0) output << ',';
+    output << std::setprecision(17) << values[index];
+  }
+  output << ']';
+}
 
 bool finite_nonnegative(std::span<const double> values) {
   return std::all_of(values.begin(), values.end(), [](double value) {
@@ -191,6 +221,50 @@ PosteriorDirectPolicyComparison compare_posterior_direct_policies(
   comparison.status = OptimizationStatus::OK;
   comparison.winner_selected = false;
   return comparison;
+}
+
+std::uint64_t posterior_direct_policy_comparison_hash(
+    const PosteriorDirectPolicyComparison& comparison) noexcept {
+  std::uint64_t hash = kFnvOffset;
+  hash_byte(hash, static_cast<std::uint8_t>(comparison.status));
+  hash_byte(hash, static_cast<std::uint8_t>(
+                      comparison.gaussian_bl.diagnostics.status));
+  hash_byte(hash, static_cast<std::uint8_t>(
+                      comparison.fully_flexible_views.diagnostics.status));
+  hash_value(hash, comparison.gaussian_artifact_hash);
+  hash_value(hash, comparison.fully_flexible_artifact_hash);
+  for (double value : comparison.gaussian_bl.weights) hash_double(hash, value);
+  for (double value : comparison.fully_flexible_views.weights) hash_double(hash, value);
+  hash_double(hash, comparison.expected_return_delta);
+  hash_double(hash, comparison.variance_delta);
+  hash_double(hash, comparison.objective_delta);
+  hash_double(hash, comparison.weight_l1_distance);
+  hash_byte(hash, comparison.winner_selected ? 1 : 0);
+  return hash;
+}
+
+std::string serialize_posterior_direct_policy_comparison(
+    const PosteriorDirectPolicyComparison& comparison) {
+  std::ostringstream output;
+  output << "{\"schema_version\":1"
+         << ",\"status\":" << static_cast<int>(comparison.status)
+         << ",\"gaussian_artifact_hash\":" << comparison.gaussian_artifact_hash
+         << ",\"fully_flexible_artifact_hash\":"
+         << comparison.fully_flexible_artifact_hash
+         << ",\"gaussian_weights\":";
+  json_weights(output, comparison.gaussian_bl.weights);
+  output << ",\"fully_flexible_weights\":";
+  json_weights(output, comparison.fully_flexible_views.weights);
+  output << ",\"expected_return_delta\":" << std::setprecision(17)
+         << comparison.expected_return_delta
+         << ",\"variance_delta\":" << comparison.variance_delta
+         << ",\"objective_delta\":" << comparison.objective_delta
+         << ",\"weight_l1_distance\":" << comparison.weight_l1_distance
+         << ",\"winner_selected\":"
+         << (comparison.winner_selected ? "true" : "false")
+         << ",\"comparison_hash\":"
+         << posterior_direct_policy_comparison_hash(comparison) << '}';
+  return output.str();
 }
 
 }  // namespace portfolio_math

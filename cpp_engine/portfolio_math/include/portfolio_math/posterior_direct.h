@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "portfolio_math/posterior.h"
@@ -57,5 +58,11 @@ struct PosteriorDirectPolicyComparison {
     const PosteriorScenarioArtifactV1& gaussian_bl,
     const PosteriorScenarioArtifactV1& fully_flexible_views,
     PosteriorDirectOptions options = {});
+
+[[nodiscard]] std::uint64_t posterior_direct_policy_comparison_hash(
+    const PosteriorDirectPolicyComparison& comparison) noexcept;
+
+[[nodiscard]] std::string serialize_posterior_direct_policy_comparison(
+    const PosteriorDirectPolicyComparison& comparison);
 
 }  // namespace portfolio_math

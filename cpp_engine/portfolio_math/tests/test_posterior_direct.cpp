@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "portfolio_math/posterior.h"
@@ -124,6 +125,18 @@ bool test_bl_ffv_policy_comparison() {
   ok &= check(repeated.weight_l1_distance == comparison.weight_l1_distance &&
                   repeated.objective_delta == comparison.objective_delta,
               "BL/FFV comparison determinism");
+  const auto comparison_hash =
+      portfolio_math::posterior_direct_policy_comparison_hash(comparison);
+  ok &= check(comparison_hash ==
+                  portfolio_math::posterior_direct_policy_comparison_hash(repeated) &&
+                  comparison_hash != 0,
+              "BL/FFV comparison hash replay");
+  const auto serialized =
+      portfolio_math::serialize_posterior_direct_policy_comparison(comparison);
+  ok &= check(serialized.find("\"schema_version\":1") != std::string::npos &&
+                  serialized.find("\"winner_selected\":false") != std::string::npos &&
+                  serialized.find("\"comparison_hash\":") != std::string::npos,
+              "BL/FFV comparison serialization");
   return ok;
 }
 

@@ -72,6 +72,8 @@ promotion_eligible = false
 - 新增 compare_posterior_direct_policies：在相同 capped-simplex/risk-aversion downstream 下对照
   Gaussian BL 与 FFV，输出两边 expected return、variance、objective、weight L1 distance 和 artifact hashes；
   no-view parity 与 deterministic replay 已测试，不自动选择 winner。
+- comparison artifact 增加 deterministic FNV hash 和 JSON serialization，包含两边权重、delta diagnostics、
+  posterior artifact provenance 和 winner_selected=false；可用于后续 OOS/cost report 重放。
 - 当前只允许已校准的 direction/volatility reference；未校准 direction/volatility/ranking/quantile head 不得接入 view。
 - 当前 artifact 明确 `eligible_for_official_risk=false`，不构成 Phase 4A 退出或生产/实盘晋级。
 
