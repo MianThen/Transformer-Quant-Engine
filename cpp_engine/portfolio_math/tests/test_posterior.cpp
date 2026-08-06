@@ -234,6 +234,31 @@ bool test_ffv_mean_inequality_views() {
                   coupled_result.posterior_mean[1] <= upper.target + 1e-10 &&
                   coupled_result.maximum_view_residual < 1e-10,
               "FFV coupled active-set bounds");
+  const auto adapter_result =
+      portfolio_math::apply_ffv_active_set_views(prior, coupled);
+  ok &= check(portfolio_math::valid_posterior_scenario_artifact(adapter_result) &&
+                  adapter_result.active_constraint_count == 2 &&
+                  adapter_result.maximum_view_residual < 1e-10,
+              "FFV explicit active-set adapter");
+  auto conflicting_upper = second_asset_upper;
+  conflicting_upper.view_id = "conflicting-upper-first-asset";
+  conflicting_upper.loading = {1.0, 0.0};
+  conflicting_upper.target = 0.25;
+  const portfolio_math::ViewSpecV1 conflicting[]{lower, conflicting_upper};
+  const auto conflict_result =
+      portfolio_math::apply_ffv_active_set_views(prior, conflicting);
+  ok &= check(conflict_result.status == portfolio_math::PosteriorStatus::INFEASIBLE ||
+                  conflict_result.status == portfolio_math::PosteriorStatus::NUMERICAL_FAILURE,
+              "FFV conflicting active-set bounds fail closed");
+  auto rich = lower;
+  rich.view_id = "active-set-rich-rejection";
+  rich.family = portfolio_math::PosteriorViewFamily::DIRECTION;
+  rich.calibration_artifact_hash = 101;
+  const auto rich_result =
+      portfolio_math::apply_ffv_active_set_views(
+          prior, std::span<const portfolio_math::ViewSpecV1>(&rich, 1));
+  ok &= check(rich_result.status == portfolio_math::PosteriorStatus::INVALID_INPUT,
+              "active-set adapter rejects rich view");
   return ok;
 }
 

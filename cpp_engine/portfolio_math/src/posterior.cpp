@@ -1027,6 +1027,34 @@ PosteriorScenarioArtifactV1 apply_ffv_mean_views(
   return apply_ffv_views(prior, views, quantile_levels, options);
 }
 
+PosteriorScenarioArtifactV1 apply_ffv_active_set_views(
+    const PriorScenarioArtifactV1& prior,
+    std::span<const ViewSpecV1> views,
+    std::span<const double> quantile_levels,
+    FFVOptions options) {
+  for (const auto& view : views) {
+    if (view.family != PosteriorViewFamily::MEAN ||
+        (view.kind != PosteriorViewKind::MEAN_LOWER_BOUND &&
+         view.kind != PosteriorViewKind::MEAN_UPPER_BOUND)) {
+      PosteriorScenarioArtifactV1 artifact;
+      artifact.engine = PosteriorEngineKind::FULLY_FLEXIBLE_VIEWS;
+      artifact.status = PosteriorStatus::INVALID_INPUT;
+      artifact.fit_start = prior.fit_start;
+      artifact.fit_end = prior.fit_end;
+      artifact.available_at = prior.available_at;
+      artifact.decision_at = prior.decision_at;
+      artifact.scenario_count = prior.scenario_count;
+      artifact.asset_count = prior.asset_count;
+      artifact.prior_scenario_hash = prior.scenario_hash;
+      artifact.view_spec_hash = view_set_hash(views);
+      artifact.view_count = views.size();
+      artifact.artifact_hash = posterior_hash_without_self(artifact);
+      return artifact;
+    }
+  }
+  return apply_ffv_views(prior, views, quantile_levels, options);
+}
+
 std::string serialize_view_spec(const ViewSpecV1& view) {
   std::ostringstream output;
   output << "{\"schema_version\":" << view.schema_version

@@ -176,6 +176,12 @@ struct PosteriorScenarioStatisticsV1 {
     std::span<const double> quantile_levels = {},
     FFVOptions options = {});
 
+[[nodiscard]] PosteriorScenarioArtifactV1 apply_ffv_active_set_views(
+    const PriorScenarioArtifactV1& prior,
+    std::span<const ViewSpecV1> views,
+    std::span<const double> quantile_levels = {},
+    FFVOptions options = {});
+
 [[nodiscard]] std::uint64_t posterior_scenario_artifact_hash(
     const PosteriorScenarioArtifactV1& artifact) noexcept;
 
