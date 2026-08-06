@@ -21,7 +21,8 @@
 | direction view | PASS/REFERENCE | 校准后的 threshold event probability equality；尚无正式 OOS |
 | direction/volatility/ranking views | PASS/REFERENCE | 独立 scenario-function oracle；尚无正式 OOS |
 | Quantile FFV CDF oracle | PASS/REFERENCE | `test_posterior`：target 下 CDF equality、`<=` tie policy、quantile 重算与浮点容差 |
-| 完整 inequality active-set solver | NOT IMPLEMENTED | 当前冲突或负对偶 multiplier 一律失败关闭 |
+| Explicit inequality active-set adapter | PASS/REFERENCE | `apply_ffv_active_set_views`：mixed active/inactive、KKT sign、support guard、冲突 fail-closed |
+| 完整 inequality active-set solver | PASS/REFERENCE | lower/upper bound adapter 与多约束 KKT 参考路径；尚无正式 OOS |
 | BL vs FFV Posterior Direct policy 对照 | NOT RUN | policy 已冻结，OOS/cost 尚未运行 |
 | 三个新 purged OOS、成本与稳定性 gate | NOT RUN | 当前没有 Phase 4A formal OOS |
 
