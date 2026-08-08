@@ -27,8 +27,8 @@
       "research_gate_passed": false,
       "promotion_eligible": false,
       "archive": "archives/phase2b_feature_pgd_v2_validation_r3_results_20260807.tar.gz",
-      "archive_size_bytes": 45266751,
-      "archive_sha256": "07b07c5c0a83549512003e533000771b7e4e951588462ff454e19347d5141926"
+      "archive_size_bytes": 45267585,
+      "archive_sha256": "2ea0ebab082269934295e4a3fb96b526728cdf0c3b0c46c69eca65c4c2d5c778"
     },
     {
       "directory": "short-oos",
@@ -43,8 +43,8 @@
       "research_gate_passed": false,
       "promotion_eligible": false,
       "archive": "archives/phase2b_feature_pgd_v2_short_new_oos_results_20260807.tar.gz",
-      "archive_size_bytes": 54797702,
-      "archive_sha256": "4622d1d28267530b11af3624a75f66afaaf817ef787c5a403c5da64f9ccdacb4"
+      "archive_size_bytes": 54799506,
+      "archive_sha256": "8131397d29ea0503f83c0d33a23df366e0581d2bcda005e36e05e68617394b06"
     }
   ],
   "checkpoint_coverage": {
