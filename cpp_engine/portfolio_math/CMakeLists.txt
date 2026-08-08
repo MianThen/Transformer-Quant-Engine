@@ -1,6 +1,7 @@
 add_library(portfolio_math STATIC
     src/covariance.cpp
     src/factor_model.cpp
+    src/factor_risk_diagnostics.cpp
     src/risk_budget.cpp
     src/risk_model.cpp
     src/rmt_denoising.cpp
@@ -14,8 +15,13 @@ add_library(portfolio_math STATIC
     src/policy_to_order.cpp
     src/portfolio_policy_artifact.cpp
     src/tail_risk.cpp
+    src/conditional_expectile.cpp
+    src/tail_risk_esr.cpp
     src/multiple_testing.cpp
     src/quest.cpp
+    src/posterior.cpp
+    src/posterior_direct.cpp
+    src/nco_ffv.cpp
 )
 target_link_libraries(portfolio_math PUBLIC engine_common)
 target_include_directories(portfolio_math PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -28,6 +34,24 @@ target_link_libraries(test_portfolio_math PRIVATE portfolio_math)
 qbt_enable_warnings(test_portfolio_math)
 qbt_static_test_runtime(test_portfolio_math)
 add_test(NAME test_portfolio_math COMMAND test_portfolio_math)
+
+add_executable(test_tail_risk_esr tests/test_tail_risk_esr.cpp)
+target_link_libraries(test_tail_risk_esr PRIVATE portfolio_math)
+qbt_enable_warnings(test_tail_risk_esr)
+qbt_static_test_runtime(test_tail_risk_esr)
+add_test(NAME test_tail_risk_esr COMMAND test_tail_risk_esr)
+
+add_executable(test_tail_risk_evt tests/test_tail_risk_evt.cpp)
+target_link_libraries(test_tail_risk_evt PRIVATE portfolio_math)
+qbt_enable_warnings(test_tail_risk_evt)
+qbt_static_test_runtime(test_tail_risk_evt)
+add_test(NAME test_tail_risk_evt COMMAND test_tail_risk_evt)
+
+add_executable(test_conditional_expectile tests/test_conditional_expectile.cpp)
+target_link_libraries(test_conditional_expectile PRIVATE portfolio_math)
+qbt_enable_warnings(test_conditional_expectile)
+qbt_static_test_runtime(test_conditional_expectile)
+add_test(NAME test_conditional_expectile COMMAND test_conditional_expectile)
 
 add_executable(test_multiple_testing tests/test_multiple_testing.cpp)
 target_link_libraries(test_multiple_testing PRIVATE portfolio_math)
@@ -101,8 +125,38 @@ qbt_enable_warnings(test_portfolio_policy_artifact)
 qbt_static_test_runtime(test_portfolio_policy_artifact)
 add_test(NAME test_portfolio_policy_artifact COMMAND test_portfolio_policy_artifact)
 
+add_executable(test_posterior tests/test_posterior.cpp)
+target_link_libraries(test_posterior PRIVATE portfolio_math)
+qbt_enable_warnings(test_posterior)
+qbt_static_test_runtime(test_posterior)
+add_test(NAME test_posterior COMMAND test_posterior)
+
+add_executable(test_posterior_direct tests/test_posterior_direct.cpp)
+target_link_libraries(test_posterior_direct PRIVATE portfolio_math)
+qbt_enable_warnings(test_posterior_direct)
+qbt_static_test_runtime(test_posterior_direct)
+add_test(NAME test_posterior_direct COMMAND test_posterior_direct)
+
+add_executable(test_nco_ffv tests/test_nco_ffv.cpp)
+target_link_libraries(test_nco_ffv PRIVATE portfolio_math)
+qbt_enable_warnings(test_nco_ffv)
+qbt_static_test_runtime(test_nco_ffv)
+add_test(NAME test_nco_ffv COMMAND test_nco_ffv)
+
 add_executable(test_factor_model tests/test_factor_model.cpp)
 target_link_libraries(test_factor_model PRIVATE portfolio_math)
 qbt_enable_warnings(test_factor_model)
 qbt_static_test_runtime(test_factor_model)
 add_test(NAME test_factor_model COMMAND test_factor_model)
+
+add_executable(test_factor_risk_diagnostics tests/test_factor_risk_diagnostics.cpp)
+target_link_libraries(test_factor_risk_diagnostics PRIVATE portfolio_math)
+qbt_enable_warnings(test_factor_risk_diagnostics)
+qbt_static_test_runtime(test_factor_risk_diagnostics)
+add_test(NAME test_factor_risk_diagnostics COMMAND test_factor_risk_diagnostics)
+
+add_executable(test_factor_risk_performance tests/test_factor_risk_performance.cpp)
+target_link_libraries(test_factor_risk_performance PRIVATE portfolio_math)
+qbt_enable_warnings(test_factor_risk_performance)
+qbt_static_test_runtime(test_factor_risk_performance)
+add_test(NAME test_factor_risk_performance COMMAND test_factor_risk_performance)

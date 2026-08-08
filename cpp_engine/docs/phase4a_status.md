@@ -77,5 +77,6 @@ promotion_eligible = false
 - 当前只允许已校准的 direction/volatility reference；未校准 direction/volatility/ranking/quantile head 不得接入 view。
 - 当前 artifact 明确 `eligible_for_official_risk=false`，不构成 Phase 4A 退出或生产/实盘晋级。
 
-下一步按路线图用已固定的
+Phase 4A CPU reference 已足够进入 Phase 4B 的 NCO-FFV governance scaffold；正式 OOS、成本和
+稳定性 gate 仍按 Phase 4A/4B 合同单独注册，不能用 synthetic reference 代替。
 Posterior Direct policy 做 BL/FFV 对照；真实 OOS 和成本 gate 之前不晋级。
