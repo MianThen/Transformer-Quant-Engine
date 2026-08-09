@@ -1,0 +1,1054 @@
+{
+  "artifact": {
+    "path": "C:\\Users\\arcom005\\PycharmProjects\\PythonProject5\\quant-backtester-cpp\\build\\benchmark-release\\cpp_engine\\qbt_benchmark.exe",
+    "sha256": "fb657a2bee93b7f1bdf5d92aaa117261c39b24b8c22f949209b561edb9e6d2f3"
+  },
+  "build": {
+    "compiler_id": "GNU",
+    "compiler_version": "13.1.0",
+    "lto": false,
+    "type": "Release"
+  },
+  "cost_attribution": {
+    "market_data": [
+      "single_symbol_market_data",
+      "sorted_cross_section_1000",
+      "sorted_cross_section_10000"
+    ],
+    "orders": [
+      "open_buy_orders_1000",
+      "open_buy_orders_2000",
+      "open_buy_orders_4000",
+      "open_buy_orders_8000",
+      "high_frequency_fill_partial_cancel",
+      "untriggered_limit_levels_10000",
+      "untriggered_limit_levels_50000",
+      "untriggered_limit_levels_100000",
+      "million_order_history_delist_corporate_action"
+    ],
+    "positions": [
+      "positions_mark_to_market_1000",
+      "positions_mark_to_market_10000",
+      "positions_mark_to_market_50000"
+    ]
+  },
+  "created_at_utc": "2026-07-22T01:07:27.880813+00:00",
+  "dataset": {
+    "name": "qbt-m0-deterministic",
+    "quick": false,
+    "seed": 0,
+    "version": 1
+  },
+  "hardware": {
+    "logical_cpu_count": 12,
+    "machine": "AMD64",
+    "platform": "Windows-11-10.0.26100-SP0",
+    "processor": "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+  },
+  "raw_runs": [
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "qbt-m0-deterministic",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "category": "market_data",
+          "checksum": 250000,
+          "elapsed_ns": 94119100,
+          "name": "single_symbol_market_data",
+          "ns_per_operation": 376.4764,
+          "operations": 250000,
+          "scale": 1
+        },
+        {
+          "category": "market_data",
+          "checksum": 10,
+          "elapsed_ns": 2582000,
+          "name": "sorted_cross_section_1000",
+          "ns_per_operation": 258.2,
+          "operations": 10000,
+          "scale": 1000
+        },
+        {
+          "category": "market_data",
+          "checksum": 5,
+          "elapsed_ns": 23987300,
+          "name": "sorted_cross_section_10000",
+          "ns_per_operation": 479.746,
+          "operations": 50000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000,
+          "elapsed_ns": 1213900,
+          "name": "open_buy_orders_1000",
+          "ns_per_operation": 1213.9,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "orders",
+          "checksum": 2000,
+          "elapsed_ns": 2008300,
+          "name": "open_buy_orders_2000",
+          "ns_per_operation": 1004.15,
+          "operations": 2000,
+          "scale": 2000
+        },
+        {
+          "category": "orders",
+          "checksum": 4000,
+          "elapsed_ns": 3739900,
+          "name": "open_buy_orders_4000",
+          "ns_per_operation": 934.975,
+          "operations": 4000,
+          "scale": 4000
+        },
+        {
+          "category": "orders",
+          "checksum": 8000,
+          "elapsed_ns": 5824000,
+          "name": "open_buy_orders_8000",
+          "ns_per_operation": 728,
+          "operations": 8000,
+          "scale": 8000
+        },
+        {
+          "category": "orders",
+          "checksum": 20000,
+          "elapsed_ns": 30952400,
+          "name": "high_frequency_fill_partial_cancel",
+          "ns_per_operation": 1547.62,
+          "operations": 20000,
+          "scale": 20000
+        },
+        {
+          "category": "positions",
+          "checksum": 1000,
+          "elapsed_ns": 226300,
+          "name": "positions_mark_to_market_1000",
+          "ns_per_operation": 226.3,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "positions",
+          "checksum": 10000,
+          "elapsed_ns": 4979200,
+          "name": "positions_mark_to_market_10000",
+          "ns_per_operation": 497.92,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "positions",
+          "checksum": 50000,
+          "elapsed_ns": 41168500,
+          "name": "positions_mark_to_market_50000",
+          "ns_per_operation": 823.37,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 10000,
+          "elapsed_ns": 6850200,
+          "name": "untriggered_limit_levels_10000",
+          "ns_per_operation": 685.02,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 50000,
+          "elapsed_ns": 34888700,
+          "name": "untriggered_limit_levels_50000",
+          "ns_per_operation": 697.774,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 100000,
+          "elapsed_ns": 73151000,
+          "name": "untriggered_limit_levels_100000",
+          "ns_per_operation": 731.51,
+          "operations": 100000,
+          "scale": 100000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000000,
+          "elapsed_ns": 11300,
+          "name": "million_order_history_delist_corporate_action",
+          "ns_per_operation": 5650,
+          "operations": 2,
+          "scale": 1000000
+        }
+      ],
+      "schema_version": 1
+    },
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "qbt-m0-deterministic",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "category": "market_data",
+          "checksum": 250000,
+          "elapsed_ns": 94902500,
+          "name": "single_symbol_market_data",
+          "ns_per_operation": 379.61,
+          "operations": 250000,
+          "scale": 1
+        },
+        {
+          "category": "market_data",
+          "checksum": 10,
+          "elapsed_ns": 2835200,
+          "name": "sorted_cross_section_1000",
+          "ns_per_operation": 283.52,
+          "operations": 10000,
+          "scale": 1000
+        },
+        {
+          "category": "market_data",
+          "checksum": 5,
+          "elapsed_ns": 21463800,
+          "name": "sorted_cross_section_10000",
+          "ns_per_operation": 429.276,
+          "operations": 50000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000,
+          "elapsed_ns": 856700,
+          "name": "open_buy_orders_1000",
+          "ns_per_operation": 856.7,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "orders",
+          "checksum": 2000,
+          "elapsed_ns": 1448300,
+          "name": "open_buy_orders_2000",
+          "ns_per_operation": 724.15,
+          "operations": 2000,
+          "scale": 2000
+        },
+        {
+          "category": "orders",
+          "checksum": 4000,
+          "elapsed_ns": 2687500,
+          "name": "open_buy_orders_4000",
+          "ns_per_operation": 671.875,
+          "operations": 4000,
+          "scale": 4000
+        },
+        {
+          "category": "orders",
+          "checksum": 8000,
+          "elapsed_ns": 6412500,
+          "name": "open_buy_orders_8000",
+          "ns_per_operation": 801.5625,
+          "operations": 8000,
+          "scale": 8000
+        },
+        {
+          "category": "orders",
+          "checksum": 20000,
+          "elapsed_ns": 30076500,
+          "name": "high_frequency_fill_partial_cancel",
+          "ns_per_operation": 1503.825,
+          "operations": 20000,
+          "scale": 20000
+        },
+        {
+          "category": "positions",
+          "checksum": 1000,
+          "elapsed_ns": 215500,
+          "name": "positions_mark_to_market_1000",
+          "ns_per_operation": 215.5,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "positions",
+          "checksum": 10000,
+          "elapsed_ns": 4909000,
+          "name": "positions_mark_to_market_10000",
+          "ns_per_operation": 490.9,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "positions",
+          "checksum": 50000,
+          "elapsed_ns": 43572000,
+          "name": "positions_mark_to_market_50000",
+          "ns_per_operation": 871.44,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 10000,
+          "elapsed_ns": 6943100,
+          "name": "untriggered_limit_levels_10000",
+          "ns_per_operation": 694.31,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 50000,
+          "elapsed_ns": 35243900,
+          "name": "untriggered_limit_levels_50000",
+          "ns_per_operation": 704.878,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 100000,
+          "elapsed_ns": 72978200,
+          "name": "untriggered_limit_levels_100000",
+          "ns_per_operation": 729.782,
+          "operations": 100000,
+          "scale": 100000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000000,
+          "elapsed_ns": 16100,
+          "name": "million_order_history_delist_corporate_action",
+          "ns_per_operation": 8050,
+          "operations": 2,
+          "scale": 1000000
+        }
+      ],
+      "schema_version": 1
+    },
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "qbt-m0-deterministic",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "category": "market_data",
+          "checksum": 250000,
+          "elapsed_ns": 93597800,
+          "name": "single_symbol_market_data",
+          "ns_per_operation": 374.3912,
+          "operations": 250000,
+          "scale": 1
+        },
+        {
+          "category": "market_data",
+          "checksum": 10,
+          "elapsed_ns": 2600200,
+          "name": "sorted_cross_section_1000",
+          "ns_per_operation": 260.02,
+          "operations": 10000,
+          "scale": 1000
+        },
+        {
+          "category": "market_data",
+          "checksum": 5,
+          "elapsed_ns": 20262100,
+          "name": "sorted_cross_section_10000",
+          "ns_per_operation": 405.242,
+          "operations": 50000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000,
+          "elapsed_ns": 856800,
+          "name": "open_buy_orders_1000",
+          "ns_per_operation": 856.8,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "orders",
+          "checksum": 2000,
+          "elapsed_ns": 1843200,
+          "name": "open_buy_orders_2000",
+          "ns_per_operation": 921.6,
+          "operations": 2000,
+          "scale": 2000
+        },
+        {
+          "category": "orders",
+          "checksum": 4000,
+          "elapsed_ns": 3661500,
+          "name": "open_buy_orders_4000",
+          "ns_per_operation": 915.375,
+          "operations": 4000,
+          "scale": 4000
+        },
+        {
+          "category": "orders",
+          "checksum": 8000,
+          "elapsed_ns": 6424000,
+          "name": "open_buy_orders_8000",
+          "ns_per_operation": 803,
+          "operations": 8000,
+          "scale": 8000
+        },
+        {
+          "category": "orders",
+          "checksum": 20000,
+          "elapsed_ns": 30986600,
+          "name": "high_frequency_fill_partial_cancel",
+          "ns_per_operation": 1549.33,
+          "operations": 20000,
+          "scale": 20000
+        },
+        {
+          "category": "positions",
+          "checksum": 1000,
+          "elapsed_ns": 217200,
+          "name": "positions_mark_to_market_1000",
+          "ns_per_operation": 217.2,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "positions",
+          "checksum": 10000,
+          "elapsed_ns": 6230700,
+          "name": "positions_mark_to_market_10000",
+          "ns_per_operation": 623.07,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "positions",
+          "checksum": 50000,
+          "elapsed_ns": 43542300,
+          "name": "positions_mark_to_market_50000",
+          "ns_per_operation": 870.846,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 10000,
+          "elapsed_ns": 7367700,
+          "name": "untriggered_limit_levels_10000",
+          "ns_per_operation": 736.77,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 50000,
+          "elapsed_ns": 36160000,
+          "name": "untriggered_limit_levels_50000",
+          "ns_per_operation": 723.2,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 100000,
+          "elapsed_ns": 72995900,
+          "name": "untriggered_limit_levels_100000",
+          "ns_per_operation": 729.959,
+          "operations": 100000,
+          "scale": 100000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000000,
+          "elapsed_ns": 14600,
+          "name": "million_order_history_delist_corporate_action",
+          "ns_per_operation": 7300,
+          "operations": 2,
+          "scale": 1000000
+        }
+      ],
+      "schema_version": 1
+    },
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "qbt-m0-deterministic",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "category": "market_data",
+          "checksum": 250000,
+          "elapsed_ns": 99527100,
+          "name": "single_symbol_market_data",
+          "ns_per_operation": 398.1084,
+          "operations": 250000,
+          "scale": 1
+        },
+        {
+          "category": "market_data",
+          "checksum": 10,
+          "elapsed_ns": 2633300,
+          "name": "sorted_cross_section_1000",
+          "ns_per_operation": 263.33,
+          "operations": 10000,
+          "scale": 1000
+        },
+        {
+          "category": "market_data",
+          "checksum": 5,
+          "elapsed_ns": 32484400,
+          "name": "sorted_cross_section_10000",
+          "ns_per_operation": 649.688,
+          "operations": 50000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000,
+          "elapsed_ns": 766200,
+          "name": "open_buy_orders_1000",
+          "ns_per_operation": 766.2,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "orders",
+          "checksum": 2000,
+          "elapsed_ns": 1413500,
+          "name": "open_buy_orders_2000",
+          "ns_per_operation": 706.75,
+          "operations": 2000,
+          "scale": 2000
+        },
+        {
+          "category": "orders",
+          "checksum": 4000,
+          "elapsed_ns": 3171700,
+          "name": "open_buy_orders_4000",
+          "ns_per_operation": 792.925,
+          "operations": 4000,
+          "scale": 4000
+        },
+        {
+          "category": "orders",
+          "checksum": 8000,
+          "elapsed_ns": 6203200,
+          "name": "open_buy_orders_8000",
+          "ns_per_operation": 775.4,
+          "operations": 8000,
+          "scale": 8000
+        },
+        {
+          "category": "orders",
+          "checksum": 20000,
+          "elapsed_ns": 32413900,
+          "name": "high_frequency_fill_partial_cancel",
+          "ns_per_operation": 1620.695,
+          "operations": 20000,
+          "scale": 20000
+        },
+        {
+          "category": "positions",
+          "checksum": 1000,
+          "elapsed_ns": 214900,
+          "name": "positions_mark_to_market_1000",
+          "ns_per_operation": 214.9,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "positions",
+          "checksum": 10000,
+          "elapsed_ns": 4611100,
+          "name": "positions_mark_to_market_10000",
+          "ns_per_operation": 461.11,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "positions",
+          "checksum": 50000,
+          "elapsed_ns": 42075200,
+          "name": "positions_mark_to_market_50000",
+          "ns_per_operation": 841.504,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 10000,
+          "elapsed_ns": 7269300,
+          "name": "untriggered_limit_levels_10000",
+          "ns_per_operation": 726.93,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 50000,
+          "elapsed_ns": 34684000,
+          "name": "untriggered_limit_levels_50000",
+          "ns_per_operation": 693.68,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 100000,
+          "elapsed_ns": 73036300,
+          "name": "untriggered_limit_levels_100000",
+          "ns_per_operation": 730.363,
+          "operations": 100000,
+          "scale": 100000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000000,
+          "elapsed_ns": 16700,
+          "name": "million_order_history_delist_corporate_action",
+          "ns_per_operation": 8350,
+          "operations": 2,
+          "scale": 1000000
+        }
+      ],
+      "schema_version": 1
+    },
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "qbt-m0-deterministic",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "category": "market_data",
+          "checksum": 250000,
+          "elapsed_ns": 93615800,
+          "name": "single_symbol_market_data",
+          "ns_per_operation": 374.4632,
+          "operations": 250000,
+          "scale": 1
+        },
+        {
+          "category": "market_data",
+          "checksum": 10,
+          "elapsed_ns": 2614700,
+          "name": "sorted_cross_section_1000",
+          "ns_per_operation": 261.47,
+          "operations": 10000,
+          "scale": 1000
+        },
+        {
+          "category": "market_data",
+          "checksum": 5,
+          "elapsed_ns": 23309100,
+          "name": "sorted_cross_section_10000",
+          "ns_per_operation": 466.182,
+          "operations": 50000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000,
+          "elapsed_ns": 821300,
+          "name": "open_buy_orders_1000",
+          "ns_per_operation": 821.3,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "orders",
+          "checksum": 2000,
+          "elapsed_ns": 1491100,
+          "name": "open_buy_orders_2000",
+          "ns_per_operation": 745.55,
+          "operations": 2000,
+          "scale": 2000
+        },
+        {
+          "category": "orders",
+          "checksum": 4000,
+          "elapsed_ns": 2693100,
+          "name": "open_buy_orders_4000",
+          "ns_per_operation": 673.275,
+          "operations": 4000,
+          "scale": 4000
+        },
+        {
+          "category": "orders",
+          "checksum": 8000,
+          "elapsed_ns": 6082100,
+          "name": "open_buy_orders_8000",
+          "ns_per_operation": 760.2625,
+          "operations": 8000,
+          "scale": 8000
+        },
+        {
+          "category": "orders",
+          "checksum": 20000,
+          "elapsed_ns": 33380000,
+          "name": "high_frequency_fill_partial_cancel",
+          "ns_per_operation": 1669,
+          "operations": 20000,
+          "scale": 20000
+        },
+        {
+          "category": "positions",
+          "checksum": 1000,
+          "elapsed_ns": 219100,
+          "name": "positions_mark_to_market_1000",
+          "ns_per_operation": 219.1,
+          "operations": 1000,
+          "scale": 1000
+        },
+        {
+          "category": "positions",
+          "checksum": 10000,
+          "elapsed_ns": 6810300,
+          "name": "positions_mark_to_market_10000",
+          "ns_per_operation": 681.03,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "positions",
+          "checksum": 50000,
+          "elapsed_ns": 43046000,
+          "name": "positions_mark_to_market_50000",
+          "ns_per_operation": 860.92,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 10000,
+          "elapsed_ns": 6770600,
+          "name": "untriggered_limit_levels_10000",
+          "ns_per_operation": 677.06,
+          "operations": 10000,
+          "scale": 10000
+        },
+        {
+          "category": "orders",
+          "checksum": 50000,
+          "elapsed_ns": 35527900,
+          "name": "untriggered_limit_levels_50000",
+          "ns_per_operation": 710.558,
+          "operations": 50000,
+          "scale": 50000
+        },
+        {
+          "category": "orders",
+          "checksum": 100000,
+          "elapsed_ns": 70413700,
+          "name": "untriggered_limit_levels_100000",
+          "ns_per_operation": 704.137,
+          "operations": 100000,
+          "scale": 100000
+        },
+        {
+          "category": "orders",
+          "checksum": 1000000,
+          "elapsed_ns": 10800,
+          "name": "million_order_history_delist_corporate_action",
+          "ns_per_operation": 5400,
+          "operations": 2,
+          "scale": 1000000
+        }
+      ],
+      "schema_version": 1
+    }
+  ],
+  "results": [
+    {
+      "category": "market_data",
+      "checksum": 250000,
+      "median_ns_per_operation": 376.4764,
+      "name": "single_symbol_market_data",
+      "operations": 250000,
+      "p95_ns_per_operation": 398.1084,
+      "samples_ns_per_operation": [
+        376.4764,
+        379.61,
+        374.3912,
+        398.1084,
+        374.4632
+      ],
+      "scale": 1
+    },
+    {
+      "category": "market_data",
+      "checksum": 10,
+      "median_ns_per_operation": 261.47,
+      "name": "sorted_cross_section_1000",
+      "operations": 10000,
+      "p95_ns_per_operation": 283.52,
+      "samples_ns_per_operation": [
+        258.2,
+        283.52,
+        260.02,
+        263.33,
+        261.47
+      ],
+      "scale": 1000
+    },
+    {
+      "category": "market_data",
+      "checksum": 5,
+      "median_ns_per_operation": 466.182,
+      "name": "sorted_cross_section_10000",
+      "operations": 50000,
+      "p95_ns_per_operation": 649.688,
+      "samples_ns_per_operation": [
+        479.746,
+        429.276,
+        405.242,
+        649.688,
+        466.182
+      ],
+      "scale": 10000
+    },
+    {
+      "category": "orders",
+      "checksum": 1000,
+      "median_ns_per_operation": 856.7,
+      "name": "open_buy_orders_1000",
+      "operations": 1000,
+      "p95_ns_per_operation": 1213.9,
+      "samples_ns_per_operation": [
+        1213.9,
+        856.7,
+        856.8,
+        766.2,
+        821.3
+      ],
+      "scale": 1000
+    },
+    {
+      "category": "orders",
+      "checksum": 2000,
+      "median_ns_per_operation": 745.55,
+      "name": "open_buy_orders_2000",
+      "operations": 2000,
+      "p95_ns_per_operation": 1004.15,
+      "samples_ns_per_operation": [
+        1004.15,
+        724.15,
+        921.6,
+        706.75,
+        745.55
+      ],
+      "scale": 2000
+    },
+    {
+      "category": "orders",
+      "checksum": 4000,
+      "median_ns_per_operation": 792.925,
+      "name": "open_buy_orders_4000",
+      "operations": 4000,
+      "p95_ns_per_operation": 934.975,
+      "samples_ns_per_operation": [
+        934.975,
+        671.875,
+        915.375,
+        792.925,
+        673.275
+      ],
+      "scale": 4000
+    },
+    {
+      "category": "orders",
+      "checksum": 8000,
+      "median_ns_per_operation": 775.4,
+      "name": "open_buy_orders_8000",
+      "operations": 8000,
+      "p95_ns_per_operation": 803,
+      "samples_ns_per_operation": [
+        728,
+        801.5625,
+        803,
+        775.4,
+        760.2625
+      ],
+      "scale": 8000
+    },
+    {
+      "category": "orders",
+      "checksum": 20000,
+      "median_ns_per_operation": 1549.33,
+      "name": "high_frequency_fill_partial_cancel",
+      "operations": 20000,
+      "p95_ns_per_operation": 1669,
+      "samples_ns_per_operation": [
+        1547.62,
+        1503.825,
+        1549.33,
+        1620.695,
+        1669
+      ],
+      "scale": 20000
+    },
+    {
+      "category": "positions",
+      "checksum": 1000,
+      "median_ns_per_operation": 217.2,
+      "name": "positions_mark_to_market_1000",
+      "operations": 1000,
+      "p95_ns_per_operation": 226.3,
+      "samples_ns_per_operation": [
+        226.3,
+        215.5,
+        217.2,
+        214.9,
+        219.1
+      ],
+      "scale": 1000
+    },
+    {
+      "category": "positions",
+      "checksum": 10000,
+      "median_ns_per_operation": 497.92,
+      "name": "positions_mark_to_market_10000",
+      "operations": 10000,
+      "p95_ns_per_operation": 681.03,
+      "samples_ns_per_operation": [
+        497.92,
+        490.9,
+        623.07,
+        461.11,
+        681.03
+      ],
+      "scale": 10000
+    },
+    {
+      "category": "positions",
+      "checksum": 50000,
+      "median_ns_per_operation": 860.92,
+      "name": "positions_mark_to_market_50000",
+      "operations": 50000,
+      "p95_ns_per_operation": 871.44,
+      "samples_ns_per_operation": [
+        823.37,
+        871.44,
+        870.846,
+        841.504,
+        860.92
+      ],
+      "scale": 50000
+    },
+    {
+      "category": "orders",
+      "checksum": 10000,
+      "median_ns_per_operation": 694.31,
+      "name": "untriggered_limit_levels_10000",
+      "operations": 10000,
+      "p95_ns_per_operation": 736.77,
+      "samples_ns_per_operation": [
+        685.02,
+        694.31,
+        736.77,
+        726.93,
+        677.06
+      ],
+      "scale": 10000
+    },
+    {
+      "category": "orders",
+      "checksum": 50000,
+      "median_ns_per_operation": 704.878,
+      "name": "untriggered_limit_levels_50000",
+      "operations": 50000,
+      "p95_ns_per_operation": 723.2,
+      "samples_ns_per_operation": [
+        697.774,
+        704.878,
+        723.2,
+        693.68,
+        710.558
+      ],
+      "scale": 50000
+    },
+    {
+      "category": "orders",
+      "checksum": 100000,
+      "median_ns_per_operation": 729.959,
+      "name": "untriggered_limit_levels_100000",
+      "operations": 100000,
+      "p95_ns_per_operation": 731.51,
+      "samples_ns_per_operation": [
+        731.51,
+        729.782,
+        729.959,
+        730.363,
+        704.137
+      ],
+      "scale": 100000
+    },
+    {
+      "category": "orders",
+      "checksum": 1000000,
+      "median_ns_per_operation": 7300,
+      "name": "million_order_history_delist_corporate_action",
+      "operations": 2,
+      "p95_ns_per_operation": 8350,
+      "samples_ns_per_operation": [
+        5650,
+        8050,
+        7300,
+        8350,
+        5400
+      ],
+      "scale": 1000000
+    }
+  ],
+  "run_count": 5,
+  "schema_version": 1
+}

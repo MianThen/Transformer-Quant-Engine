@@ -1,0 +1,115 @@
+{
+  "bootstrap": {
+    "block_length": 6,
+    "draws": 2000,
+    "method": "circular_moving_block_bootstrap",
+    "seed": 20260805
+  },
+  "contract_sha256": "86648f73277687b0363b2c616d7a0f01402004374a3738749fcb00a9909ac22e",
+  "data_audit_sha256": "5aedcc0bbbcd5cebda11a5e2e15be0a8420f65810c43cf7e71b77ff22c7c3c47",
+  "dataset_sha256": "4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554",
+  "evaluation_split": "validation",
+  "folds": [
+    {
+      "fold": 1,
+      "test_first": 1719471600000000000,
+      "test_last": 1735542000000000000,
+      "train_first": 1635318000000000000,
+      "train_last": 1700550000000000000,
+      "validation_first": 1701327600000000000,
+      "validation_last": 1718089200000000000
+    },
+    {
+      "fold": 2,
+      "test_first": 1735628400000000000,
+      "test_last": 1752130800000000000,
+      "train_first": 1651820400000000000,
+      "train_last": 1717138800000000000,
+      "validation_first": 1718175600000000000,
+      "validation_last": 1734073200000000000
+    },
+    {
+      "fold": 3,
+      "test_first": 1752217200000000000,
+      "test_last": 1768374000000000000,
+      "train_first": 1667977200000000000,
+      "train_last": 1733382000000000000,
+      "validation_first": 1734332400000000000,
+      "validation_last": 1750834800000000000
+    }
+  ],
+  "gate_margins": {
+    "noninferiority_margin": 0.0025,
+    "relative_stress_margin": 0.0025
+  },
+  "hypothesis_suffix": "v2-r3-test-blind-validation",
+  "implementation_sha256": "7c70c3ca559a1f769c41fece4d45b809438bc5cfea4c41fe3928d42906e01b0c",
+  "label_provenance": {
+    "clean": {
+      "direction": "dataset.direction soft label; source=phase1e_label_v2",
+      "noisy": "not an input column"
+    },
+    "noisy": {
+      "direction": "dataset.direction soft label",
+      "noisy": "deterministic derived label: 1-direction on seeded flip mask",
+      "rates": [
+        0.05,
+        0.1,
+        0.2
+      ],
+      "seed": 20260805
+    },
+    "stress": {
+      "features": "deterministic derived perturbations from dataset.features",
+      "modes": [
+        "price",
+        "volume",
+        "missing",
+        "extreme_volatility"
+      ]
+    }
+  },
+  "missing_mode": "continuous_center_impute",
+  "missing_rate": 0.1,
+  "noise_rates": [
+    0.05,
+    0.1,
+    0.2
+  ],
+  "oos_cutoff_timestamp": 1719385200000000000,
+  "phase1b_last_timestamp": 1719385200000000000,
+  "preprocessing": {
+    "mode": "train_fold_standardizer_v1",
+    "scale_floor": 1e-06
+  },
+  "promotion_allowed": false,
+  "ranking_cutoff": 20,
+  "registered_before_training": true,
+  "schema_version": 3,
+  "stress_missing_mode": "continuous_center_impute",
+  "training_config_sha256": "67ad2aa2b7fec1fbdedb3aa9b1dea3e9a910e811e6cb0102d591e0d8ac65cc0c",
+  "training_contract": {
+    "batch_size": 256,
+    "beta": 0.5,
+    "deterministic_algorithms": true,
+    "device": "cuda",
+    "epochs": 50,
+    "epsilon": 0.01,
+    "learning_rate": 0.0003,
+    "model": {
+      "d_model": 64,
+      "dim_feedforward": 128,
+      "dropout": 0.1,
+      "nhead": 4,
+      "num_layers": 3
+    },
+    "pgd_steps": 3,
+    "seed": 20260805
+  },
+  "variants": [
+    "none",
+    "structured_missing",
+    "feature_pgd"
+  ],
+  "window_count": 3
+}

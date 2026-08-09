@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "scenarios": {
+    "market_burst": {"baseline_ns_per_event": 10000, "max_p99_ns": 1000000, "max_rss_bytes": 536870912},
+    "partial_packets": {"baseline_ns_per_event": 12000, "max_p99_ns": 1200000, "max_rss_bytes": 536870912},
+    "send_backpressure": {"baseline_ns_per_event": 15000, "max_p99_ns": 1500000, "max_rss_bytes": 536870912},
+    "ack_out_of_order": {"baseline_ns_per_event": 10000, "max_p99_ns": 1000000, "max_rss_bytes": 536870912},
+    "order_burst_wal_off": {"baseline_ns_per_event": 10000, "max_p99_ns": 1000000, "max_rss_bytes": 536870912},
+    "order_burst_wal_async": {"baseline_ns_per_event": 11500, "max_p99_ns": 1000000, "max_rss_bytes": 536870912},
+    "wal_recovery": {"baseline_ns_per_event": 500000, "max_p99_ns": 1000000, "max_rss_bytes": 536870912},
+    "reconnect_storm": {"baseline_ns_per_event": 1000000, "max_p99_ns": 1000000, "max_rss_bytes": 536870912}
+  }
+}

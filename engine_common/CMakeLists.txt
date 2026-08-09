@@ -1,0 +1,14 @@
+add_library(engine_common INTERFACE)
+target_include_directories(engine_common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_executable(test_symbol_registry tests/test_symbol_registry.cpp)
+target_link_libraries(test_symbol_registry PRIVATE engine_common)
+qbt_enable_warnings(test_symbol_registry)
+qbt_static_test_runtime(test_symbol_registry)
+add_test(NAME test_symbol_registry COMMAND test_symbol_registry)
+
+add_executable(test_replay tests/test_replay.cpp)
+target_link_libraries(test_replay PRIVATE engine_common)
+qbt_enable_warnings(test_replay)
+qbt_static_test_runtime(test_replay)
+add_test(NAME test_replay COMMAND test_replay)

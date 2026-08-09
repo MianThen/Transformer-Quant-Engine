@@ -1,0 +1,19 @@
+{
+  "checkpoint_count": 9,
+  "checkpoint_sha256": {
+    "fold-1/feature_pgd": "7c4b033b33ac274cf0afa12725ea6a54112518affae566eb3098cc0c353bcc36",
+    "fold-1/none": "f6e16a4c91bbd4f53a486136d0d071f5ad67a76be887e206247be954124b4b0f",
+    "fold-1/structured_missing": "267f332e974470fbf9452819321826f692399c38a8d40ec1833466375a1e149e",
+    "fold-2/feature_pgd": "301fba374b3e098cc73e2ab0051de021130c5b590cf3e782502d369e1d391c53",
+    "fold-2/none": "3a5de699f029e216395bc705e25574977d18f74da77391ada683307bbf27a3aa",
+    "fold-2/structured_missing": "b3a3dbbf81cc3f9a6568fd0c9c7ca0711323d13d185bedda8256f0db4f730a11",
+    "fold-3/feature_pgd": "888d3bdc600c08da927fa1d253ccf908cae246c6b5c6340f46e094942bce5b19",
+    "fold-3/none": "fbba5b095eaaed7643066a571a05a0d3029ac0efd5c31adce978b34a129ffeb1",
+    "fold-3/structured_missing": "b3ff8f2bd55fbd32c365f53012ee82bb3d6425d0d370160609c89e97ddd0c7c9"
+  },
+  "failures": [],
+  "mode": "short-oos",
+  "root": "runs\\phase2b-feature-pgd-v2-short-new-oos",
+  "schema_version": 1,
+  "status": "PASS"
+}

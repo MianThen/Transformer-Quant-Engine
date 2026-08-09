@@ -1,0 +1,351 @@
+{
+  "artifact": {
+    "path": "C:\\Users\\arcom005\\PycharmProjects\\PythonProject5\\quant-backtester-cpp\\build\\live-benchmark-release\\trading_engine\\te_benchmark.exe",
+    "sha256": "c896978a87d89d3f1f144d8d992d7f8aced2b8852fc3a150c48981fb6a36e8c7"
+  },
+  "build": {
+    "compiler_id": "GNU",
+    "compiler_version": "13.1.0",
+    "lto": false,
+    "type": "Release"
+  },
+  "cost_attribution": {
+    "feed": [
+      "decoder_contiguous",
+      "decoder_partial_messages",
+      "decoder_reorder_recovery"
+    ]
+  },
+  "created_at_utc": "2026-07-22T02:36:16.586598+00:00",
+  "dataset": {
+    "name": "te-decoder-v1",
+    "quick": false,
+    "seed": 0,
+    "version": 1
+  },
+  "hardware": {
+    "logical_cpu_count": 12,
+    "machine": "AMD64",
+    "platform": "Windows-11-10.0.26100-SP0",
+    "processor": "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+  },
+  "raw_runs": [
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "te-decoder-v1",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 500000500000,
+          "elapsed_ns": 12008200,
+          "name": "decoder_contiguous",
+          "ns_per_operation": 12.0082,
+          "operations": 1000000,
+          "scale": 1000000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 31250125000,
+          "elapsed_ns": 8195600,
+          "name": "decoder_partial_messages",
+          "ns_per_operation": 32.7824,
+          "operations": 250000,
+          "scale": 250000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 180000500000,
+          "elapsed_ns": 15452900,
+          "name": "decoder_reorder_recovery",
+          "ns_per_operation": 25.754833333333334,
+          "operations": 600000,
+          "scale": 600000
+        }
+      ],
+      "schema_version": 1
+    },
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "te-decoder-v1",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 500000500000,
+          "elapsed_ns": 12301700,
+          "name": "decoder_contiguous",
+          "ns_per_operation": 12.3017,
+          "operations": 1000000,
+          "scale": 1000000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 31250125000,
+          "elapsed_ns": 5841500,
+          "name": "decoder_partial_messages",
+          "ns_per_operation": 23.366,
+          "operations": 250000,
+          "scale": 250000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 180000500000,
+          "elapsed_ns": 13343700,
+          "name": "decoder_reorder_recovery",
+          "ns_per_operation": 22.2395,
+          "operations": 600000,
+          "scale": 600000
+        }
+      ],
+      "schema_version": 1
+    },
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "te-decoder-v1",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 500000500000,
+          "elapsed_ns": 17564900,
+          "name": "decoder_contiguous",
+          "ns_per_operation": 17.5649,
+          "operations": 1000000,
+          "scale": 1000000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 31250125000,
+          "elapsed_ns": 8085500,
+          "name": "decoder_partial_messages",
+          "ns_per_operation": 32.342,
+          "operations": 250000,
+          "scale": 250000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 180000500000,
+          "elapsed_ns": 14464800,
+          "name": "decoder_reorder_recovery",
+          "ns_per_operation": 24.108,
+          "operations": 600000,
+          "scale": 600000
+        }
+      ],
+      "schema_version": 1
+    },
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "te-decoder-v1",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 500000500000,
+          "elapsed_ns": 12017800,
+          "name": "decoder_contiguous",
+          "ns_per_operation": 12.0178,
+          "operations": 1000000,
+          "scale": 1000000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 31250125000,
+          "elapsed_ns": 6655300,
+          "name": "decoder_partial_messages",
+          "ns_per_operation": 26.6212,
+          "operations": 250000,
+          "scale": 250000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 180000500000,
+          "elapsed_ns": 13710400,
+          "name": "decoder_reorder_recovery",
+          "ns_per_operation": 22.850666666666665,
+          "operations": 600000,
+          "scale": 600000
+        }
+      ],
+      "schema_version": 1
+    },
+    {
+      "build": {
+        "compiler_id": "GNU",
+        "compiler_version": "13.1.0",
+        "lto": false,
+        "type": "Release"
+      },
+      "dataset": {
+        "name": "te-decoder-v1",
+        "quick": false,
+        "seed": 0,
+        "version": 1
+      },
+      "results": [
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 500000500000,
+          "elapsed_ns": 14790200,
+          "name": "decoder_contiguous",
+          "ns_per_operation": 14.7902,
+          "operations": 1000000,
+          "scale": 1000000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 31250125000,
+          "elapsed_ns": 7550900,
+          "name": "decoder_partial_messages",
+          "ns_per_operation": 30.2036,
+          "operations": 250000,
+          "scale": 250000
+        },
+        {
+          "allocations": 0,
+          "category": "feed",
+          "checksum": 180000500000,
+          "elapsed_ns": 14309800,
+          "name": "decoder_reorder_recovery",
+          "ns_per_operation": 23.849666666666668,
+          "operations": 600000,
+          "scale": 600000
+        }
+      ],
+      "schema_version": 1
+    }
+  ],
+  "results": [
+    {
+      "baseline_median_ns_per_operation": 55.4304,
+      "category": "feed",
+      "checksum": 500000500000,
+      "median_allocations_per_run": 0,
+      "median_change_percent": -77.80694348227686,
+      "median_ns_per_operation": 12.3017,
+      "name": "decoder_contiguous",
+      "operations": 1000000,
+      "p95_ns_per_operation": 17.5649,
+      "samples_allocations_per_run": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "samples_ns_per_operation": [
+        12.0082,
+        12.3017,
+        17.5649,
+        12.0178,
+        14.7902
+      ],
+      "scale": 1000000
+    },
+    {
+      "baseline_median_ns_per_operation": 80.6244,
+      "category": "feed",
+      "checksum": 31250125000,
+      "median_allocations_per_run": 0,
+      "median_change_percent": -62.53789175485336,
+      "median_ns_per_operation": 30.2036,
+      "name": "decoder_partial_messages",
+      "operations": 250000,
+      "p95_ns_per_operation": 32.7824,
+      "samples_allocations_per_run": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "samples_ns_per_operation": [
+        32.7824,
+        23.366,
+        32.342,
+        26.6212,
+        30.2036
+      ],
+      "scale": 250000
+    },
+    {
+      "baseline_median_ns_per_operation": 90.47616666666667,
+      "category": "feed",
+      "checksum": 180000500000,
+      "median_allocations_per_run": 0,
+      "median_change_percent": -73.63983516837767,
+      "median_ns_per_operation": 23.849666666666668,
+      "name": "decoder_reorder_recovery",
+      "operations": 600000,
+      "p95_ns_per_operation": 25.754833333333334,
+      "samples_allocations_per_run": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "samples_ns_per_operation": [
+        25.754833333333334,
+        22.2395,
+        24.108,
+        22.850666666666665,
+        23.849666666666668
+      ],
+      "scale": 600000
+    }
+  ],
+  "run_count": 5,
+  "schema_version": 1
+}
