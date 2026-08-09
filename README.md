@@ -45,6 +45,24 @@ Transformer-Quant-Engine/
 这里保留两个原项目的内部结构，而不是把源码文件强行摊平。这样 CMake target、Python import、
 测试和既有文档仍然有效。
 
+## 实盘 V1 当前状态
+
+`cpp_engine/trading_engine` 已接入默认安全的 `SHADOW` 模式：订单意图不会发送到下游 Adapter，
+但会写入可回放的 ModeRouter 审计记录。`INFRA_CANARY`、`MODEL_CANARY` 和 `LIVE` 必须同时满足
+readiness、人工 armed、数量上限和审计可用性门禁；真实券商接入仍未开启。
+
+构建并运行 Shadow 测试：
+
+```bash
+cmake -S cpp_engine -B cpp_engine/build/live-shadow \
+  -DQBT_BUILD_PYTHON=OFF -DQBT_BUILD_LIVE_ENGINE=ON -DQBT_ENABLE_ML=OFF
+cmake --build cpp_engine/build/live-shadow --parallel
+ctest --test-dir cpp_engine/build/live-shadow -R 'mode_router|network_adapters|gateway_faults' --output-on-failure
+```
+
+实时接入必须先补齐券商、SDK/协议、账户权限、部署主机和官方文档版本；施工门槛与验收项见
+[`docs/live_trading_v1_construction_plan.md`](docs/live_trading_v1_construction_plan.md)。
+
 ## 整体架构
 
 ```text

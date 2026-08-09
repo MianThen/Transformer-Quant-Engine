@@ -65,3 +65,8 @@ experiments/*
 *.pem
 *.key
 credentials*.json
+
+# Live trading local state
+cpp_engine/runs/
+cpp_engine/build-live*/
+*.replay

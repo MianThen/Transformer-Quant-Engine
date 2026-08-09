@@ -1,0 +1,7 @@
+# Install the platform-specific PyTorch wheel first on CUDA/ROCm hosts.
+torch==2.8.0
+numpy==2.0.2
+pandas==2.3.3
+pyarrow==21.0.0
+PyYAML==6.0.3
+pytest==8.4.2

@@ -26,6 +26,7 @@ add_library(te_core STATIC
     src/oms/order_state.cpp
     src/oms/order_gateway.cpp
     src/runtime/runtime.cpp
+    src/runtime/mode_router.cpp
 )
 target_include_directories(te_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 if(TARGET engine_common)
@@ -43,6 +44,13 @@ target_link_libraries(trading_engine PRIVATE te_core)
 
 add_executable(replay_feed src/replay_feed.cpp)
 target_link_libraries(replay_feed PRIVATE te_core)
+
+add_executable(test_mode_router tests/test_mode_router.cpp)
+target_link_libraries(test_mode_router PRIVATE te_core)
+if(COMMAND qbt_static_test_runtime)
+    qbt_static_test_runtime(test_mode_router)
+endif()
+add_test(NAME test_mode_router COMMAND test_mode_router)
 
 # ---- 单元测试 ----
 enable_testing()
@@ -111,7 +119,7 @@ endif()
 add_test(NAME test_gateway_faults COMMAND test_gateway_faults)
 
 if(COMMAND qbt_enable_warnings)
-    foreach(target te_core trading_engine replay_feed test_ring_buffer test_order_state test_decoder test_utilities test_tcp_socket test_order_gateway test_replay_feed test_network_adapters test_gateway_faults)
+    foreach(target te_core trading_engine replay_feed test_mode_router test_ring_buffer test_order_state test_decoder test_utilities test_tcp_socket test_order_gateway test_replay_feed test_network_adapters test_gateway_faults)
         qbt_enable_warnings(${target})
     endforeach()
 endif()

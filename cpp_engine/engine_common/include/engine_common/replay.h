@@ -23,6 +23,7 @@ enum class ReplayRecordType : uint16_t {
     TARGET_POSITION_BATCH = 9,
     RISK_DECISION = 10,
     MODEL_LIFECYCLE = 11,
+    MODE_ROUTER_DECISION = 12,
 };
 
 #pragma pack(push, 1)

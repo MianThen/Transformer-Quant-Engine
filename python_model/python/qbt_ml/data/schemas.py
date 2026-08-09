@@ -16,6 +16,16 @@ BAR_V1_FEATURE_NAMES = (
     "is_tradable",
 )
 
+BAR_V1_FEATURE_GROUPS = {
+    "returns": BAR_V1_FEATURE_NAMES[0:4],
+    "bar_structure": BAR_V1_FEATURE_NAMES[4:7],
+    "volume": BAR_V1_FEATURE_NAMES[7:9],
+    "volatility": BAR_V1_FEATURE_NAMES[9:13],
+    "trend_position": BAR_V1_FEATURE_NAMES[13:18],
+    "cross_section": BAR_V1_FEATURE_NAMES[18:19],
+    "trade_state": BAR_V1_FEATURE_NAMES[19:23],
+}
+
 
 @dataclass(frozen=True)
 class FeatureSchema:

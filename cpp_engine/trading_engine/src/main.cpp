@@ -1,8 +1,10 @@
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <string>
 #include <thread>
 
@@ -10,6 +12,7 @@
 #include "feed/feed_handler.h"
 #include "feed/protocol.h"
 #include "net/latency.h"
+#include "runtime/mode_router.h"
 #include "runtime/runtime.h"
 
 using namespace te;
@@ -20,7 +23,8 @@ void print_usage(const char* program) {
     std::printf(
         "usage: %s <feed_host> <feed_port> <gateway_host> <gateway_port> "
         "[duration_seconds] [--send-demo-order] [--mode=low-latency|balanced|power-save] "
-        "[--feed-cpu=N] [--core-cpu=N] [--realtime]\n",
+        "[--trading-mode=shadow|paper|infra-canary|model-canary|live|reduce-only|killed] "
+        "[--audit=PATH] [--feed-cpu=N] [--core-cpu=N] [--realtime]\n",
         program);
 }
 
@@ -58,6 +62,7 @@ int main(int argc, char** argv) {
     int feed_cpu = -1;
     int core_cpu = -1;
     bool realtime = false;
+    std::string audit_path = "runs/live-shadow.replay";
     for (int index = 5; index < argc; ++index) {
         const std::string_view argument(argv[index]);
         if (argument.starts_with("--mode=")) {
@@ -78,6 +83,31 @@ int main(int argc, char** argv) {
     MockOrderAdapter orders([&feed](engine_common::SymbolId symbol_id) {
         return std::string(feed.symbol(symbol_id));
     });
+    TradingMode trading_mode = TradingMode::SHADOW;
+    for (int index = 5; index < argc; ++index) {
+        const std::string_view argument(argv[index]);
+        if (argument.starts_with("--trading-mode=")) {
+            if (!parse_trading_mode(argument.substr(15), trading_mode)) {
+                std::fprintf(stderr, "invalid trading mode\n");
+                return 1;
+            }
+        } else if (argument.starts_with("--audit=")) {
+            audit_path = std::string(argument.substr(8));
+        }
+    }
+    ModeRouterConfig router_config;
+    router_config.mode = trading_mode;
+    ModeRouter mode_router(orders, router_config);
+    try {
+        const std::filesystem::path audit_file(audit_path);
+        if (!audit_file.parent_path().empty()) {
+            std::filesystem::create_directories(audit_file.parent_path());
+        }
+        mode_router.enable_audit(audit_path);
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "failed to open audit replay: %s\n", error.what());
+        return 1;
+    }
     OrderGateway& gateway = orders.gateway();
     LatencyRecorder latency;
     LatencyRecorder queue_latency;
@@ -87,7 +117,7 @@ int main(int argc, char** argv) {
     ThreadHealth feed_health;
     ThreadHealth core_health;
 
-    orders.set_on_execution([&](const engine_common::ExecutionEvent& report) {
+    mode_router.set_on_execution([&](const engine_common::ExecutionEvent& report) {
         reports.fetch_add(1, std::memory_order_relaxed);
         std::printf("exec report: order=%lld status=%u fill=%lld\n",
                     static_cast<long long>(report.client_order_id),
@@ -151,7 +181,7 @@ int main(int argc, char** argv) {
             request.type = engine_common::OrderType::LIMIT;
             request.quantity = 1;
             request.limit_price = update.bid;
-            const int64_t order_id = orders.submit(request);
+            const int64_t order_id = mode_router.submit(request);
             demo_order_sent = order_id > 0;
             if (demo_order_sent) {
                 std::printf("sent demo order: id=%lld symbol=%s price=%.4f\n",
@@ -170,13 +200,20 @@ int main(int argc, char** argv) {
     feed_thread.join();
     core_health.stopped();
 
-    std::printf("updates=%llu reports=%llu bytes=%llu queue_drops=%llu gaps=%llu duplicates=%llu\n",
+    std::printf("trading_mode=%s updates=%llu reports=%llu bytes=%llu queue_drops=%llu gaps=%llu duplicates=%llu\n",
+                to_string(trading_mode),
                 static_cast<unsigned long long>(updates),
                 static_cast<unsigned long long>(reports.load(std::memory_order_relaxed)),
                 static_cast<unsigned long long>(feed.bytes_received()),
                 static_cast<unsigned long long>(feed.queue_drops()),
                 static_cast<unsigned long long>(feed.sequence_gaps()),
                 static_cast<unsigned long long>(feed.duplicate_messages()));
+    std::printf("mode_router: submit_attempts=%llu forwarded=%llu blocked=%llu "
+                "audit_healthy=%s\n",
+                static_cast<unsigned long long>(mode_router.submit_attempts()),
+                static_cast<unsigned long long>(mode_router.forwarded_submits()),
+                static_cast<unsigned long long>(mode_router.blocked_submits()),
+                mode_router.audit_healthy() ? "true" : "false");
     std::printf("feed_state=%s trusted=%s queue_depth=%zu queue_high_watermark=%zu "
                 "consecutive_full=%llu max_consecutive_full=%llu permanent_gaps=%llu "
                 "recovered_gaps=%llu last_drop_ns=%lld recovery_ns=%lld\n",

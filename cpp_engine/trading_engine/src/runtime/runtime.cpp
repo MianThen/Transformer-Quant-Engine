@@ -7,9 +7,13 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <psapi.h>
-#else
+#elif defined(__linux__)
 #include <pthread.h>
 #include <sched.h>
+#include <sys/resource.h>
+#include <unistd.h>
+#else
+#include <pthread.h>
 #include <sys/resource.h>
 #include <unistd.h>
 #endif
@@ -50,11 +54,14 @@ bool pin_current_thread(unsigned cpu_index) {
 #if defined(_WIN32)
     if (cpu_index >= sizeof(DWORD_PTR) * 8) return false;
     return SetThreadAffinityMask(GetCurrentThread(), DWORD_PTR{1} << cpu_index) != 0;
-#else
+#elif defined(__linux__)
     cpu_set_t set;
     CPU_ZERO(&set);
     CPU_SET(cpu_index, &set);
     return pthread_setaffinity_np(pthread_self(), sizeof(set), &set) == 0;
+#else
+    (void)cpu_index;
+    return false;
 #endif
 }
 
@@ -62,10 +69,12 @@ bool set_current_thread_realtime(bool enabled) {
     if (!enabled) return true;
 #if defined(_WIN32)
     return SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL) != 0;
-#else
+#elif defined(__linux__)
     sched_param parameters{};
     parameters.sched_priority = sched_get_priority_max(SCHED_FIFO);
     return pthread_setschedparam(pthread_self(), SCHED_FIFO, &parameters) == 0;
+#else
+    return false;
 #endif
 }
 

@@ -51,6 +51,7 @@ Capture read_capture(const std::string& path) {
             case ReplayRecordType::TARGET_POSITION_BATCH:
             case ReplayRecordType::RISK_DECISION:
             case ReplayRecordType::MODEL_LIFECYCLE:
+            case ReplayRecordType::MODE_ROUTER_DECISION:
                 break;
         }
     }

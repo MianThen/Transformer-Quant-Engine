@@ -9,7 +9,7 @@
 
 namespace te {
 
-enum class EventLoopBackend : uint8_t { EPOLL, IOCP };
+enum class EventLoopBackend : uint8_t { EPOLL, IOCP, POLL };
 
 struct ReadyEvent {
     uint64_t token = 0;

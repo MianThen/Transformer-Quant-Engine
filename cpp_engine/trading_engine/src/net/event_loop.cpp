@@ -6,6 +6,9 @@
 #if defined(_WIN32)
 #include <winsock2.h>
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <poll.h>
+#include <unistd.h>
 #else
 #include <sys/epoll.h>
 #include <unistd.h>
@@ -25,6 +28,12 @@ struct NativeEventLoop::Impl {
     };
     HANDLE port = nullptr;
     std::vector<Registration> registrations;
+#elif defined(__APPLE__)
+    struct Registration {
+        pollfd descriptor{};
+        uint64_t token = 0;
+    };
+    std::vector<Registration> registrations;
 #else
     int descriptor = -1;
     std::vector<epoll_event> native_events;
@@ -35,6 +44,8 @@ NativeEventLoop::NativeEventLoop(size_t capacity) : impl_(std::make_unique<Impl>
 #if defined(_WIN32)
     impl_->port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
     impl_->registrations.resize(std::max<size_t>(capacity, 1));
+#elif defined(__APPLE__)
+    impl_->registrations.reserve(std::max<size_t>(capacity, 1));
 #else
     impl_->descriptor = epoll_create1(EPOLL_CLOEXEC);
     impl_->native_events.resize(std::max<size_t>(capacity, 1));
@@ -44,6 +55,8 @@ NativeEventLoop::NativeEventLoop(size_t capacity) : impl_(std::make_unique<Impl>
 NativeEventLoop::~NativeEventLoop() {
 #if defined(_WIN32)
     if (impl_->port != nullptr) CloseHandle(impl_->port);
+#elif defined(__APPLE__)
+    impl_->registrations.clear();
 #else
     if (impl_->descriptor >= 0) ::close(impl_->descriptor);
 #endif
@@ -65,6 +78,16 @@ bool NativeEventLoop::add(TcpSocket& socket, uint64_t token) {
         return false;
     }
     return rearm(token);
+#elif defined(__APPLE__)
+    const auto found = std::find_if(
+        impl_->registrations.begin(), impl_->registrations.end(),
+        [&](const Impl::Registration& item) {
+            return item.descriptor.fd == static_cast<int>(socket.native_handle());
+        });
+    if (found != impl_->registrations.end()) return false;
+    impl_->registrations.push_back({
+        pollfd{static_cast<int>(socket.native_handle()), POLLIN, 0}, token});
+    return true;
 #else
     if (impl_->descriptor < 0) return false;
     epoll_event event{};
@@ -85,6 +108,15 @@ bool NativeEventLoop::remove(TcpSocket& socket) {
     if (found == impl_->registrations.end()) return false;
     CancelIoEx(reinterpret_cast<HANDLE>(found->socket), &found->overlapped);
     *found = Impl::Registration{};
+    return true;
+#elif defined(__APPLE__)
+    const auto found = std::find_if(
+        impl_->registrations.begin(), impl_->registrations.end(),
+        [&](const Impl::Registration& item) {
+            return item.descriptor.fd == static_cast<int>(socket.native_handle());
+        });
+    if (found == impl_->registrations.end()) return false;
+    impl_->registrations.erase(found);
     return true;
 #else
     return impl_->descriptor >= 0 &&
@@ -109,6 +141,9 @@ bool NativeEventLoop::rearm(uint64_t token) {
     if (result == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING) return false;
     found->armed = true;
     return true;
+#elif defined(__APPLE__)
+    (void)token;
+    return true;
 #else
     (void)token;
     return true;
@@ -130,6 +165,29 @@ size_t NativeEventLoop::wait(std::span<ReadyEvent> events, int timeout_ms) {
     registration->armed = false;
     events[0] = {registration->token, ok != 0, bytes == 0 && ok == 0, ok == 0};
     return 1;
+#elif defined(__APPLE__)
+    const size_t limit = std::min(events.size(), impl_->registrations.size());
+    if (limit == 0) return 0;
+    std::vector<pollfd> descriptors;
+    descriptors.reserve(limit);
+    for (size_t index = 0; index < limit; ++index) {
+        descriptors.push_back(impl_->registrations[index].descriptor);
+    }
+    const int count = ::poll(descriptors.data(), static_cast<nfds_t>(limit),
+                             timeout_ms);
+    if (count <= 0) return 0;
+    size_t output = 0;
+    for (size_t index = 0; index < limit && output < events.size(); ++index) {
+        const short flags = descriptors[index].revents;
+        if (flags == 0) continue;
+        events[output++] = {
+            impl_->registrations[index].token,
+            (flags & POLLIN) != 0,
+            (flags & (POLLHUP | POLLNVAL)) != 0,
+            (flags & POLLERR) != 0,
+        };
+    }
+    return output;
 #else
     if (impl_->descriptor < 0) return 0;
     const int count = epoll_wait(impl_->descriptor, impl_->native_events.data(),
@@ -152,6 +210,8 @@ size_t NativeEventLoop::wait(std::span<ReadyEvent> events, int timeout_ms) {
 EventLoopBackend NativeEventLoop::backend() const {
 #if defined(_WIN32)
     return EventLoopBackend::IOCP;
+#elif defined(__APPLE__)
+    return EventLoopBackend::POLL;
 #else
     return EventLoopBackend::EPOLL;
 #endif
