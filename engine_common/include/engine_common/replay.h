@@ -26,16 +26,7 @@ enum class ReplayRecordType : uint16_t {
     MODE_ROUTER_DECISION = 12,
 };
 
-#pragma pack(push, 1)
-struct ReplayRecordHeader {
-    std::array<char, 4> magic{'Q', 'B', 'T', 'R'};
-    uint16_t version = 1;
-    ReplayRecordType type = ReplayRecordType::MARKET_BYTES;
-    uint32_t payload_size = 0;
-    uint32_t checksum = 0;
-    int64_t timestamp_ns = 0;
-};
-#pragma pack(pop)
+.
 
 inline uint32_t replay_checksum(std::span<const std::byte> bytes) {
     uint32_t value = 2166136261U;
