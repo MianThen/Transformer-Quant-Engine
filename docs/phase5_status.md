@@ -1,8 +1,31 @@
 # Phase 5 状态：InfoTS 对比预训练
 
-更新时间：2026-08-09
+更新时间：2026-09-12
 
-## 当前判定
+## 监督消融与多 seed 复验判定（2026-09-12 登记）
+
+预训练已于 2026-08-22 在 Kaggle 完成（`GPU_TRAINED_REFERENCE_PENDING_OOS`）。监督三组等预算
+消融（2026-09-11/12，3 seeds × 3 groups × 3 folds，全部结构校验 PASS）判定如下：
+
+```text
+supervised_ablation_complete = true
+ranking_benefit_replicated = false        # RankIC 增益 1/3 seed 方向正确（fold 级 4/9）
+volatility_benefit_replicated = true      # vol MAE 改善 3/3 seed、7/9 fold（约 -5% 相对）
+winner_selected = false
+research_gate_passed = false
+phase_exit_eligible = false               # 无 winner，家族保持 REFERENCE_ONLY
+promotion_eligible = false
+```
+
+- 证据归档：`experiments/phase5/infots-supervised-ablation-20260911/` 与
+  `.../infots-supervised-ablation-seeds-2026091x/`（GitHub）。
+- 首 seed 的 RankIC +33% 为单 seed 噪声；volatility 改善登记为未来新假设（面向波动率头的
+  预训练），不构成本次晋级理由。
+- 训练动态诊断：27/27 run 在 epoch 50 前过拟合并由 return guard 选择 epoch 1-7（中位 2），
+  即对照比较的是欠训练快照。据此授权**一次**正则化修复复训（同 3 seed 配对、预注册决策
+  规则）；无论结果，不再对该家族做正则网格化迭代。
+
+## 当前判定（2026-08-09 基线）
 
 Phase 5 已完成不依赖 GPU 的研究工程闭环：数据增强、InfoNCE、train-fold-only artifact 合同、可迁移训练入口、
 预计算 C++ Replay/CVaR、跨语言 provenance/hash 和九组联合验收；已生成外部 GPU 输入包，但尚无真实训练结果：
