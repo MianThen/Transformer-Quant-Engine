@@ -19,4 +19,5 @@ Leakage Detection 报告和指标口径。
 | `phase2b/feature-pgd-v2-r6-p3-grid-20260830/` | r6 P3 validation-only 网格终局（24 checkpoint） | `STOP_NO_CLEAN_GUARD_PASS`，P4 不授权 |
 | `phase5/infots-pretraining-20260809/` | InfoTS 对比预训练 GPU artifact | `GPU_TRAINED_REFERENCE_PENDING_OOS` |
 | `phase5/infots-supervised-ablation-20260911/` | InfoTS 三组等监督预算消融（seed 20260911） | 全 gate 通过；infots 组 RankIC +33%（REFERENCE_ONLY，多 seed 复验中） |
+| `phase5/infots-supervised-ablation-seeds-2026091x/` | seed 20260912/13 复验 + 三 seed 聚合 | RankIC 增益不复现（1/3）；vol MAE 改善稳定（3/3）；家族不晋级 |
 
