@@ -18,4 +18,5 @@ Leakage Detection 报告和指标口径。
 | `phase2b/feature-pgd-v2-r5/` | r5 包执行 r4 预注册假设（validation + 新短 OOS） | volatility guard + 跨窗 stress 失败 |
 | `phase2b/feature-pgd-v2-r6-p3-grid-20260830/` | r6 P3 validation-only 网格终局（24 checkpoint） | `STOP_NO_CLEAN_GUARD_PASS`，P4 不授权 |
 | `phase5/infots-pretraining-20260809/` | InfoTS 对比预训练 GPU artifact | `GPU_TRAINED_REFERENCE_PENDING_OOS` |
+| `phase5/infots-supervised-ablation-20260911/` | InfoTS 三组等监督预算消融（seed 20260911） | 全 gate 通过；infots 组 RankIC +33%（REFERENCE_ONLY，多 seed 复验中） |
 

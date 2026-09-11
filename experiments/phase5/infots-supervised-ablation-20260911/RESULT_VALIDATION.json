@@ -1,0 +1,16 @@
+{
+  "artifact_count": 9,
+  "contract_sha256": "1dca6c3abb63439fbccefb94ca3b2d0c2496a3b401ae88174c6db9bb92da63f8",
+  "dataset_sha256": "4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554",
+  "gate_spec_sha256": "74f2ad9e09b588079d92cbe0ee9f9e13d7940f6041dff90a5c632ef156ebddc7",
+  "mode": "full",
+  "phase_exit_eligible": false,
+  "pretraining_artifact_sha256": {
+    "fixed_augmentation": "14b94572838d2002baf93d1021db24e3771eef782acc08e04eb5173449da1bad",
+    "infots": "e3ed9bb17aa73ed75022acc82e0fa53518803ce3be051e9e83aaba1c77c1ace9"
+  },
+  "promotion_eligible": false,
+  "report_sha256": "6ce23dffcc7815dfe4284b112b9c1fec87607734fd959396e8dd626cab5b5e1d",
+  "schema_version": 1,
+  "status": "PASS"
+}
