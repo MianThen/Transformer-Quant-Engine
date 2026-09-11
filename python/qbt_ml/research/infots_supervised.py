@@ -134,6 +134,8 @@ class Phase5SupervisedSpecV1:
     quantile_lower: float = 0.25
     quantile_upper: float = 0.75
     return_guard_margin: float = 0.0025
+    dropout: float = 0.0
+    weight_decay: float = 0.0
     device: str = "cuda"
     deterministic_algorithms: bool = True
     production_eval: bool = False
@@ -144,11 +146,16 @@ class Phase5SupervisedSpecV1:
         for name in ("seed", "epochs", "batch_size", "hidden_dim", "embedding_dim"):
             _positive_integer(getattr(self, name), name)
         for name in ("learning_rate", "weight_return", "weight_direction", "weight_volatility",
-                     "weight_quantile", "quantile_lower", "quantile_upper", "return_guard_margin"):
+                     "weight_quantile", "quantile_lower", "quantile_upper", "return_guard_margin",
+                     "dropout", "weight_decay"):
             if not _finite(getattr(self, name)):
                 raise InfoTSArtifactValidationError(f"{name} 必须为有限值")
         if self.learning_rate <= 0.0:
             raise InfoTSArtifactValidationError("learning_rate 必须为正")
+        if not 0.0 <= self.dropout < 1.0:
+            raise InfoTSArtifactValidationError("dropout 必须位于 [0,1)")
+        if self.weight_decay < 0.0:
+            raise InfoTSArtifactValidationError("weight_decay 必须非负")
         if not 0.0 < self.quantile_lower < self.quantile_upper < 1.0:
             raise InfoTSArtifactValidationError("quantile levels 必须满足 0<lower<upper<1")
         if self.device not in {"cuda", "cpu"}:
@@ -176,6 +183,8 @@ class Phase5SupervisedSpecV1:
             "quantile_lower": self.quantile_lower,
             "quantile_upper": self.quantile_upper,
             "return_guard_margin": self.return_guard_margin,
+            "dropout": self.dropout,
+            "weight_decay": self.weight_decay,
             "device": self.device,
             "deterministic_algorithms": self.deterministic_algorithms,
             "production_eval": self.production_eval,
@@ -191,12 +200,15 @@ if torch is not None:
     class InfoTSSupervisedModel(nn.Module):
         """InfoTSCausalEncoder + 固定六输出头；初始化可来自预训练 checkpoint 的 encoder.*。"""
 
-        def __init__(self, feature_count: int, hidden_dim: int, embedding_dim: int) -> None:
+        def __init__(self, feature_count: int, hidden_dim: int, embedding_dim: int, dropout: float = 0.0) -> None:
             super().__init__()
+            if not 0.0 <= dropout < 1.0:
+                raise InfoTSArtifactValidationError("dropout 必须位于 [0,1)")
             self.encoder = InfoTSCausalEncoder(feature_count, hidden_dim, embedding_dim)
             self.head_trunk = nn.Sequential(
                 nn.Linear(embedding_dim, hidden_dim),
                 nn.GELU(),
+                nn.Dropout(p=dropout),
             )
             self.head_return = nn.Linear(hidden_dim, 1)
             self.head_volatility = nn.Sequential(nn.Linear(hidden_dim, 1), nn.Softplus())
@@ -456,13 +468,15 @@ def train_phase5_supervised_fold(
     if supervised_spec.deterministic_algorithms:
         torch.use_deterministic_algorithms(True)
     device = torch.device(supervised_spec.device)
-    model = InfoTSSupervisedModel(features.shape[2], supervised_spec.hidden_dim, supervised_spec.embedding_dim).to(device)
+    model = InfoTSSupervisedModel(features.shape[2], supervised_spec.hidden_dim, supervised_spec.embedding_dim,
+                                  dropout=supervised_spec.dropout).to(device)
     if init_checkpoint_path is not None:
         encoder_state = load_encoder_state(
             init_checkpoint_path, features.shape[2], supervised_spec.hidden_dim, supervised_spec.embedding_dim,
         )
         model.encoder.load_state_dict(encoder_state)
-    optimizer = torch.optim.Adam(model.parameters(), lr=supervised_spec.learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=supervised_spec.learning_rate,
+                                 weight_decay=supervised_spec.weight_decay)
 
     train_features = torch.as_tensor(features[train_rows], dtype=torch.float32, device=device)
     train_mask = torch.as_tensor(valid_mask[train_rows], device=device)

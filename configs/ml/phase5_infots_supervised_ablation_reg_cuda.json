@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "INFOTS-SUPERVISED-BUDGET-ABLATION-REG-V1",
+  "production_eval": false,
+  "dataset_sha256": "4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554",
+  "fold_source": "phase2b r6 preregistered_contract folds (3x126 validation windows, evidence REFERENCE_ONLY)",
+  "pretraining_corpus_note": "两次预训练语料固定为 fold-1 train_end(1700550000000000000)之前的全部样本，不超过任何 fold 的 validation/test 边界；已回传的全语料 InfoTS checkpoint 因与本文 fold 窗口重叠不用于本次消融",
+  "folds": [
+    {
+      "fold": 1,
+      "train_first": 1635318000000000000,
+      "train_end": 1700550000000000000,
+      "validation_first": 1701327600000000000,
+      "validation_end": 1718089200000000000,
+      "test_start": 1719471600000000000,
+      "test_end": 1735542000000000000,
+      "purge_gap": 300000000000
+    },
+    {
+      "fold": 2,
+      "train_first": 1651820400000000000,
+      "train_end": 1717138800000000000,
+      "validation_first": 1718175600000000000,
+      "validation_end": 1734073200000000000,
+      "test_start": 1735628400000000000,
+      "test_end": 1752130800000000000,
+      "purge_gap": 300000000000
+    },
+    {
+      "fold": 3,
+      "train_first": 1667977200000000000,
+      "train_end": 1733382000000000000,
+      "validation_first": 1734332400000000000,
+      "validation_end": 1750834800000000000,
+      "test_start": 1752217200000000000,
+      "test_end": 1768374000000000000,
+      "purge_gap": 300000000000
+    }
+  ],
+  "gate_spec": {
+    "schema_version": 1,
+    "direction_brier_max": 0.5,
+    "interval_coverage_min": 0.05,
+    "interval_coverage_max": 0.995,
+    "stability_relative_gap_max": 1.0,
+    "stress_relative_tolerance": 0.25,
+    "stress_missing_rate": 0.1,
+    "price_stress_scale": 1.25,
+    "volume_stress_scale": 1.5,
+    "extreme_volatility_scale": 2.0
+  },
+  "gate_spec_sha256": "74f2ad9e09b588079d92cbe0ee9f9e13d7940f6041dff90a5c632ef156ebddc7",
+  "supervised": {
+    "schema_version": 1,
+    "hypothesis_id": "INFOTS-SUPERVISED-BUDGET-ABLATION-REG-V1",
+    "seed": 20260911,
+    "epochs": 50,
+    "batch_size": 128,
+    "hidden_dim": 128,
+    "embedding_dim": 64,
+    "learning_rate": 0.0001,
+    "weight_return": 1.0,
+    "weight_direction": 0.25,
+    "weight_volatility": 0.25,
+    "weight_quantile": 0.25,
+    "quantile_lower": 0.25,
+    "quantile_upper": 0.75,
+    "return_guard_margin": 0.0025,
+    "device": "cuda",
+    "deterministic_algorithms": true,
+    "production_eval": false,
+    "dropout": 0.1,
+    "weight_decay": 0.0001
+  },
+  "pretraining": {
+    "fixed_augmentation": {
+      "schema_version": 1,
+      "augmentation_id": "INFOTS-FIXED-NOISE-V1",
+      "seed": 20260911,
+      "crop_min_length": 64,
+      "crop_max_length": 64,
+      "noise_std": 0.05,
+      "time_mask_probability": 0.0,
+      "continuous_feature_indices": [],
+      "state_feature_indices": [
+        19,
+        20,
+        21,
+        22
+      ],
+      "padding_value": 0.0,
+      "future_guard": true
+    },
+    "infots_pipeline": {
+      "schema_version": 1,
+      "augmentation_id": "INFOTS-CAUSAL-BASELINE-V1",
+      "seed": 20260911,
+      "crop_min_length": 16,
+      "crop_max_length": 64,
+      "noise_std": 0.01,
+      "time_mask_probability": 0.1,
+      "continuous_feature_indices": [],
+      "state_feature_indices": [
+        19,
+        20,
+        21,
+        22
+      ],
+      "padding_value": 0.0,
+      "future_guard": true
+    },
+    "training": {
+      "schema_version": 1,
+      "hypothesis_id": "INFOTS-PHASE5-ABLATION-PRETRAIN-V1",
+      "seed": 20260911,
+      "epochs": 50,
+      "batch_size": 128,
+      "hidden_dim": 128,
+      "embedding_dim": 64,
+      "temperature": 0.1,
+      "learning_rate": 0.001,
+      "train_fold_end": 1700550000000000000,
+      "device": "cuda",
+      "deterministic_algorithms": true,
+      "production_eval": false
+    }
+  }
+}

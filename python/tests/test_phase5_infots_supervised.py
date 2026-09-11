@@ -235,3 +235,16 @@ def test_fail_closed_guards(tmp_path: Path):
             supervised_spec=spec, gate_spec=gate, gate_spec_sha256=gate.spec_sha256,
             init_checkpoint_path=None, output_dir=tmp_path / "x5", supervised_budget=1,
         )
+
+
+def test_regularized_training_runs(tmp_path: Path):
+    dataset = _build_dataset()
+    spec = _specs(dropout=0.1, weight_decay=1e-4, learning_rate=1e-4)
+    gate = Phase5GateSpecV1()
+    artifact = train_phase5_supervised_fold(
+        group_id="from_scratch", fold_id=1, dataset=dataset, split=FOLD,
+        supervised_spec=spec, gate_spec=gate, gate_spec_sha256=gate.spec_sha256,
+        init_checkpoint_path=None, output_dir=tmp_path / "reg", supervised_budget=1,
+    )
+    validate_infots_fold_artifact(artifact, _contract(gate.spec_sha256))
+    assert artifact["supervised_spec_sha256"] == spec.spec_sha256
