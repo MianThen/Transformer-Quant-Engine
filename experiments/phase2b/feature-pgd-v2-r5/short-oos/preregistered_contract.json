@@ -1,0 +1,119 @@
+{
+  "bootstrap": {
+    "block_length": 6,
+    "draws": 2000,
+    "method": "circular_moving_block_bootstrap",
+    "seed": 20260805
+  },
+  "contract_sha256": "849d915087374b13ea0984fa4ee14936d212844b9232f349ef366597f9704a05",
+  "data_audit_sha256": "5aedcc0bbbcd5cebda11a5e2e15be0a8420f65810c43cf7e71b77ff22c7c3c47",
+  "dataset_sha256": "4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554",
+  "evaluation_split": "test",
+  "folds": [
+    {
+      "fold": 1,
+      "test_first": 1768460400000000000,
+      "test_last": 1773817200000000000,
+      "train_first": 1684393200000000000,
+      "train_last": 1750143600000000000,
+      "validation_first": 1750921200000000000,
+      "validation_last": 1766732400000000000
+    },
+    {
+      "fold": 2,
+      "test_first": 1773903600000000000,
+      "test_last": 1779087600000000000,
+      "train_first": 1689318000000000000,
+      "train_last": 1754895600000000000,
+      "validation_first": 1755673200000000000,
+      "validation_last": 1772521200000000000
+    },
+    {
+      "fold": 3,
+      "test_first": 1779174000000000000,
+      "test_last": 1783926000000000000,
+      "train_first": 1694070000000000000,
+      "train_last": 1760338800000000000,
+      "validation_first": 1761116400000000000,
+      "validation_last": 1777359600000000000
+    }
+  ],
+  "gate_margins": {
+    "noninferiority_margin": 0.0025,
+    "relative_stress_margin": 0.0025
+  },
+  "hypothesis_suffix": "v2-r4-short-new-oos",
+  "implementation_sha256": "0d204969f32c1d4ac408d32fdfdce145ef59de02a436e5d6dc20978463b3eec5",
+  "label_provenance": {
+    "clean": {
+      "direction": "dataset.direction soft label; source=phase1e_label_v2",
+      "noisy": "not an input column"
+    },
+    "noisy": {
+      "direction": "dataset.direction soft label",
+      "noisy": "deterministic derived label: 1-direction on seeded flip mask",
+      "rates": [
+        0.05,
+        0.1,
+        0.2
+      ],
+      "seed": 20260805
+    },
+    "stress": {
+      "features": "deterministic derived perturbations from dataset.features",
+      "modes": [
+        "price",
+        "volume",
+        "missing",
+        "extreme_volatility"
+      ]
+    }
+  },
+  "missing_mode": "continuous_center_impute",
+  "missing_rate": 0.1,
+  "noise_rates": [
+    0.05,
+    0.1,
+    0.2
+  ],
+  "oos_cutoff_timestamp": 1768374000000000000,
+  "phase1b_last_timestamp": 1768374000000000000,
+  "preprocessing": {
+    "mode": "train_fold_standardizer_v1",
+    "scale_floor": 1e-06
+  },
+  "promotion_allowed": false,
+  "ranking_cutoff": 20,
+  "registered_before_training": true,
+  "schema_version": 4,
+  "stress_missing_mode": "continuous_center_impute",
+  "training_config_sha256": "a04a9faff4a0a0e0df469b65e66462aa59c304b36fe2227dfd43ec3be5d27a9e",
+  "training_contract": {
+    "batch_size": 128,
+    "beta": 0.5,
+    "checkpoint_selection": {
+      "mode": "validation_return_guarded_v1",
+      "return_guard_margin": 0.0025
+    },
+    "deterministic_algorithms": true,
+    "device": "cuda",
+    "epochs": 50,
+    "epsilon": 0.01,
+    "learning_rate": 0.0003,
+    "model": {
+      "d_model": 64,
+      "dim_feedforward": 128,
+      "dropout": 0.1,
+      "nhead": 4,
+      "num_layers": 3
+    },
+    "pgd_steps": 3,
+    "seed": 20260805
+  },
+  "variants": [
+    "none",
+    "structured_missing",
+    "feature_pgd"
+  ],
+  "window_count": 3
+}

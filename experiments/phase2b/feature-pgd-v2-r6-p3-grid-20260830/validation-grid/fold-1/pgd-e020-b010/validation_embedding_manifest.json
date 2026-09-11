@@ -1,0 +1,32 @@
+{
+  "anchor_sample_count": 64,
+  "anchor_split": "dataset_stable_head",
+  "anchor_values_sha256": "0f4866e7095ba87572fc7c2445be51e1230797e4ed8efac00228557dc9706606",
+  "checkpoint_sha256": "173ce0f64faa011015d58d51051cbf05cf0bf82e38ec9a41772de474faff243c",
+  "diagnostic_only": true,
+  "dimension": 64,
+  "embedding_values_sha256": "2b72cb21b5d0a239b08c5078e594af7fd284188cb33c329cf6038721e0f26ddb",
+  "encoder_family": "TemporalTransformerV1",
+  "layer_id": "shared",
+  "manifest_sha256": "f260bbcf338366476de2ff906675519599e346c049f5ff67b217290c08c2fdf1",
+  "mask_spec": {
+    "causal_attention": true,
+    "empty_row_fallback": "last_position",
+    "input": "valid_mask",
+    "padding": "masked"
+  },
+  "mask_spec_sha256": "eb9a911b0f259228db68d153f2a9e22c7a31493d06da9d81626813e39f07bdc2",
+  "pooling_spec": {
+    "layer_id": "shared",
+    "sequence_pooling": "last_valid_token",
+    "static_feature_merge": "after_sequence_pooling"
+  },
+  "pooling_spec_sha256": "37e9344b4eb956c4b27e1d26985841ff135f7a12a24b7483e7c8cb641949094a",
+  "prediction_artifact_sha256": "755489198894eb9547231e42d7ccc56428063f1bf5d28d601bb4f2706316d3b8",
+  "preprocessing_spec_sha256": "55b5c07515386643957ee9f8a2e18d2df90917b65710cb816f7f11c9702ff653",
+  "role": "embedding_snapshot_v1",
+  "sample_count": 14211,
+  "schema_version": 1,
+  "snapshot_split": "validation",
+  "source_dataset_sha256": "4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554"
+}

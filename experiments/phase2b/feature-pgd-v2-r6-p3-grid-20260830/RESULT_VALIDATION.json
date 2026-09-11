@@ -1,0 +1,135 @@
+{
+  "checkpoint_count": 24,
+  "checkpoint_selection_validated": true,
+  "checkpoint_sha256": {
+    "fold-1/none": {
+      "best": "1dab87e6564ca8d950e51f4d3ee08884e363095650f78cb9417c51fe84b01662",
+      "last": "a8c29b140dc099d8ee1400f2ebd5c06fde6f6f9b73ee34e6db2de9fe96a35485",
+      "official": "1dab87e6564ca8d950e51f4d3ee08884e363095650f78cb9417c51fe84b01662"
+    },
+    "fold-1/pgd-e005-b010": {
+      "best": "f8ffc0e56eb57447d5232b37ce28dffc20b66551be7eb20b1d4ed9fb37575cac",
+      "last": "1ad0a03d0d4febb551211b8877e719c715a72ffb92aeabfe9805dd6629a484dc",
+      "official": "f8ffc0e56eb57447d5232b37ce28dffc20b66551be7eb20b1d4ed9fb37575cac"
+    },
+    "fold-1/pgd-e005-b025": {
+      "best": "00175fe1a93a6686842aeb64f945d07127de92a31f1c8f8a5d45fbeb3da98dff",
+      "last": "d28842d338f3c45c52d63b4fb9af281bda8fcc80c5b141d552059bd780d44b55",
+      "official": "00175fe1a93a6686842aeb64f945d07127de92a31f1c8f8a5d45fbeb3da98dff"
+    },
+    "fold-1/pgd-e010-b010": {
+      "best": "f8b9b569a773d1c2c1f82b81da434c2ff90de16e03dd9cbaccecd968032f98a1",
+      "last": "f244f905b4a7c43d3fa2cd3a899ce3f39c6928622d784addcec1ff2cdf9844be",
+      "official": "f8b9b569a773d1c2c1f82b81da434c2ff90de16e03dd9cbaccecd968032f98a1"
+    },
+    "fold-1/pgd-e010-b025": {
+      "best": "1fc12a3fb6fb1c7ceecb984383ed0be1ce0523828757dbbc64f4414a5d726b54",
+      "last": "7f95dc269921721992e3416770e67e7631bc637d59e8e597c17f6ac3a788489f",
+      "official": "1fc12a3fb6fb1c7ceecb984383ed0be1ce0523828757dbbc64f4414a5d726b54"
+    },
+    "fold-1/pgd-e010-b050-control": {
+      "best": "77e6a5d572eb7211ac9295332802fb7429ef9cf741bd480928c56a3193a4c693",
+      "last": "c0fa4c1266a6cf5e4f3f1b456ba84f277dea5e9db7e3b054d2af91e5e4b26121",
+      "official": "77e6a5d572eb7211ac9295332802fb7429ef9cf741bd480928c56a3193a4c693"
+    },
+    "fold-1/pgd-e020-b010": {
+      "best": "173ce0f64faa011015d58d51051cbf05cf0bf82e38ec9a41772de474faff243c",
+      "last": "fb3fd5bb190e26e48d3b4f6a2d976426190553f5640967a9617978c7eb118da0",
+      "official": "173ce0f64faa011015d58d51051cbf05cf0bf82e38ec9a41772de474faff243c"
+    },
+    "fold-1/pgd-e020-b025": {
+      "best": "d5ee5ea7f45dea24b1dd8e9f2e2d0aa51be795c84f03ab0e2e902c2fdfa37ba7",
+      "last": "1ad24171783af999435ee0b51f41344271fe5692357d10871f05a3930fdd9009",
+      "official": "d5ee5ea7f45dea24b1dd8e9f2e2d0aa51be795c84f03ab0e2e902c2fdfa37ba7"
+    },
+    "fold-2/none": {
+      "best": "93abb748309263074d7d51fc79f969d587017e962a1b48d548ea65e40a09b47c",
+      "last": "f1febead1d535a00cde430efe8dfcd8a7fb9a4156c2e4890d48b74a8a59a3587",
+      "official": "93abb748309263074d7d51fc79f969d587017e962a1b48d548ea65e40a09b47c"
+    },
+    "fold-2/pgd-e005-b010": {
+      "best": "2cec62ac7d5b4112c19489c05cdc80b7c631f0925b02dfebb29b02ef9e319437",
+      "last": "3a63b2c5241602f7a3f0229a41ae2e3c525293ec36d275e28583407c3d736cd7",
+      "official": "2cec62ac7d5b4112c19489c05cdc80b7c631f0925b02dfebb29b02ef9e319437"
+    },
+    "fold-2/pgd-e005-b025": {
+      "best": "c259a231400389e2575ef7e92fda8c08138b11c2da59422cc7e73189a2eb9048",
+      "last": "4f2b3d70f2d80ba8008b8616f18bc0bdacf2f14bbe914930703a50db8bf94a2c",
+      "official": "c259a231400389e2575ef7e92fda8c08138b11c2da59422cc7e73189a2eb9048"
+    },
+    "fold-2/pgd-e010-b010": {
+      "best": "260d97f6d3dee37366ba72335dc9cb1c6d23595ea2f4883f60c775056331d9f8",
+      "last": "4fe8d9e34a9bc33926f3d33d6b8ede0e838f299d6957a3b6ac81d81f061c64ed",
+      "official": "260d97f6d3dee37366ba72335dc9cb1c6d23595ea2f4883f60c775056331d9f8"
+    },
+    "fold-2/pgd-e010-b025": {
+      "best": "84c8a5d5aa45e4a378b790ed929af63e5f3bf839785e3d020019744fd1b27e1d",
+      "last": "1ac57856801663e9b723e4371330fff89b1c166a23ac22967cf0a871cfbfbaa1",
+      "official": "84c8a5d5aa45e4a378b790ed929af63e5f3bf839785e3d020019744fd1b27e1d"
+    },
+    "fold-2/pgd-e010-b050-control": {
+      "best": "b2d8e6f55cd2279b9eaed56a755508bc03ef753b25fda7767788fadab5722a4a",
+      "last": "b0e58b70c33425e99395c80dcacecb44ba5f2ac2408da8b2f09e56b09685b73f",
+      "official": "b2d8e6f55cd2279b9eaed56a755508bc03ef753b25fda7767788fadab5722a4a"
+    },
+    "fold-2/pgd-e020-b010": {
+      "best": "5d6505f8cbcf112164fb2b9a858753215a7be4296fd5aae73098a3bc01addf39",
+      "last": "2999fef3655ce45265425fee3a5c26b39b2cb2c932db833bd1894e93608000c4",
+      "official": "5d6505f8cbcf112164fb2b9a858753215a7be4296fd5aae73098a3bc01addf39"
+    },
+    "fold-2/pgd-e020-b025": {
+      "best": "384c9dcc0eb3502519a2e36fc9c0ecb3bd84cccf0004093a1db138949377e796",
+      "last": "fc07912e8765902d64471e8371474e63d3477e187fc0a9949f1773dd6cb54ab5",
+      "official": "384c9dcc0eb3502519a2e36fc9c0ecb3bd84cccf0004093a1db138949377e796"
+    },
+    "fold-3/none": {
+      "best": "e4690a411506891bb4cedc3282dbed2c7795a8bb42205d19bab009eac6b8020f",
+      "last": "77b6924a33434ae3002e5641c763d716e299b5a05049eb9e890cf179504995ca",
+      "official": "e4690a411506891bb4cedc3282dbed2c7795a8bb42205d19bab009eac6b8020f"
+    },
+    "fold-3/pgd-e005-b010": {
+      "best": "dbecccfa49f2f108c50c1f58af91a242f364a37680326672b4de0772d4dcff90",
+      "last": "82ab010d4be1723bf07b0c2e4e8743fa4121190d56431b763b41ebea2ad93f27",
+      "official": "dbecccfa49f2f108c50c1f58af91a242f364a37680326672b4de0772d4dcff90"
+    },
+    "fold-3/pgd-e005-b025": {
+      "best": "e3279bc557e37bda58ce7b3372592fc9de6532c36c36689a02a17be45f9ee4b0",
+      "last": "f0c375387c6452682609b493e6b667212ac07d53f94b5783b9774f111a20d608",
+      "official": "e3279bc557e37bda58ce7b3372592fc9de6532c36c36689a02a17be45f9ee4b0"
+    },
+    "fold-3/pgd-e010-b010": {
+      "best": "cfee0b1766604b579225d370fac6df649f1d5d16cb1eb0b68b17bbd36c0ab9db",
+      "last": "c11c35d6f8e8b673ed04bc249b867a0027fcfd00943000c15ff7620f33cf8bf6",
+      "official": "cfee0b1766604b579225d370fac6df649f1d5d16cb1eb0b68b17bbd36c0ab9db"
+    },
+    "fold-3/pgd-e010-b025": {
+      "best": "0eb2459b48d293649946df3d45fa71a4cf6fcc00adc05742d531fd349a0b454d",
+      "last": "9c499547d8a2f1ba82898963e35a4d648779c094a291aa62268678ba6cf70f8b",
+      "official": "0eb2459b48d293649946df3d45fa71a4cf6fcc00adc05742d531fd349a0b454d"
+    },
+    "fold-3/pgd-e010-b050-control": {
+      "best": "32a19d60d4ec38ee5c2f1bb69bb7e50afa69afc07efb5df699adcacb9a3b66aa",
+      "last": "19b5c11092d1a6699158ce70ab8d6492a2e8e8be343881f91d66fa08a8547a83",
+      "official": "32a19d60d4ec38ee5c2f1bb69bb7e50afa69afc07efb5df699adcacb9a3b66aa"
+    },
+    "fold-3/pgd-e020-b010": {
+      "best": "b1bfa78616f9d380cbaba4caaaeae8ce4a57de3c693ad800e519df91bbebe872",
+      "last": "1317c6d34b7e4e0e4f90505f5120a3bb0857bace040c079cc56202a7cde19ba1",
+      "official": "b1bfa78616f9d380cbaba4caaaeae8ce4a57de3c693ad800e519df91bbebe872"
+    },
+    "fold-3/pgd-e020-b025": {
+      "best": "eaece669d0c42fc233e9eb5da8f553d98e0950686ec4200e9c421ae4f9302bf7",
+      "last": "99225fa895f5a4217ce8653e638b7927165919cc19719253700e19785d9eecf6",
+      "official": "eaece669d0c42fc233e9eb5da8f553d98e0950686ec4200e9c421ae4f9302bf7"
+    }
+  },
+  "development_gate_status": false,
+  "failures": [],
+  "manifest_present": false,
+  "mode": "validation",
+  "phase_exit_eligible": false,
+  "promotion_eligible": false,
+  "root": "runs/phase2b-feature-pgd-v2-validation-r6",
+  "schema_version": 2,
+  "status": "PASS"
+}

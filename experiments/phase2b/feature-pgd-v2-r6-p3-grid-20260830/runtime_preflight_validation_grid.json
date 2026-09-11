@@ -1,0 +1,24 @@
+{
+  "compute_capability": [
+    6,
+    0
+  ],
+  "cuda_runtime": "12.6",
+  "cudnn": 91002,
+  "dataset_feature_shape": [
+    173242,
+    64,
+    23
+  ],
+  "dataset_sha256": "4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554",
+  "dataset_timestamp_count": 1521,
+  "device_count": 1,
+  "device_name": "Tesla P100-PCIE-16GB",
+  "device_total_memory_bytes": 17059545088,
+  "platform": "Linux-6.12.90+-x86_64-with-glibc2.35",
+  "probe_sum": 22898102272.0,
+  "python": "3.12.13",
+  "schema_version": 1,
+  "status": "CUDA_PREFLIGHT_PASS",
+  "torch": "2.8.0+cu126"
+}

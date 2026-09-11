@@ -1,0 +1,3167 @@
+{
+  "checkpoint_selection": {
+    "best_return_mae": 0.057409707456827164,
+    "checkpoint_sha256": {
+      "best": "00175fe1a93a6686842aeb64f945d07127de92a31f1c8f8a5d45fbeb3da98dff",
+      "last": "d28842d338f3c45c52d63b4fb9af281bda8fcc80c5b141d552059bd780d44b55",
+      "official": "00175fe1a93a6686842aeb64f945d07127de92a31f1c8f8a5d45fbeb3da98dff"
+    },
+    "eligible_epochs": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      19
+    ],
+    "epochs": [
+      {
+        "composite_error": 0.11615665008624394,
+        "direction_brier": 0.2293442040681839,
+        "epoch": 1,
+        "ndcg_at_cutoff": 0.48122828462019,
+        "rank_ic": 0.0462993416943758,
+        "return_mae": 0.07638620585203171,
+        "train_loss": 0.2316480665689423,
+        "validation_loss": 0.1797103201822629,
+        "volatility_mae": 0.042739540338516235
+      },
+      {
+        "composite_error": 0.11180435804029305,
+        "direction_brier": 0.22908778488636017,
+        "epoch": 2,
+        "ndcg_at_cutoff": 0.4812878742299131,
+        "rank_ic": 0.052667382150663154,
+        "return_mae": 0.07893528044223785,
+        "train_loss": 0.22200771601545433,
+        "validation_loss": 0.17592106511195502,
+        "volatility_mae": 0.02739000879228115
+      },
+      {
+        "composite_error": 0.11329310449461143,
+        "direction_brier": 0.229005828499794,
+        "epoch": 3,
+        "ndcg_at_cutoff": 0.4795019567615016,
+        "rank_ic": 0.007438057471398204,
+        "return_mae": 0.08714576810598373,
+        "train_loss": 0.21832506261056378,
+        "validation_loss": 0.1808169082634979,
+        "volatility_mae": 0.023727716878056526
+      },
+      {
+        "composite_error": 0.10653194536765416,
+        "direction_brier": 0.22891806066036224,
+        "epoch": 4,
+        "ndcg_at_cutoff": 0.47607129337003257,
+        "rank_ic": -0.0009146760561406772,
+        "return_mae": 0.07076942920684814,
+        "train_loss": 0.21514814855560424,
+        "validation_loss": 0.18003880315356785,
+        "volatility_mae": 0.019908346235752106
+      },
+      {
+        "composite_error": 0.10592932254076004,
+        "direction_brier": 0.22873122990131378,
+        "epoch": 5,
+        "ndcg_at_cutoff": 0.4725717325754364,
+        "rank_ic": -0.006309848427065587,
+        "return_mae": 0.07281749695539474,
+        "train_loss": 0.21329565127454106,
+        "validation_loss": 0.18051676582249385,
+        "volatility_mae": 0.016239240765571594
+      },
+      {
+        "composite_error": 0.10539886790017287,
+        "direction_brier": 0.22893454134464264,
+        "epoch": 6,
+        "ndcg_at_cutoff": 0.47298978706749273,
+        "rank_ic": -0.005035307299845884,
+        "return_mae": 0.07136954367160797,
+        "train_loss": 0.2115106148615716,
+        "validation_loss": 0.18014711721075904,
+        "volatility_mae": 0.015892518684267998
+      },
+      {
+        "composite_error": 0.10710980991522472,
+        "direction_brier": 0.2289896160364151,
+        "epoch": 7,
+        "ndcg_at_cutoff": 0.4705859874876924,
+        "rank_ic": 0.0012415863824695257,
+        "return_mae": 0.07570842653512955,
+        "train_loss": 0.20893923820011198,
+        "validation_loss": 0.17971322922006486,
+        "volatility_mae": 0.016631387174129486
+      },
+      {
+        "composite_error": 0.10509191018839677,
+        "direction_brier": 0.2285413295030594,
+        "epoch": 8,
+        "ndcg_at_cutoff": 0.4676407020101588,
+        "rank_ic": -0.022067193859362805,
+        "return_mae": 0.06804398447275162,
+        "train_loss": 0.206915387795085,
+        "validation_loss": 0.1787194765749432,
+        "volatility_mae": 0.01869041658937931
+      },
+      {
+        "composite_error": 0.1059235359231631,
+        "direction_brier": 0.228568434715271,
+        "epoch": 9,
+        "ndcg_at_cutoff": 0.46811562513345634,
+        "rank_ic": -0.00637924455486101,
+        "return_mae": 0.06599727272987366,
+        "train_loss": 0.20511164862130368,
+        "validation_loss": 0.17983406675713404,
+        "volatility_mae": 0.023204900324344635
+      },
+      {
+        "composite_error": 0.10621993119517963,
+        "direction_brier": 0.22830083966255188,
+        "epoch": 10,
+        "ndcg_at_cutoff": 0.46399386999401926,
+        "rank_ic": -0.026161989817607232,
+        "return_mae": 0.06214308366179466,
+        "train_loss": 0.2028331977152635,
+        "validation_loss": 0.18119436502456665,
+        "volatility_mae": 0.028215870261192322
+      },
+      {
+        "composite_error": 0.10377851873636246,
+        "direction_brier": 0.22872979938983917,
+        "epoch": 11,
+        "ndcg_at_cutoff": 0.4711075792554953,
+        "rank_ic": -0.017341076145161668,
+        "return_mae": 0.057678382843732834,
+        "train_loss": 0.20002968736465962,
+        "validation_loss": 0.1787255574313421,
+        "volatility_mae": 0.024927373975515366
+      },
+      {
+        "composite_error": 0.10372222028672695,
+        "direction_brier": 0.22903071343898773,
+        "epoch": 12,
+        "ndcg_at_cutoff": 0.48798132972656005,
+        "rank_ic": -0.013899358300292262,
+        "return_mae": 0.05828738585114479,
+        "train_loss": 0.19592445311210457,
+        "validation_loss": 0.1780959221105727,
+        "volatility_mae": 0.023848561570048332
+      },
+      {
+        "composite_error": 0.10443800315260887,
+        "direction_brier": 0.230612650513649,
+        "epoch": 13,
+        "ndcg_at_cutoff": 0.47990781653592085,
+        "rank_ic": -0.008870861341739594,
+        "return_mae": 0.05944238230586052,
+        "train_loss": 0.19292576797306538,
+        "validation_loss": 0.18163615151766746,
+        "volatility_mae": 0.023258976638317108
+      },
+      {
+        "composite_error": 0.10239844582974911,
+        "direction_brier": 0.23154403269290924,
+        "epoch": 14,
+        "ndcg_at_cutoff": 0.47052855911460817,
+        "rank_ic": -0.017815336645657886,
+        "return_mae": 0.05849979445338249,
+        "train_loss": 0.19018698013609364,
+        "validation_loss": 0.18007473754031317,
+        "volatility_mae": 0.01715151034295559
+      },
+      {
+        "composite_error": 0.10096281549582879,
+        "direction_brier": 0.22951991856098175,
+        "epoch": 15,
+        "ndcg_at_cutoff": 0.47631450212543275,
+        "rank_ic": -0.007817008799400584,
+        "return_mae": 0.05883082002401352,
+        "train_loss": 0.18721203612429754,
+        "validation_loss": 0.17893195897340775,
+        "volatility_mae": 0.014537707902491093
+      },
+      {
+        "composite_error": 0.10044162378956874,
+        "direction_brier": 0.23022040724754333,
+        "epoch": 16,
+        "ndcg_at_cutoff": 0.4790467548152953,
+        "rank_ic": 0.016873140491395874,
+        "return_mae": 0.057409707456827164,
+        "train_loss": 0.1834376042649623,
+        "validation_loss": 0.1768743275176911,
+        "volatility_mae": 0.013694756664335728
+      },
+      {
+        "composite_error": 0.10043901329239209,
+        "direction_brier": 0.23046672344207764,
+        "epoch": 17,
+        "ndcg_at_cutoff": 0.47815092300882933,
+        "rank_ic": 0.02373889344627203,
+        "return_mae": 0.05866764858365059,
+        "train_loss": 0.1791250826347442,
+        "validation_loss": 0.17752747154898113,
+        "volatility_mae": 0.012182667851448059
+      },
+      {
+        "composite_error": 0.10267073971529801,
+        "direction_brier": 0.23272345960140228,
+        "epoch": 18,
+        "ndcg_at_cutoff": 0.46155043798277845,
+        "rank_ic": 0.004216758049618468,
+        "return_mae": 0.06290736794471741,
+        "train_loss": 0.17721504820067258,
+        "validation_loss": 0.18201046910077806,
+        "volatility_mae": 0.01238139159977436
+      },
+      {
+        "composite_error": 0.10089943402757247,
+        "direction_brier": 0.23153065145015717,
+        "epoch": 19,
+        "ndcg_at_cutoff": 0.48409232913628064,
+        "rank_ic": 0.03549057338131382,
+        "return_mae": 0.05875948816537857,
+        "train_loss": 0.1748989015108063,
+        "validation_loss": 0.17738464864946546,
+        "volatility_mae": 0.012408162467181683
+      },
+      {
+        "composite_error": 0.10228671847532193,
+        "direction_brier": 0.23372770845890045,
+        "epoch": 20,
+        "ndcg_at_cutoff": 0.47418463337713684,
+        "rank_ic": 0.0105418800216871,
+        "return_mae": 0.06080066040158272,
+        "train_loss": 0.17213907546644647,
+        "validation_loss": 0.18226299121502845,
+        "volatility_mae": 0.012331786565482616
+      },
+      {
+        "composite_error": 0.10387902644773324,
+        "direction_brier": 0.23517172038555145,
+        "epoch": 21,
+        "ndcg_at_cutoff": 0.4837585644705162,
+        "rank_ic": 0.02809101500177893,
+        "return_mae": 0.06432081013917923,
+        "train_loss": 0.1688201939391475,
+        "validation_loss": 0.18337874421997677,
+        "volatility_mae": 0.012144548818469048
+      },
+      {
+        "composite_error": 0.10334040690213442,
+        "direction_brier": 0.23508358001708984,
+        "epoch": 22,
+        "ndcg_at_cutoff": 0.4809155368182067,
+        "rank_ic": 0.03207063110183513,
+        "return_mae": 0.0624735951423645,
+        "train_loss": 0.16694479100110513,
+        "validation_loss": 0.18225929921581632,
+        "volatility_mae": 0.01246404554694891
+      },
+      {
+        "composite_error": 0.1050138787056009,
+        "direction_brier": 0.23726366460323334,
+        "epoch": 23,
+        "ndcg_at_cutoff": 0.47671937785507956,
+        "rank_ic": 0.02151702054970608,
+        "return_mae": 0.06551774591207504,
+        "train_loss": 0.162540888975537,
+        "validation_loss": 0.18741185188529982,
+        "volatility_mae": 0.012260225601494312
+      },
+      {
+        "composite_error": 0.10571969641993444,
+        "direction_brier": 0.23974362015724182,
+        "epoch": 24,
+        "ndcg_at_cutoff": 0.4773908140457722,
+        "rank_ic": 0.02713357499754124,
+        "return_mae": 0.0653691366314888,
+        "train_loss": 0.1615110192861822,
+        "validation_loss": 0.18854352406093053,
+        "volatility_mae": 0.012046332471072674
+      },
+      {
+        "composite_error": 0.10414937262733777,
+        "direction_brier": 0.23768389225006104,
+        "epoch": 25,
+        "ndcg_at_cutoff": 0.4724009565250789,
+        "rank_ic": 0.033387036414740084,
+        "return_mae": 0.06257043778896332,
+        "train_loss": 0.15730112993587103,
+        "validation_loss": 0.18524669997748874,
+        "volatility_mae": 0.012193787842988968
+      },
+      {
+        "composite_error": 0.10480364008496205,
+        "direction_brier": 0.23798292875289917,
+        "epoch": 26,
+        "ndcg_at_cutoff": 0.47764947230655064,
+        "rank_ic": 0.026818124079610265,
+        "return_mae": 0.06440836936235428,
+        "train_loss": 0.15608207989365808,
+        "validation_loss": 0.18681884373700808,
+        "volatility_mae": 0.012019622139632702
+      },
+      {
+        "composite_error": 0.10626001562923193,
+        "direction_brier": 0.2410467267036438,
+        "epoch": 27,
+        "ndcg_at_cutoff": 0.48063882320093954,
+        "rank_ic": 0.03421088319007157,
+        "return_mae": 0.06567967683076859,
+        "train_loss": 0.15351800512640723,
+        "validation_loss": 0.18927777138730836,
+        "volatility_mae": 0.012053643353283405
+      },
+      {
+        "composite_error": 0.10847917726884286,
+        "direction_brier": 0.24534405767917633,
+        "epoch": 28,
+        "ndcg_at_cutoff": 0.47813252779182785,
+        "rank_ic": 0.03202930928224594,
+        "return_mae": 0.06805328279733658,
+        "train_loss": 0.15080989112279244,
+        "validation_loss": 0.19513884571100037,
+        "volatility_mae": 0.01204019133001566
+      },
+      {
+        "composite_error": 0.10977227116624515,
+        "direction_brier": 0.24756421148777008,
+        "epoch": 29,
+        "ndcg_at_cutoff": 0.4658522628093243,
+        "rank_ic": 0.03129058199695634,
+        "return_mae": 0.06979700922966003,
+        "train_loss": 0.14929408250406148,
+        "validation_loss": 0.19874269651278617,
+        "volatility_mae": 0.011955592781305313
+      },
+      {
+        "composite_error": 0.10893129309018452,
+        "direction_brier": 0.24803487956523895,
+        "epoch": 30,
+        "ndcg_at_cutoff": 0.46314308242707264,
+        "rank_ic": 0.030436046613360402,
+        "return_mae": 0.06712469458580017,
+        "train_loss": 0.14621246155233136,
+        "validation_loss": 0.19876613763589707,
+        "volatility_mae": 0.011634305119514465
+      },
+      {
+        "composite_error": 0.10980588973810275,
+        "direction_brier": 0.25015535950660706,
+        "epoch": 31,
+        "ndcg_at_cutoff": 0.468934593186745,
+        "rank_ic": 0.037973379709755554,
+        "return_mae": 0.06744898855686188,
+        "train_loss": 0.14393741015108333,
+        "validation_loss": 0.19853657247528197,
+        "volatility_mae": 0.011813321150839329
+      },
+      {
+        "composite_error": 0.11322934521983068,
+        "direction_brier": 0.25801873207092285,
+        "epoch": 32,
+        "ndcg_at_cutoff": 0.4570951381233515,
+        "rank_ic": 0.014241941301274345,
+        "return_mae": 0.0699627622961998,
+        "train_loss": 0.14120002018494737,
+        "validation_loss": 0.20903902932528465,
+        "volatility_mae": 0.011706541292369366
+      },
+      {
+        "composite_error": 0.11216047188887994,
+        "direction_brier": 0.25726544857025146,
+        "epoch": 33,
+        "ndcg_at_cutoff": 0.4651197350422478,
+        "rank_ic": 0.02609563561962484,
+        "return_mae": 0.0676521584391594,
+        "train_loss": 0.13913282388377757,
+        "validation_loss": 0.20811666045633573,
+        "volatility_mae": 0.011563808657228947
+      },
+      {
+        "composite_error": 0.11007208066682021,
+        "direction_brier": 0.2530832886695862,
+        "epoch": 34,
+        "ndcg_at_cutoff": 0.45534029811400284,
+        "rank_ic": 0.01687533490375555,
+        "return_mae": 0.06534314155578613,
+        "train_loss": 0.1371971033661375,
+        "validation_loss": 0.20466763396111745,
+        "volatility_mae": 0.01178981177508831
+      },
+      {
+        "composite_error": 0.11351864039897919,
+        "direction_brier": 0.26213517785072327,
+        "epoch": 35,
+        "ndcg_at_cutoff": 0.4571234614676794,
+        "rank_ic": 0.018517835710969262,
+        "return_mae": 0.066924549639225,
+        "train_loss": 0.13484951324524388,
+        "validation_loss": 0.21215620010145128,
+        "volatility_mae": 0.011496193706989288
+      },
+      {
+        "composite_error": 0.11299544448653857,
+        "direction_brier": 0.2610013782978058,
+        "epoch": 36,
+        "ndcg_at_cutoff": 0.4539364875720976,
+        "rank_ic": 0.011135028119101614,
+        "return_mae": 0.06674246490001678,
+        "train_loss": 0.13267770550021576,
+        "validation_loss": 0.21146834517518678,
+        "volatility_mae": 0.011242490261793137
+      },
+      {
+        "composite_error": 0.10981591542561848,
+        "direction_brier": 0.2538934051990509,
+        "epoch": 37,
+        "ndcg_at_cutoff": 0.46040431827259887,
+        "rank_ic": 0.029283389864984327,
+        "return_mae": 0.06430540233850479,
+        "train_loss": 0.13022504176294047,
+        "validation_loss": 0.20528492473420643,
+        "volatility_mae": 0.011248938739299774
+      },
+      {
+        "composite_error": 0.11005841164539258,
+        "direction_brier": 0.255589097738266,
+        "epoch": 38,
+        "ndcg_at_cutoff": 0.45581568486605073,
+        "rank_ic": 0.021746246612520125,
+        "return_mae": 0.06339570879936218,
+        "train_loss": 0.1282625532309924,
+        "validation_loss": 0.20671447112210214,
+        "volatility_mae": 0.011190428398549557
+      },
+      {
+        "composite_error": 0.11115147514889638,
+        "direction_brier": 0.2585345208644867,
+        "epoch": 39,
+        "ndcg_at_cutoff": 0.45122094501917215,
+        "rank_ic": 0.020455265632322434,
+        "return_mae": 0.0638401210308075,
+        "train_loss": 0.12549348228004953,
+        "validation_loss": 0.20992075462662985,
+        "volatility_mae": 0.01107978355139494
+      },
+      {
+        "composite_error": 0.11190477168808381,
+        "direction_brier": 0.26040583848953247,
+        "epoch": 40,
+        "ndcg_at_cutoff": 0.4567739356329565,
+        "rank_ic": 0.02337357582868933,
+        "return_mae": 0.06427574157714844,
+        "train_loss": 0.12314683703025656,
+        "validation_loss": 0.21094224944947257,
+        "volatility_mae": 0.011032734997570515
+      },
+      {
+        "composite_error": 0.11360674382497866,
+        "direction_brier": 0.26311546564102173,
+        "epoch": 41,
+        "ndcg_at_cutoff": 0.45104908159122503,
+        "rank_ic": 0.019832179696829825,
+        "return_mae": 0.06667918711900711,
+        "train_loss": 0.12069296023793637,
+        "validation_loss": 0.21451676938505398,
+        "volatility_mae": 0.01102557871490717
+      },
+      {
+        "composite_error": 0.11630775469044845,
+        "direction_brier": 0.27055004239082336,
+        "epoch": 42,
+        "ndcg_at_cutoff": 0.45042789731059246,
+        "rank_ic": 0.02164376298120135,
+        "return_mae": 0.06764508038759232,
+        "train_loss": 0.11872871217155267,
+        "validation_loss": 0.22113569784495565,
+        "volatility_mae": 0.01072814129292965
+      },
+      {
+        "composite_error": 0.11894350561002891,
+        "direction_brier": 0.27772215008735657,
+        "epoch": 43,
+        "ndcg_at_cutoff": 0.4591237881551637,
+        "rank_ic": 0.01701318208019225,
+        "return_mae": 0.06829638034105301,
+        "train_loss": 0.11695380387679925,
+        "validation_loss": 0.22793515647451082,
+        "volatility_mae": 0.010811986401677132
+      },
+      {
+        "composite_error": 0.12183314313491185,
+        "direction_brier": 0.28448131680488586,
+        "epoch": 44,
+        "ndcg_at_cutoff": 0.455067851053438,
+        "rank_ic": 0.011239495585796927,
+        "return_mae": 0.07024843990802765,
+        "train_loss": 0.11350538909050917,
+        "validation_loss": 0.23837860419400156,
+        "volatility_mae": 0.010769672691822052
+      },
+      {
+        "composite_error": 0.12261717828611533,
+        "direction_brier": 0.2875921130180359,
+        "epoch": 45,
+        "ndcg_at_cutoff": 0.45702184390743655,
+        "rank_ic": 0.017606399546497113,
+        "return_mae": 0.0694834440946579,
+        "train_loss": 0.11164478440251616,
+        "validation_loss": 0.2371905625221275,
+        "volatility_mae": 0.010775977745652199
+      },
+      {
+        "composite_error": 0.1241949051618576,
+        "direction_brier": 0.29109859466552734,
+        "epoch": 46,
+        "ndcg_at_cutoff": 0.4653668563253946,
+        "rank_ic": 0.026845322418567186,
+        "return_mae": 0.07075075060129166,
+        "train_loss": 0.10928225784104258,
+        "validation_loss": 0.24098882898097002,
+        "volatility_mae": 0.010735370218753815
+      },
+      {
+        "composite_error": 0.1230110451579094,
+        "direction_brier": 0.28786540031433105,
+        "epoch": 47,
+        "ndcg_at_cutoff": 0.4710155491290616,
+        "rank_ic": 0.03166584807007146,
+        "return_mae": 0.07048079371452332,
+        "train_loss": 0.10618925619766945,
+        "validation_loss": 0.23676393033256607,
+        "volatility_mae": 0.01068694144487381
+      },
+      {
+        "composite_error": 0.1239226305236419,
+        "direction_brier": 0.2905612289905548,
+        "epoch": 48,
+        "ndcg_at_cutoff": 0.4710813154994275,
+        "rank_ic": 0.031264592777322985,
+        "return_mae": 0.0704810693860054,
+        "train_loss": 0.1045428903492552,
+        "validation_loss": 0.24136275236332227,
+        "volatility_mae": 0.010725593194365501
+      },
+      {
+        "composite_error": 0.12288880813866854,
+        "direction_brier": 0.2887786328792572,
+        "epoch": 49,
+        "ndcg_at_cutoff": 0.4737367258132898,
+        "rank_ic": 0.039821121823904904,
+        "return_mae": 0.06913254410028458,
+        "train_loss": 0.10253825441875036,
+        "validation_loss": 0.2369060723613652,
+        "volatility_mae": 0.010755247436463833
+      },
+      {
+        "composite_error": 0.12523070660730204,
+        "direction_brier": 0.2951110899448395,
+        "epoch": 50,
+        "ndcg_at_cutoff": 0.4789881625521669,
+        "rank_ic": 0.044032472070231164,
+        "return_mae": 0.06998446583747864,
+        "train_loss": 0.09921522768184779,
+        "validation_loss": 0.2436699832360896,
+        "volatility_mae": 0.010596564039587975
+      }
+    ],
+    "final_epoch": 50,
+    "mode": "validation_return_guarded_v1",
+    "ranking": [
+      "composite_error",
+      "-ndcg_at_cutoff",
+      "volatility_mae",
+      "epoch"
+    ],
+    "return_ceiling": 0.059909707456827166,
+    "return_guard_margin": 0.0025,
+    "selected_epoch": 17,
+    "selected_summary": {
+      "composite_error": 0.10043901329239209,
+      "direction_brier": 0.23046672344207764,
+      "epoch": 17,
+      "ndcg_at_cutoff": 0.47815092300882933,
+      "rank_ic": 0.02373889344627203,
+      "return_mae": 0.05866764858365059,
+      "train_loss": 0.1791250826347442,
+      "validation_loss": 0.17752747154898113,
+      "volatility_mae": 0.012182667851448059
+    },
+    "selection_spec_sha256": "cd4922bf91a5daf3c530dbf1b8ef89d9bf13b6b6dc56881014af1b8fb6f6ef8c"
+  },
+  "checkpoint_selection_artifact": {
+    "path": "checkpoint_selection.json",
+    "sha256": "5ce7a38aba3e0a3ab807b67a701be0955d3f7d0d417838fb63f2f9ff547f857a"
+  },
+  "evaluation_split": "validation",
+  "gradient_conflict_report_sha256": null,
+  "gradient_mechanism_diagnostics": [],
+  "gradient_optimization_hypothesis_id": null,
+  "gradient_optimization_mode": "none",
+  "gradient_optimization_spec_sha256": null,
+  "loss_weight_diagnostics": [],
+  "multitask_weighting_mode": "fixed",
+  "preprocessing_mode": "train_fold_standardizer_v1",
+  "preprocessing_spec": {
+    "feature_names": [
+      "log_return_1",
+      "log_return_5",
+      "log_return_10",
+      "log_return_20",
+      "intraday_range",
+      "close_open_return",
+      "overnight_gap",
+      "log_volume",
+      "volume_zscore_20",
+      "volatility_5",
+      "volatility_10",
+      "volatility_20",
+      "volatility_60",
+      "ma_deviation_5",
+      "ma_deviation_10",
+      "ma_deviation_20",
+      "price_position_20",
+      "breakout_20",
+      "cross_section_return_rank",
+      "is_suspended",
+      "is_listed",
+      "is_st",
+      "is_tradable"
+    ],
+    "mean": [
+      -0.00016051945429632265,
+      -0.0007822651310840032,
+      -0.00149815937692971,
+      -0.0026979479943699146,
+      0.03452796871481912,
+      0.0005147833099178222,
+      -0.0006753027675319014,
+      16.379826884702528,
+      -0.0660326770544787,
+      0.019481270751956572,
+      0.021802347534460514,
+      0.023186841887622607,
+      0.02459897785141877,
+      -0.0006109222970614757,
+      -0.0012986139562253753,
+      -0.0025435505377505545,
+      0.46628134840146873,
+      -0.072970140884556,
+      0.5044801548077853,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "protected": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ],
+    "scale": [
+      0.026666243356020174,
+      0.06092216853683022,
+      0.08382524821775922,
+      0.11371777494990828,
+      0.022492279520681696,
+      0.024657907548391447,
+      0.012978341679801872,
+      1.1454335143636516,
+      1.1397096143394136,
+      0.013443129528890799,
+      0.012654684123208977,
+      0.011613939337828708,
+      0.009923507105032387,
+      0.029995370029725247,
+      0.04547990511206274,
+      0.06453250504271403,
+      0.3489998135844271,
+      0.07416587996813666,
+      0.28846379753354806,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "scale_floor": 1e-06,
+    "schema_version": 1
+  },
+  "preprocessing_spec_sha256": "55b5c07515386643957ee9f8a2e18d2df90917b65710cb816f7f11c9702ff653",
+  "robust_training_diagnostics": [
+    {
+      "adversarial_loss": 0.313943088054657,
+      "adversarial_return_mae": 0.19257128238677979,
+      "clean_direction_brier": 0.22694922983646393,
+      "clean_loss": 0.30685585737228394,
+      "clean_return_mae": 0.1959933340549469,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2672812044620514,
+      "adversarial_return_mae": 0.14611166715621948,
+      "clean_direction_brier": 0.2332419753074646,
+      "clean_loss": 0.2658878266811371,
+      "clean_return_mae": 0.14940953254699707,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.24546518921852112,
+      "adversarial_return_mae": 0.13185256719589233,
+      "clean_direction_brier": 0.2349155843257904,
+      "clean_loss": 0.24039998650550842,
+      "clean_return_mae": 0.1357658952474594,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.24602927267551422,
+      "adversarial_return_mae": 0.11765676736831665,
+      "clean_direction_brier": 0.22099342942237854,
+      "clean_loss": 0.23088429868221283,
+      "clean_return_mae": 0.11421238631010056,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22787703573703766,
+      "adversarial_return_mae": 0.1069391518831253,
+      "clean_direction_brier": 0.23501227796077728,
+      "clean_loss": 0.22548788785934448,
+      "clean_return_mae": 0.10538096725940704,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2315826565027237,
+      "adversarial_return_mae": 0.10875415802001953,
+      "clean_direction_brier": 0.2381507158279419,
+      "clean_loss": 0.2264481782913208,
+      "clean_return_mae": 0.10725067555904388,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2396974116563797,
+      "adversarial_return_mae": 0.11281359195709229,
+      "clean_direction_brier": 0.23494188487529755,
+      "clean_loss": 0.23615635931491852,
+      "clean_return_mae": 0.111666239798069,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2334790825843811,
+      "adversarial_return_mae": 0.09301779419183731,
+      "clean_direction_brier": 0.23305809497833252,
+      "clean_loss": 0.2364869862794876,
+      "clean_return_mae": 0.08782244473695755,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20904646813869476,
+      "adversarial_return_mae": 0.0940571129322052,
+      "clean_direction_brier": 0.22882294654846191,
+      "clean_loss": 0.2060791403055191,
+      "clean_return_mae": 0.08337915688753128,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2220817506313324,
+      "adversarial_return_mae": 0.0984855592250824,
+      "clean_direction_brier": 0.22272375226020813,
+      "clean_loss": 0.21872930228710175,
+      "clean_return_mae": 0.09092303365468979,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21684016287326813,
+      "adversarial_return_mae": 0.08395655453205109,
+      "clean_direction_brier": 0.21027545630931854,
+      "clean_loss": 0.21197299659252167,
+      "clean_return_mae": 0.08557374775409698,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20466706156730652,
+      "adversarial_return_mae": 0.07974544167518616,
+      "clean_direction_brier": 0.2093367725610733,
+      "clean_loss": 0.20474465191364288,
+      "clean_return_mae": 0.08390232920646667,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20951995253562927,
+      "adversarial_return_mae": 0.09793435037136078,
+      "clean_direction_brier": 0.21490329504013062,
+      "clean_loss": 0.2080276757478714,
+      "clean_return_mae": 0.10354644805192947,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22649824619293213,
+      "adversarial_return_mae": 0.10564815253019333,
+      "clean_direction_brier": 0.20796695351600647,
+      "clean_loss": 0.21849295496940613,
+      "clean_return_mae": 0.10418112576007843,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19125303626060486,
+      "adversarial_return_mae": 0.10948247462511063,
+      "clean_direction_brier": 0.19484423100948334,
+      "clean_loss": 0.19317473471164703,
+      "clean_return_mae": 0.10707715898752213,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20830398797988892,
+      "adversarial_return_mae": 0.13245819509029388,
+      "clean_direction_brier": 0.21427074074745178,
+      "clean_loss": 0.20172424614429474,
+      "clean_return_mae": 0.12627118825912476,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20718267560005188,
+      "adversarial_return_mae": 0.1270490288734436,
+      "clean_direction_brier": 0.20878614485263824,
+      "clean_loss": 0.20813369750976562,
+      "clean_return_mae": 0.13127398490905762,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.23448482155799866,
+      "adversarial_return_mae": 0.13547135889530182,
+      "clean_direction_brier": 0.26775050163269043,
+      "clean_loss": 0.22938832640647888,
+      "clean_return_mae": 0.13979139924049377,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2407408058643341,
+      "adversarial_return_mae": 0.14225906133651733,
+      "clean_direction_brier": 0.24598243832588196,
+      "clean_loss": 0.23606464266777039,
+      "clean_return_mae": 0.14046774804592133,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22426415979862213,
+      "adversarial_return_mae": 0.14930672943592072,
+      "clean_direction_brier": 0.21106858551502228,
+      "clean_loss": 0.21773140132427216,
+      "clean_return_mae": 0.1401461809873581,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2332962304353714,
+      "adversarial_return_mae": 0.1391490250825882,
+      "clean_direction_brier": 0.24138179421424866,
+      "clean_loss": 0.23153768479824066,
+      "clean_return_mae": 0.1371820718050003,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19375281035900116,
+      "adversarial_return_mae": 0.12521900236606598,
+      "clean_direction_brier": 0.20850081741809845,
+      "clean_loss": 0.19288189709186554,
+      "clean_return_mae": 0.1295900046825409,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18701466917991638,
+      "adversarial_return_mae": 0.11986243724822998,
+      "clean_direction_brier": 0.18746186792850494,
+      "clean_loss": 0.19017452001571655,
+      "clean_return_mae": 0.12301783263683319,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20829136669635773,
+      "adversarial_return_mae": 0.11803103983402252,
+      "clean_direction_brier": 0.2087579220533371,
+      "clean_loss": 0.21012970805168152,
+      "clean_return_mae": 0.11381294578313828,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20066486299037933,
+      "adversarial_return_mae": 0.10098010301589966,
+      "clean_direction_brier": 0.2102423906326294,
+      "clean_loss": 0.19887056946754456,
+      "clean_return_mae": 0.10382319241762161,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19911585748195648,
+      "adversarial_return_mae": 0.10228917002677917,
+      "clean_direction_brier": 0.217463880777359,
+      "clean_loss": 0.1941007375717163,
+      "clean_return_mae": 0.10383554548025131,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1865892857313156,
+      "adversarial_return_mae": 0.09357618540525436,
+      "clean_direction_brier": 0.2136194407939911,
+      "clean_loss": 0.18245929479599,
+      "clean_return_mae": 0.09776312112808228,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19442179799079895,
+      "adversarial_return_mae": 0.09775840491056442,
+      "clean_direction_brier": 0.20583701133728027,
+      "clean_loss": 0.18916283547878265,
+      "clean_return_mae": 0.09099707752466202,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19054564833641052,
+      "adversarial_return_mae": 0.09578560292720795,
+      "clean_direction_brier": 0.20290127396583557,
+      "clean_loss": 0.18908089399337769,
+      "clean_return_mae": 0.09239216893911362,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17686252295970917,
+      "adversarial_return_mae": 0.0849190279841423,
+      "clean_direction_brier": 0.19306984543800354,
+      "clean_loss": 0.18596968054771423,
+      "clean_return_mae": 0.08508758991956711,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1827174425125122,
+      "adversarial_return_mae": 0.08364328742027283,
+      "clean_direction_brier": 0.1949712038040161,
+      "clean_loss": 0.17794638872146606,
+      "clean_return_mae": 0.08464346826076508,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19299469888210297,
+      "adversarial_return_mae": 0.07962185144424438,
+      "clean_direction_brier": 0.2118472009897232,
+      "clean_loss": 0.19320960342884064,
+      "clean_return_mae": 0.07805836200714111,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20691244304180145,
+      "adversarial_return_mae": 0.0854448676109314,
+      "clean_direction_brier": 0.233065664768219,
+      "clean_loss": 0.2010907530784607,
+      "clean_return_mae": 0.08222300559282303,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18026557564735413,
+      "adversarial_return_mae": 0.09202735871076584,
+      "clean_direction_brier": 0.20015962421894073,
+      "clean_loss": 0.17245763540267944,
+      "clean_return_mae": 0.08025071024894714,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.170257568359375,
+      "adversarial_return_mae": 0.07743199169635773,
+      "clean_direction_brier": 0.21121475100517273,
+      "clean_loss": 0.16934698820114136,
+      "clean_return_mae": 0.08053366839885712,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19102558493614197,
+      "adversarial_return_mae": 0.08498480916023254,
+      "clean_direction_brier": 0.205779030919075,
+      "clean_loss": 0.195938840508461,
+      "clean_return_mae": 0.08924819529056549,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19339203834533691,
+      "adversarial_return_mae": 0.08637981116771698,
+      "clean_direction_brier": 0.2421853393316269,
+      "clean_loss": 0.19394364953041077,
+      "clean_return_mae": 0.08244504779577255,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17222674190998077,
+      "adversarial_return_mae": 0.08765340596437454,
+      "clean_direction_brier": 0.22884561121463776,
+      "clean_loss": 0.16766180098056793,
+      "clean_return_mae": 0.08513481169939041,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17977821826934814,
+      "adversarial_return_mae": 0.09480800479650497,
+      "clean_direction_brier": 0.2050764411687851,
+      "clean_loss": 0.17959466576576233,
+      "clean_return_mae": 0.088509202003479,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19144964218139648,
+      "adversarial_return_mae": 0.09666156768798828,
+      "clean_direction_brier": 0.2529080808162689,
+      "clean_loss": 0.1862802654504776,
+      "clean_return_mae": 0.09647826850414276,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18563269078731537,
+      "adversarial_return_mae": 0.10676772147417068,
+      "clean_direction_brier": 0.2235502004623413,
+      "clean_loss": 0.19624367356300354,
+      "clean_return_mae": 0.10640262812376022,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17305897176265717,
+      "adversarial_return_mae": 0.10829941183328629,
+      "clean_direction_brier": 0.2049659639596939,
+      "clean_loss": 0.16691602766513824,
+      "clean_return_mae": 0.1043955609202385,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1595994383096695,
+      "adversarial_return_mae": 0.10948752611875534,
+      "clean_direction_brier": 0.19156944751739502,
+      "clean_loss": 0.15852084755897522,
+      "clean_return_mae": 0.11016218364238739,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16361212730407715,
+      "adversarial_return_mae": 0.11441685259342194,
+      "clean_direction_brier": 0.19245927035808563,
+      "clean_loss": 0.15957146883010864,
+      "clean_return_mae": 0.11691340059041977,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17696891725063324,
+      "adversarial_return_mae": 0.12171729654073715,
+      "clean_direction_brier": 0.18888305127620697,
+      "clean_loss": 0.17563332617282867,
+      "clean_return_mae": 0.11842118203639984,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17089858651161194,
+      "adversarial_return_mae": 0.12604328989982605,
+      "clean_direction_brier": 0.19236469268798828,
+      "clean_loss": 0.16520534455776215,
+      "clean_return_mae": 0.12449575215578079,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.15791206061840057,
+      "adversarial_return_mae": 0.1179024800658226,
+      "clean_direction_brier": 0.18468032777309418,
+      "clean_loss": 0.15288874506950378,
+      "clean_return_mae": 0.12188318371772766,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.15246450901031494,
+      "adversarial_return_mae": 0.11270936578512192,
+      "clean_direction_brier": 0.20118820667266846,
+      "clean_loss": 0.14863082766532898,
+      "clean_return_mae": 0.11115968227386475,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18587416410446167,
+      "adversarial_return_mae": 0.10524427145719528,
+      "clean_direction_brier": 0.21324729919433594,
+      "clean_loss": 0.17922551929950714,
+      "clean_return_mae": 0.11151207238435745,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16706442832946777,
+      "adversarial_return_mae": 0.10401415079832077,
+      "clean_direction_brier": 0.19531120359897614,
+      "clean_loss": 0.16546741127967834,
+      "clean_return_mae": 0.10524971783161163,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20446094870567322,
+      "adversarial_return_mae": 0.11803244799375534,
+      "clean_direction_brier": 0.28575339913368225,
+      "clean_loss": 0.21277272701263428,
+      "clean_return_mae": 0.1204158365726471,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1860533356666565,
+      "adversarial_return_mae": 0.11068139225244522,
+      "clean_direction_brier": 0.2412409633398056,
+      "clean_loss": 0.1892320215702057,
+      "clean_return_mae": 0.1155405044555664,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.23635804653167725,
+      "adversarial_return_mae": 0.11946290731430054,
+      "clean_direction_brier": 0.29189667105674744,
+      "clean_loss": 0.23698611557483673,
+      "clean_return_mae": 0.12156113237142563,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2114386260509491,
+      "adversarial_return_mae": 0.10703038424253464,
+      "clean_direction_brier": 0.280546098947525,
+      "clean_loss": 0.2135705202817917,
+      "clean_return_mae": 0.1047472208738327,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22382371127605438,
+      "adversarial_return_mae": 0.10334135591983795,
+      "clean_direction_brier": 0.2929542660713196,
+      "clean_loss": 0.2111491858959198,
+      "clean_return_mae": 0.09777837991714478,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21946671605110168,
+      "adversarial_return_mae": 0.09763754904270172,
+      "clean_direction_brier": 0.28947415947914124,
+      "clean_loss": 0.21815907955169678,
+      "clean_return_mae": 0.09442663937807083,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21506237983703613,
+      "adversarial_return_mae": 0.09260459989309311,
+      "clean_direction_brier": 0.2793535590171814,
+      "clean_loss": 0.21542836725711823,
+      "clean_return_mae": 0.09286390244960785,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22174757719039917,
+      "adversarial_return_mae": 0.09992027282714844,
+      "clean_direction_brier": 0.29513582587242126,
+      "clean_loss": 0.21908126771450043,
+      "clean_return_mae": 0.10086705535650253,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1994253247976303,
+      "adversarial_return_mae": 0.08717799931764603,
+      "clean_direction_brier": 0.2821018099784851,
+      "clean_loss": 0.19820304214954376,
+      "clean_return_mae": 0.08911383152008057,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2091289758682251,
+      "adversarial_return_mae": 0.08674176782369614,
+      "clean_direction_brier": 0.2782803475856781,
+      "clean_loss": 0.20051071047782898,
+      "clean_return_mae": 0.08193319290876389,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18439775705337524,
+      "adversarial_return_mae": 0.07695987075567245,
+      "clean_direction_brier": 0.25664013624191284,
+      "clean_loss": 0.17809100449085236,
+      "clean_return_mae": 0.07959014922380447,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17760886251926422,
+      "adversarial_return_mae": 0.10420902818441391,
+      "clean_direction_brier": 0.2384195774793625,
+      "clean_loss": 0.17688772082328796,
+      "clean_return_mae": 0.10436750203371048,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17498748004436493,
+      "adversarial_return_mae": 0.14384418725967407,
+      "clean_direction_brier": 0.2153128981590271,
+      "clean_loss": 0.17609255015850067,
+      "clean_return_mae": 0.1373441368341446,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19186213612556458,
+      "adversarial_return_mae": 0.1647527813911438,
+      "clean_direction_brier": 0.2520046830177307,
+      "clean_loss": 0.18385574221611023,
+      "clean_return_mae": 0.16724522411823273,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20669734477996826,
+      "adversarial_return_mae": 0.1656595915555954,
+      "clean_direction_brier": 0.2627822160720825,
+      "clean_loss": 0.20243844389915466,
+      "clean_return_mae": 0.1634586602449417,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1996210515499115,
+      "adversarial_return_mae": 0.14490064978599548,
+      "clean_direction_brier": 0.28143802285194397,
+      "clean_loss": 0.19533246755599976,
+      "clean_return_mae": 0.14036372303962708,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21388143301010132,
+      "adversarial_return_mae": 0.1253119856119156,
+      "clean_direction_brier": 0.2571946978569031,
+      "clean_loss": 0.2160368710756302,
+      "clean_return_mae": 0.12261806428432465,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2055942863225937,
+      "adversarial_return_mae": 0.09489043056964874,
+      "clean_direction_brier": 0.2242245227098465,
+      "clean_loss": 0.20246164500713348,
+      "clean_return_mae": 0.09743624925613403,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19305214285850525,
+      "adversarial_return_mae": 0.08569639921188354,
+      "clean_direction_brier": 0.21643581986427307,
+      "clean_loss": 0.19509002566337585,
+      "clean_return_mae": 0.08334357291460037,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1937575787305832,
+      "adversarial_return_mae": 0.06930506229400635,
+      "clean_direction_brier": 0.21739891171455383,
+      "clean_loss": 0.18486495316028595,
+      "clean_return_mae": 0.06895537674427032,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1984243094921112,
+      "adversarial_return_mae": 0.060662947595119476,
+      "clean_direction_brier": 0.20727695524692535,
+      "clean_loss": 0.19084450602531433,
+      "clean_return_mae": 0.06305773556232452,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20656061172485352,
+      "adversarial_return_mae": 0.06919553875923157,
+      "clean_direction_brier": 0.2532234191894531,
+      "clean_loss": 0.20360378921031952,
+      "clean_return_mae": 0.06920009106397629,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.215317040681839,
+      "adversarial_return_mae": 0.07970045506954193,
+      "clean_direction_brier": 0.24095839262008667,
+      "clean_loss": 0.2138058990240097,
+      "clean_return_mae": 0.07915697991847992,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20425386726856232,
+      "adversarial_return_mae": 0.08392517268657684,
+      "clean_direction_brier": 0.24109739065170288,
+      "clean_loss": 0.21110017597675323,
+      "clean_return_mae": 0.08512958884239197,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1902058720588684,
+      "adversarial_return_mae": 0.1022234782576561,
+      "clean_direction_brier": 0.22617702186107635,
+      "clean_loss": 0.19156824052333832,
+      "clean_return_mae": 0.10161682963371277,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19800037145614624,
+      "adversarial_return_mae": 0.09793335199356079,
+      "clean_direction_brier": 0.2229371964931488,
+      "clean_loss": 0.1995237022638321,
+      "clean_return_mae": 0.09770338237285614,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19363830983638763,
+      "adversarial_return_mae": 0.10322606563568115,
+      "clean_direction_brier": 0.22917644679546356,
+      "clean_loss": 0.19858287274837494,
+      "clean_return_mae": 0.10495229810476303,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18118953704833984,
+      "adversarial_return_mae": 0.0889286994934082,
+      "clean_direction_brier": 0.21802382171154022,
+      "clean_loss": 0.17949402332305908,
+      "clean_return_mae": 0.09374582767486572,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1935051679611206,
+      "adversarial_return_mae": 0.09707171469926834,
+      "clean_direction_brier": 0.22954659163951874,
+      "clean_loss": 0.1872708946466446,
+      "clean_return_mae": 0.08875051140785217,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18427184224128723,
+      "adversarial_return_mae": 0.07257112115621567,
+      "clean_direction_brier": 0.2249862551689148,
+      "clean_loss": 0.17393916845321655,
+      "clean_return_mae": 0.07889562845230103,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17664095759391785,
+      "adversarial_return_mae": 0.08052216470241547,
+      "clean_direction_brier": 0.2300700843334198,
+      "clean_loss": 0.17849406599998474,
+      "clean_return_mae": 0.08559782803058624,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17813549935817719,
+      "adversarial_return_mae": 0.08305081725120544,
+      "clean_direction_brier": 0.22112096846103668,
+      "clean_loss": 0.17972016334533691,
+      "clean_return_mae": 0.083968885242939,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17802833020687103,
+      "adversarial_return_mae": 0.10217514634132385,
+      "clean_direction_brier": 0.22190135717391968,
+      "clean_loss": 0.17389938235282898,
+      "clean_return_mae": 0.10234101861715317,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1789131909608841,
+      "adversarial_return_mae": 0.09816226363182068,
+      "clean_direction_brier": 0.22240129113197327,
+      "clean_loss": 0.18104207515716553,
+      "clean_return_mae": 0.09882589429616928,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17967776954174042,
+      "adversarial_return_mae": 0.08403870463371277,
+      "clean_direction_brier": 0.21736067533493042,
+      "clean_loss": 0.17562341690063477,
+      "clean_return_mae": 0.0837167352437973,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1639358401298523,
+      "adversarial_return_mae": 0.07020266354084015,
+      "clean_direction_brier": 0.21306461095809937,
+      "clean_loss": 0.15911142528057098,
+      "clean_return_mae": 0.06713559478521347,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1630668342113495,
+      "adversarial_return_mae": 0.07645495235919952,
+      "clean_direction_brier": 0.20847740769386292,
+      "clean_loss": 0.1622122973203659,
+      "clean_return_mae": 0.07354012131690979,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.15490281581878662,
+      "adversarial_return_mae": 0.10388004034757614,
+      "clean_direction_brier": 0.20539066195487976,
+      "clean_loss": 0.1511285901069641,
+      "clean_return_mae": 0.10074785351753235,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.14955668151378632,
+      "adversarial_return_mae": 0.07659337669610977,
+      "clean_direction_brier": 0.20765815675258636,
+      "clean_loss": 0.15584109723567963,
+      "clean_return_mae": 0.07592318952083588,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.15114404261112213,
+      "adversarial_return_mae": 0.05763264000415802,
+      "clean_direction_brier": 0.21092474460601807,
+      "clean_loss": 0.14329524338245392,
+      "clean_return_mae": 0.055622175335884094,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17363253235816956,
+      "adversarial_return_mae": 0.08913402259349823,
+      "clean_direction_brier": 0.2312697023153305,
+      "clean_loss": 0.17950212955474854,
+      "clean_return_mae": 0.09564265608787537,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19117431342601776,
+      "adversarial_return_mae": 0.11927562952041626,
+      "clean_direction_brier": 0.21953074634075165,
+      "clean_loss": 0.19280102849006653,
+      "clean_return_mae": 0.11464343219995499,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21674850583076477,
+      "adversarial_return_mae": 0.10909321159124374,
+      "clean_direction_brier": 0.2669376730918884,
+      "clean_loss": 0.21842046082019806,
+      "clean_return_mae": 0.11038541048765182,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.23154082894325256,
+      "adversarial_return_mae": 0.08763965964317322,
+      "clean_direction_brier": 0.31735947728157043,
+      "clean_loss": 0.22301585972309113,
+      "clean_return_mae": 0.08470118045806885,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21904408931732178,
+      "adversarial_return_mae": 0.1239587813615799,
+      "clean_direction_brier": 0.27307435870170593,
+      "clean_loss": 0.22099675238132477,
+      "clean_return_mae": 0.12789878249168396,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22889867424964905,
+      "adversarial_return_mae": 0.12050487846136093,
+      "clean_direction_brier": 0.2806106209754944,
+      "clean_loss": 0.23211170732975006,
+      "clean_return_mae": 0.11422567814588547,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21242259442806244,
+      "adversarial_return_mae": 0.11691843718290329,
+      "clean_direction_brier": 0.23877975344657898,
+      "clean_loss": 0.20552438497543335,
+      "clean_return_mae": 0.10978978872299194,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19354771077632904,
+      "adversarial_return_mae": 0.10164222121238708,
+      "clean_direction_brier": 0.22490543127059937,
+      "clean_loss": 0.1980300098657608,
+      "clean_return_mae": 0.09914010763168335,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.23137225210666656,
+      "adversarial_return_mae": 0.11235127598047256,
+      "clean_direction_brier": 0.22897745668888092,
+      "clean_loss": 0.23148666322231293,
+      "clean_return_mae": 0.11712426692247391,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22940851747989655,
+      "adversarial_return_mae": 0.10004471987485886,
+      "clean_direction_brier": 0.25307297706604004,
+      "clean_loss": 0.22170327603816986,
+      "clean_return_mae": 0.09456343948841095,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2133733034133911,
+      "adversarial_return_mae": 0.09496776014566422,
+      "clean_direction_brier": 0.24804946780204773,
+      "clean_loss": 0.21465103328227997,
+      "clean_return_mae": 0.09353650361299515,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2358420342206955,
+      "adversarial_return_mae": 0.09384213387966156,
+      "clean_direction_brier": 0.29003438353538513,
+      "clean_loss": 0.23458003997802734,
+      "clean_return_mae": 0.08922560513019562,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21073438227176666,
+      "adversarial_return_mae": 0.09568049758672714,
+      "clean_direction_brier": 0.24428342282772064,
+      "clean_loss": 0.2112172394990921,
+      "clean_return_mae": 0.09141822159290314,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20781195163726807,
+      "adversarial_return_mae": 0.10132018476724625,
+      "clean_direction_brier": 0.24828514456748962,
+      "clean_loss": 0.20553632080554962,
+      "clean_return_mae": 0.09931360930204391,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18629202246665955,
+      "adversarial_return_mae": 0.1126587837934494,
+      "clean_direction_brier": 0.22912533581256866,
+      "clean_loss": 0.18265962600708008,
+      "clean_return_mae": 0.10586154460906982,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19034802913665771,
+      "adversarial_return_mae": 0.10338670015335083,
+      "clean_direction_brier": 0.24263663589954376,
+      "clean_loss": 0.19042351841926575,
+      "clean_return_mae": 0.10134090483188629,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17741569876670837,
+      "adversarial_return_mae": 0.1159084141254425,
+      "clean_direction_brier": 0.21714411675930023,
+      "clean_loss": 0.17438188195228577,
+      "clean_return_mae": 0.11586987972259521,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18853525817394257,
+      "adversarial_return_mae": 0.11180189251899719,
+      "clean_direction_brier": 0.21612435579299927,
+      "clean_loss": 0.18200550973415375,
+      "clean_return_mae": 0.10917866230010986,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2020036280155182,
+      "adversarial_return_mae": 0.13591063022613525,
+      "clean_direction_brier": 0.21858258545398712,
+      "clean_loss": 0.20335282385349274,
+      "clean_return_mae": 0.13574859499931335,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1770613193511963,
+      "adversarial_return_mae": 0.11985645443201065,
+      "clean_direction_brier": 0.21456313133239746,
+      "clean_loss": 0.17740757763385773,
+      "clean_return_mae": 0.11427044868469238,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1925434023141861,
+      "adversarial_return_mae": 0.1000184416770935,
+      "clean_direction_brier": 0.23306818306446075,
+      "clean_loss": 0.19103384017944336,
+      "clean_return_mae": 0.09679380804300308,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17830023169517517,
+      "adversarial_return_mae": 0.10020667314529419,
+      "clean_direction_brier": 0.21529458463191986,
+      "clean_loss": 0.18521341681480408,
+      "clean_return_mae": 0.10180731862783432,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1817191243171692,
+      "adversarial_return_mae": 0.12442369014024734,
+      "clean_direction_brier": 0.20959258079528809,
+      "clean_loss": 0.18412867188453674,
+      "clean_return_mae": 0.12283779680728912,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17764538526535034,
+      "adversarial_return_mae": 0.11146123707294464,
+      "clean_direction_brier": 0.2132585495710373,
+      "clean_loss": 0.1724715530872345,
+      "clean_return_mae": 0.10935232043266296,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17968565225601196,
+      "adversarial_return_mae": 0.15285277366638184,
+      "clean_direction_brier": 0.20295491814613342,
+      "clean_loss": 0.17154301702976227,
+      "clean_return_mae": 0.1472182720899582,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17702320218086243,
+      "adversarial_return_mae": 0.14680011570453644,
+      "clean_direction_brier": 0.19632261991500854,
+      "clean_loss": 0.17335668206214905,
+      "clean_return_mae": 0.14345401525497437,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16927926242351532,
+      "adversarial_return_mae": 0.10782023519277573,
+      "clean_direction_brier": 0.19098010659217834,
+      "clean_loss": 0.18058204650878906,
+      "clean_return_mae": 0.10906795412302017,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16280768811702728,
+      "adversarial_return_mae": 0.09645586460828781,
+      "clean_direction_brier": 0.18291956186294556,
+      "clean_loss": 0.15751823782920837,
+      "clean_return_mae": 0.09426883608102798,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18139077723026276,
+      "adversarial_return_mae": 0.0995616614818573,
+      "clean_direction_brier": 0.20336546003818512,
+      "clean_loss": 0.17508617043495178,
+      "clean_return_mae": 0.09708353132009506,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21224519610404968,
+      "adversarial_return_mae": 0.1534111052751541,
+      "clean_direction_brier": 0.21325737237930298,
+      "clean_loss": 0.21384118497371674,
+      "clean_return_mae": 0.15906521677970886,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22599168121814728,
+      "adversarial_return_mae": 0.14509107172489166,
+      "clean_direction_brier": 0.2353917807340622,
+      "clean_loss": 0.21352195739746094,
+      "clean_return_mae": 0.14376361668109894,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.26672083139419556,
+      "adversarial_return_mae": 0.225288987159729,
+      "clean_direction_brier": 0.3139002025127411,
+      "clean_loss": 0.2708681523799896,
+      "clean_return_mae": 0.22366584837436676,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2860009968280792,
+      "adversarial_return_mae": 0.23849894106388092,
+      "clean_direction_brier": 0.30591654777526855,
+      "clean_loss": 0.2896265387535095,
+      "clean_return_mae": 0.2411496937274933,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2806905508041382,
+      "adversarial_return_mae": 0.2147524654865265,
+      "clean_direction_brier": 0.31391626596450806,
+      "clean_loss": 0.2753978371620178,
+      "clean_return_mae": 0.21834221482276917,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.24100467562675476,
+      "adversarial_return_mae": 0.19998036324977875,
+      "clean_direction_brier": 0.2818627953529358,
+      "clean_loss": 0.23853744566440582,
+      "clean_return_mae": 0.1967908889055252,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2637147903442383,
+      "adversarial_return_mae": 0.211588054895401,
+      "clean_direction_brier": 0.35031551122665405,
+      "clean_loss": 0.25465449690818787,
+      "clean_return_mae": 0.2093968689441681,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.24976515769958496,
+      "adversarial_return_mae": 0.1651424914598465,
+      "clean_direction_brier": 0.3327970802783966,
+      "clean_loss": 0.24869132041931152,
+      "clean_return_mae": 0.16219791769981384,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.25452232360839844,
+      "adversarial_return_mae": 0.14551563560962677,
+      "clean_direction_brier": 0.31591835618019104,
+      "clean_loss": 0.25814351439476013,
+      "clean_return_mae": 0.14328955113887787,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22693981230258942,
+      "adversarial_return_mae": 0.09561583399772644,
+      "clean_direction_brier": 0.2760738730430603,
+      "clean_loss": 0.22984625399112701,
+      "clean_return_mae": 0.09821217507123947,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21841110289096832,
+      "adversarial_return_mae": 0.06852667033672333,
+      "clean_direction_brier": 0.2964811623096466,
+      "clean_loss": 0.20987968146800995,
+      "clean_return_mae": 0.06865992397069931,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21415534615516663,
+      "adversarial_return_mae": 0.05918286368250847,
+      "clean_direction_brier": 0.2847823202610016,
+      "clean_loss": 0.22061201930046082,
+      "clean_return_mae": 0.05945292487740517,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16502341628074646,
+      "adversarial_return_mae": 0.059913888573646545,
+      "clean_direction_brier": 0.2522352933883667,
+      "clean_loss": 0.1649501770734787,
+      "clean_return_mae": 0.05957837402820587,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16232088208198547,
+      "adversarial_return_mae": 0.10689883679151535,
+      "clean_direction_brier": 0.20904392004013062,
+      "clean_loss": 0.16273324191570282,
+      "clean_return_mae": 0.10421677678823471,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.19631482660770416,
+      "adversarial_return_mae": 0.10892204940319061,
+      "clean_direction_brier": 0.24604041874408722,
+      "clean_loss": 0.1943613737821579,
+      "clean_return_mae": 0.10612528026103973,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.195229634642601,
+      "adversarial_return_mae": 0.10235977917909622,
+      "clean_direction_brier": 0.24934881925582886,
+      "clean_loss": 0.19533251225948334,
+      "clean_return_mae": 0.10161362588405609,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.2095191329717636,
+      "adversarial_return_mae": 0.12311302125453949,
+      "clean_direction_brier": 0.2404024302959442,
+      "clean_loss": 0.20565630495548248,
+      "clean_return_mae": 0.12144668400287628,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22138634324073792,
+      "adversarial_return_mae": 0.13108132779598236,
+      "clean_direction_brier": 0.23749487102031708,
+      "clean_loss": 0.22961732745170593,
+      "clean_return_mae": 0.12983117997646332,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.23328550159931183,
+      "adversarial_return_mae": 0.1319311559200287,
+      "clean_direction_brier": 0.23354089260101318,
+      "clean_loss": 0.22942034900188446,
+      "clean_return_mae": 0.1328827440738678,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21009807288646698,
+      "adversarial_return_mae": 0.12128864973783493,
+      "clean_direction_brier": 0.2366931438446045,
+      "clean_loss": 0.21035465598106384,
+      "clean_return_mae": 0.11977550387382507,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21523848176002502,
+      "adversarial_return_mae": 0.11595433950424194,
+      "clean_direction_brier": 0.23240208625793457,
+      "clean_loss": 0.21985162794589996,
+      "clean_return_mae": 0.1166301816701889,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21960563957691193,
+      "adversarial_return_mae": 0.10960701107978821,
+      "clean_direction_brier": 0.23134267330169678,
+      "clean_loss": 0.21935677528381348,
+      "clean_return_mae": 0.11039792001247406,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20783406496047974,
+      "adversarial_return_mae": 0.10259178280830383,
+      "clean_direction_brier": 0.21723851561546326,
+      "clean_loss": 0.20190654695034027,
+      "clean_return_mae": 0.09965729713439941,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21470262110233307,
+      "adversarial_return_mae": 0.102199986577034,
+      "clean_direction_brier": 0.20643697679042816,
+      "clean_loss": 0.21791896224021912,
+      "clean_return_mae": 0.10086158663034439,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.21542218327522278,
+      "adversarial_return_mae": 0.09588593989610672,
+      "clean_direction_brier": 0.23489348590373993,
+      "clean_loss": 0.21630044281482697,
+      "clean_return_mae": 0.09278310835361481,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1797461360692978,
+      "adversarial_return_mae": 0.08058258146047592,
+      "clean_direction_brier": 0.22166411578655243,
+      "clean_loss": 0.1763504147529602,
+      "clean_return_mae": 0.08149858564138412,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18716220557689667,
+      "adversarial_return_mae": 0.08482242375612259,
+      "clean_direction_brier": 0.2261105477809906,
+      "clean_loss": 0.18671183288097382,
+      "clean_return_mae": 0.08692160993814468,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20317567884922028,
+      "adversarial_return_mae": 0.07771225273609161,
+      "clean_direction_brier": 0.23652881383895874,
+      "clean_loss": 0.19832944869995117,
+      "clean_return_mae": 0.08104907721281052,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.190259650349617,
+      "adversarial_return_mae": 0.06158518046140671,
+      "clean_direction_brier": 0.22319966554641724,
+      "clean_loss": 0.1869073361158371,
+      "clean_return_mae": 0.06216711923480034,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.18465806543827057,
+      "adversarial_return_mae": 0.0527370348572731,
+      "clean_direction_brier": 0.2193562090396881,
+      "clean_loss": 0.1838759332895279,
+      "clean_return_mae": 0.0552288182079792,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.19426590204238892,
+      "adversarial_return_mae": 0.06741687655448914,
+      "clean_direction_brier": 0.18988274037837982,
+      "clean_loss": 0.19785863161087036,
+      "clean_return_mae": 0.06900449842214584,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1905939280986786,
+      "adversarial_return_mae": 0.0788072869181633,
+      "clean_direction_brier": 0.19776739180088043,
+      "clean_loss": 0.1908569186925888,
+      "clean_return_mae": 0.07552485913038254,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1464260071516037,
+      "adversarial_return_mae": 0.0786651074886322,
+      "clean_direction_brier": 0.19772200286388397,
+      "clean_loss": 0.1550738513469696,
+      "clean_return_mae": 0.0769067108631134,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.17340342700481415,
+      "adversarial_return_mae": 0.07037745416164398,
+      "clean_direction_brier": 0.24579808115959167,
+      "clean_loss": 0.17330293357372284,
+      "clean_return_mae": 0.0690506100654602,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.19295494258403778,
+      "adversarial_return_mae": 0.09005526453256607,
+      "clean_direction_brier": 0.23471686244010925,
+      "clean_loss": 0.18676459789276123,
+      "clean_return_mae": 0.08726464211940765,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1725146621465683,
+      "adversarial_return_mae": 0.08482711762189865,
+      "clean_direction_brier": 0.2121945172548294,
+      "clean_loss": 0.1682942807674408,
+      "clean_return_mae": 0.08455713838338852,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1689634919166565,
+      "adversarial_return_mae": 0.0823306068778038,
+      "clean_direction_brier": 0.1965961456298828,
+      "clean_loss": 0.17554982006549835,
+      "clean_return_mae": 0.08289526402950287,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16346673667430878,
+      "adversarial_return_mae": 0.0854029729962349,
+      "clean_direction_brier": 0.2020685374736786,
+      "clean_loss": 0.16118961572647095,
+      "clean_return_mae": 0.08540304005146027,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17915740609169006,
+      "adversarial_return_mae": 0.07447950541973114,
+      "clean_direction_brier": 0.21610526740550995,
+      "clean_loss": 0.17857249081134796,
+      "clean_return_mae": 0.07086341828107834,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.13868847489356995,
+      "adversarial_return_mae": 0.06537038832902908,
+      "clean_direction_brier": 0.20024892687797546,
+      "clean_loss": 0.14147882163524628,
+      "clean_return_mae": 0.06549946218729019,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.14625109732151031,
+      "adversarial_return_mae": 0.0667596086859703,
+      "clean_direction_brier": 0.2175149917602539,
+      "clean_loss": 0.14783865213394165,
+      "clean_return_mae": 0.06664413958787918,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16935399174690247,
+      "adversarial_return_mae": 0.0600111223757267,
+      "clean_direction_brier": 0.22918522357940674,
+      "clean_loss": 0.1613873839378357,
+      "clean_return_mae": 0.05944381654262543,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17814798653125763,
+      "adversarial_return_mae": 0.06399062275886536,
+      "clean_direction_brier": 0.24528461694717407,
+      "clean_loss": 0.1783379763364792,
+      "clean_return_mae": 0.061593759804964066,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1798832267522812,
+      "adversarial_return_mae": 0.06781239807605743,
+      "clean_direction_brier": 0.3037244975566864,
+      "clean_loss": 0.186733677983284,
+      "clean_return_mae": 0.0678749531507492,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17964401841163635,
+      "adversarial_return_mae": 0.07584729045629501,
+      "clean_direction_brier": 0.2694169282913208,
+      "clean_loss": 0.17293962836265564,
+      "clean_return_mae": 0.07309553772211075,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17185276746749878,
+      "adversarial_return_mae": 0.07485849410295486,
+      "clean_direction_brier": 0.26810726523399353,
+      "clean_loss": 0.17013753950595856,
+      "clean_return_mae": 0.07494202256202698,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18307805061340332,
+      "adversarial_return_mae": 0.0805547684431076,
+      "clean_direction_brier": 0.2801067531108856,
+      "clean_loss": 0.18507400155067444,
+      "clean_return_mae": 0.07771269232034683,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1784757524728775,
+      "adversarial_return_mae": 0.0857282504439354,
+      "clean_direction_brier": 0.2753211557865143,
+      "clean_loss": 0.18289580941200256,
+      "clean_return_mae": 0.08464939892292023,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17572209239006042,
+      "adversarial_return_mae": 0.07785547524690628,
+      "clean_direction_brier": 0.2598809599876404,
+      "clean_loss": 0.17702341079711914,
+      "clean_return_mae": 0.07838033884763718,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1865692138671875,
+      "adversarial_return_mae": 0.07679387181997299,
+      "clean_direction_brier": 0.23320023715496063,
+      "clean_loss": 0.17578573524951935,
+      "clean_return_mae": 0.07138196378946304,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20275458693504333,
+      "adversarial_return_mae": 0.09624191373586655,
+      "clean_direction_brier": 0.2857266068458557,
+      "clean_loss": 0.19763383269309998,
+      "clean_return_mae": 0.09660367667675018,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20619630813598633,
+      "adversarial_return_mae": 0.07289615273475647,
+      "clean_direction_brier": 0.24562786519527435,
+      "clean_loss": 0.2067556232213974,
+      "clean_return_mae": 0.07058926671743393,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17583014070987701,
+      "adversarial_return_mae": 0.060714706778526306,
+      "clean_direction_brier": 0.220264732837677,
+      "clean_loss": 0.18231423199176788,
+      "clean_return_mae": 0.05877166986465454,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1569131463766098,
+      "adversarial_return_mae": 0.053756993263959885,
+      "clean_direction_brier": 0.21903635561466217,
+      "clean_loss": 0.15612663328647614,
+      "clean_return_mae": 0.05575675889849663,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.15960870683193207,
+      "adversarial_return_mae": 0.04938659816980362,
+      "clean_direction_brier": 0.21972569823265076,
+      "clean_loss": 0.16218848526477814,
+      "clean_return_mae": 0.04966845363378525,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17134161293506622,
+      "adversarial_return_mae": 0.048667438328266144,
+      "clean_direction_brier": 0.22069214284420013,
+      "clean_loss": 0.174464151263237,
+      "clean_return_mae": 0.04854658991098404,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.15144510567188263,
+      "adversarial_return_mae": 0.04793410003185272,
+      "clean_direction_brier": 0.2065449059009552,
+      "clean_loss": 0.14536435902118683,
+      "clean_return_mae": 0.04314564913511276,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.170212060213089,
+      "adversarial_return_mae": 0.05336616188287735,
+      "clean_direction_brier": 0.20799151062965393,
+      "clean_loss": 0.17611324787139893,
+      "clean_return_mae": 0.051958970725536346,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1799541562795639,
+      "adversarial_return_mae": 0.05146995931863785,
+      "clean_direction_brier": 0.21364672482013702,
+      "clean_loss": 0.18156397342681885,
+      "clean_return_mae": 0.053416907787323,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1785472333431244,
+      "adversarial_return_mae": 0.05348414182662964,
+      "clean_direction_brier": 0.2119709849357605,
+      "clean_loss": 0.1767279952764511,
+      "clean_return_mae": 0.055572252720594406,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18749606609344482,
+      "adversarial_return_mae": 0.053075287491083145,
+      "clean_direction_brier": 0.21642431616783142,
+      "clean_loss": 0.19376730918884277,
+      "clean_return_mae": 0.05303709954023361,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17972664535045624,
+      "adversarial_return_mae": 0.04862159490585327,
+      "clean_direction_brier": 0.22025913000106812,
+      "clean_loss": 0.17549417912960052,
+      "clean_return_mae": 0.04628242179751396,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1658945530653,
+      "adversarial_return_mae": 0.058516595512628555,
+      "clean_direction_brier": 0.2550997734069824,
+      "clean_loss": 0.1657671481370926,
+      "clean_return_mae": 0.05711746588349342,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.15810681879520416,
+      "adversarial_return_mae": 0.060278505086898804,
+      "clean_direction_brier": 0.25209495425224304,
+      "clean_loss": 0.15475207567214966,
+      "clean_return_mae": 0.0570889376103878,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1708112508058548,
+      "adversarial_return_mae": 0.056212108582258224,
+      "clean_direction_brier": 0.24262693524360657,
+      "clean_loss": 0.16911502182483673,
+      "clean_return_mae": 0.05914255976676941,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1737978756427765,
+      "adversarial_return_mae": 0.05144575983285904,
+      "clean_direction_brier": 0.23775577545166016,
+      "clean_loss": 0.16883905231952667,
+      "clean_return_mae": 0.050727277994155884,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18045096099376678,
+      "adversarial_return_mae": 0.04918405041098595,
+      "clean_direction_brier": 0.22910165786743164,
+      "clean_loss": 0.17670372128486633,
+      "clean_return_mae": 0.04662295803427696,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.20268557965755463,
+      "adversarial_return_mae": 0.04519912973046303,
+      "clean_direction_brier": 0.22436466813087463,
+      "clean_loss": 0.20236511528491974,
+      "clean_return_mae": 0.04650305211544037,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1846964806318283,
+      "adversarial_return_mae": 0.051600951701402664,
+      "clean_direction_brier": 0.22137881815433502,
+      "clean_loss": 0.18035590648651123,
+      "clean_return_mae": 0.051045771688222885,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1950017213821411,
+      "adversarial_return_mae": 0.06544952839612961,
+      "clean_direction_brier": 0.2437991201877594,
+      "clean_loss": 0.19437935948371887,
+      "clean_return_mae": 0.06402666121721268,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17565104365348816,
+      "adversarial_return_mae": 0.06255212426185608,
+      "clean_direction_brier": 0.2454390674829483,
+      "clean_loss": 0.16932369768619537,
+      "clean_return_mae": 0.06136225908994675,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1817624866962433,
+      "adversarial_return_mae": 0.05767638981342316,
+      "clean_direction_brier": 0.2325986921787262,
+      "clean_loss": 0.17861373722553253,
+      "clean_return_mae": 0.061054907739162445,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1790556162595749,
+      "adversarial_return_mae": 0.05695469677448273,
+      "clean_direction_brier": 0.23060713708400726,
+      "clean_loss": 0.1811198741197586,
+      "clean_return_mae": 0.054763734340667725,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1857965737581253,
+      "adversarial_return_mae": 0.05892089754343033,
+      "clean_direction_brier": 0.23721955716609955,
+      "clean_loss": 0.1793527454137802,
+      "clean_return_mae": 0.05677325278520584,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1724233776330948,
+      "adversarial_return_mae": 0.054148491472005844,
+      "clean_direction_brier": 0.22145627439022064,
+      "clean_loss": 0.17297618091106415,
+      "clean_return_mae": 0.055281467735767365,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1917746216058731,
+      "adversarial_return_mae": 0.053100068122148514,
+      "clean_direction_brier": 0.22084015607833862,
+      "clean_loss": 0.19367553293704987,
+      "clean_return_mae": 0.052397727966308594,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.17705971002578735,
+      "adversarial_return_mae": 0.05416833609342575,
+      "clean_direction_brier": 0.21759888529777527,
+      "clean_loss": 0.17227235436439514,
+      "clean_return_mae": 0.05070953816175461,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1874411255121231,
+      "adversarial_return_mae": 0.06003309041261673,
+      "clean_direction_brier": 0.21701321005821228,
+      "clean_loss": 0.18791496753692627,
+      "clean_return_mae": 0.058306820690631866,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18524758517742157,
+      "adversarial_return_mae": 0.07592509686946869,
+      "clean_direction_brier": 0.231838658452034,
+      "clean_loss": 0.17860420048236847,
+      "clean_return_mae": 0.07269202917814255,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1925312727689743,
+      "adversarial_return_mae": 0.07204613834619522,
+      "clean_direction_brier": 0.233989417552948,
+      "clean_loss": 0.18624883890151978,
+      "clean_return_mae": 0.07343120127916336,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.1755925416946411,
+      "adversarial_return_mae": 0.07171181589365005,
+      "clean_direction_brier": 0.21724209189414978,
+      "clean_loss": 0.16695661842823029,
+      "clean_return_mae": 0.07083770632743835,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16399544477462769,
+      "adversarial_return_mae": 0.0654783844947815,
+      "clean_direction_brier": 0.21910050511360168,
+      "clean_loss": 0.1661488264799118,
+      "clean_return_mae": 0.06511308252811432,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16697615385055542,
+      "adversarial_return_mae": 0.06695070117712021,
+      "clean_direction_brier": 0.22539691627025604,
+      "clean_loss": 0.17171794176101685,
+      "clean_return_mae": 0.06679528206586838,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1484406739473343,
+      "adversarial_return_mae": 0.08567031472921371,
+      "clean_direction_brier": 0.22036460041999817,
+      "clean_loss": 0.14437904953956604,
+      "clean_return_mae": 0.08257555961608887,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.15998266637325287,
+      "adversarial_return_mae": 0.0801238864660263,
+      "clean_direction_brier": 0.22254765033721924,
+      "clean_loss": 0.16100645065307617,
+      "clean_return_mae": 0.08103116601705551,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16817396879196167,
+      "adversarial_return_mae": 0.06376892328262329,
+      "clean_direction_brier": 0.23073171079158783,
+      "clean_loss": 0.1659235656261444,
+      "clean_return_mae": 0.064457967877388,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.17845740914344788,
+      "adversarial_return_mae": 0.05772345885634422,
+      "clean_direction_brier": 0.22758743166923523,
+      "clean_loss": 0.17401030659675598,
+      "clean_return_mae": 0.05604901909828186,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.17773517966270447,
+      "adversarial_return_mae": 0.050260335206985474,
+      "clean_direction_brier": 0.21517781913280487,
+      "clean_loss": 0.17809736728668213,
+      "clean_return_mae": 0.05168633162975311,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1731981486082077,
+      "adversarial_return_mae": 0.054389987140893936,
+      "clean_direction_brier": 0.20691457390785217,
+      "clean_loss": 0.17670190334320068,
+      "clean_return_mae": 0.053802769631147385,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.17937229573726654,
+      "adversarial_return_mae": 0.052103783935308456,
+      "clean_direction_brier": 0.21676674485206604,
+      "clean_loss": 0.17777831852436066,
+      "clean_return_mae": 0.05388660356402397,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.18228544294834137,
+      "adversarial_return_mae": 0.05021513253450394,
+      "clean_direction_brier": 0.2181091606616974,
+      "clean_loss": 0.18150420486927032,
+      "clean_return_mae": 0.048437267541885376,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18170927464962006,
+      "adversarial_return_mae": 0.05208415165543556,
+      "clean_direction_brier": 0.22461389005184174,
+      "clean_loss": 0.18029706180095673,
+      "clean_return_mae": 0.049964528530836105,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.161930650472641,
+      "adversarial_return_mae": 0.05493919178843498,
+      "clean_direction_brier": 0.21481911838054657,
+      "clean_loss": 0.16548007726669312,
+      "clean_return_mae": 0.054609354585409164,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16648761928081512,
+      "adversarial_return_mae": 0.06953947991132736,
+      "clean_direction_brier": 0.2283431887626648,
+      "clean_loss": 0.16690587997436523,
+      "clean_return_mae": 0.06821423768997192,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1527712345123291,
+      "adversarial_return_mae": 0.08044252544641495,
+      "clean_direction_brier": 0.2372053563594818,
+      "clean_loss": 0.14445094764232635,
+      "clean_return_mae": 0.07669124752283096,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1561232954263687,
+      "adversarial_return_mae": 0.08501021564006805,
+      "clean_direction_brier": 0.25150254368782043,
+      "clean_loss": 0.1532660722732544,
+      "clean_return_mae": 0.08514404296875,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16937701404094696,
+      "adversarial_return_mae": 0.07730036973953247,
+      "clean_direction_brier": 0.2515147626399994,
+      "clean_loss": 0.16815178096294403,
+      "clean_return_mae": 0.07630190998315811,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.17350026965141296,
+      "adversarial_return_mae": 0.061674464493989944,
+      "clean_direction_brier": 0.2367008775472641,
+      "clean_loss": 0.17067211866378784,
+      "clean_return_mae": 0.06565713882446289,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16157439351081848,
+      "adversarial_return_mae": 0.06938882172107697,
+      "clean_direction_brier": 0.24755516648292542,
+      "clean_loss": 0.1611342579126358,
+      "clean_return_mae": 0.07096127420663834,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.16329461336135864,
+      "adversarial_return_mae": 0.06935612857341766,
+      "clean_direction_brier": 0.24397367238998413,
+      "clean_loss": 0.15943141281604767,
+      "clean_return_mae": 0.06754284352064133,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1870417296886444,
+      "adversarial_return_mae": 0.06945603340864182,
+      "clean_direction_brier": 0.24910907447338104,
+      "clean_loss": 0.18294179439544678,
+      "clean_return_mae": 0.06794651597738266,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16709686815738678,
+      "adversarial_return_mae": 0.0490608848631382,
+      "clean_direction_brier": 0.21234433352947235,
+      "clean_loss": 0.1663648635149002,
+      "clean_return_mae": 0.04838330298662186,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.15033723413944244,
+      "adversarial_return_mae": 0.04840906709432602,
+      "clean_direction_brier": 0.2316373586654663,
+      "clean_loss": 0.15729612112045288,
+      "clean_return_mae": 0.047615896910429,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.136932373046875,
+      "adversarial_return_mae": 0.04869414120912552,
+      "clean_direction_brier": 0.22523264586925507,
+      "clean_loss": 0.13736215233802795,
+      "clean_return_mae": 0.04866660758852959,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1295354962348938,
+      "adversarial_return_mae": 0.04950879514217377,
+      "clean_direction_brier": 0.2159515619277954,
+      "clean_loss": 0.12745784223079681,
+      "clean_return_mae": 0.04806375503540039,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.14253629744052887,
+      "adversarial_return_mae": 0.05048723518848419,
+      "clean_direction_brier": 0.21468809247016907,
+      "clean_loss": 0.1415105015039444,
+      "clean_return_mae": 0.048447612673044205,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.13250848650932312,
+      "adversarial_return_mae": 0.049960605800151825,
+      "clean_direction_brier": 0.21488390862941742,
+      "clean_loss": 0.13456645607948303,
+      "clean_return_mae": 0.05010396987199783,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.14903861284255981,
+      "adversarial_return_mae": 0.07279999554157257,
+      "clean_direction_brier": 0.20285911858081818,
+      "clean_loss": 0.14394676685333252,
+      "clean_return_mae": 0.07015135884284973,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.15957343578338623,
+      "adversarial_return_mae": 0.06678168475627899,
+      "clean_direction_brier": 0.22005736827850342,
+      "clean_loss": 0.15551835298538208,
+      "clean_return_mae": 0.06600594520568848,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.19857585430145264,
+      "adversarial_return_mae": 0.09697148948907852,
+      "clean_direction_brier": 0.27586621046066284,
+      "clean_loss": 0.19482699036598206,
+      "clean_return_mae": 0.097733274102211,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.2045402079820633,
+      "adversarial_return_mae": 0.1214066743850708,
+      "clean_direction_brier": 0.291448712348938,
+      "clean_loss": 0.20415093004703522,
+      "clean_return_mae": 0.1238212063908577,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.22467617690563202,
+      "adversarial_return_mae": 0.12674720585346222,
+      "clean_direction_brier": 0.3018604516983032,
+      "clean_loss": 0.22047372162342072,
+      "clean_return_mae": 0.12699733674526215,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.2089730203151703,
+      "adversarial_return_mae": 0.10509631037712097,
+      "clean_direction_brier": 0.30284440517425537,
+      "clean_loss": 0.20670022070407867,
+      "clean_return_mae": 0.10628212988376617,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1953715980052948,
+      "adversarial_return_mae": 0.09770017117261887,
+      "clean_direction_brier": 0.2538790702819824,
+      "clean_loss": 0.19377072155475616,
+      "clean_return_mae": 0.09675178676843643,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1838158220052719,
+      "adversarial_return_mae": 0.07775097340345383,
+      "clean_direction_brier": 0.23770089447498322,
+      "clean_loss": 0.18286246061325073,
+      "clean_return_mae": 0.07641639560461044,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1720486581325531,
+      "adversarial_return_mae": 0.06951402872800827,
+      "clean_direction_brier": 0.20488815009593964,
+      "clean_loss": 0.1655290126800537,
+      "clean_return_mae": 0.06936708092689514,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16102418303489685,
+      "adversarial_return_mae": 0.07166272401809692,
+      "clean_direction_brier": 0.19472764432430267,
+      "clean_loss": 0.1624436378479004,
+      "clean_return_mae": 0.07095200568437576,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18685144186019897,
+      "adversarial_return_mae": 0.07632382214069366,
+      "clean_direction_brier": 0.1955183744430542,
+      "clean_loss": 0.18440932035446167,
+      "clean_return_mae": 0.0759819746017456,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.18551316857337952,
+      "adversarial_return_mae": 0.06739720702171326,
+      "clean_direction_brier": 0.22697365283966064,
+      "clean_loss": 0.18374216556549072,
+      "clean_return_mae": 0.06582855433225632,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.15851958096027374,
+      "adversarial_return_mae": 0.08756939321756363,
+      "clean_direction_brier": 0.18986381590366364,
+      "clean_loss": 0.1626719832420349,
+      "clean_return_mae": 0.08960055559873581,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1775067150592804,
+      "adversarial_return_mae": 0.09713739156723022,
+      "clean_direction_brier": 0.20163069665431976,
+      "clean_loss": 0.17331428825855255,
+      "clean_return_mae": 0.09723860025405884,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.2004024088382721,
+      "adversarial_return_mae": 0.08554765582084656,
+      "clean_direction_brier": 0.25672072172164917,
+      "clean_loss": 0.19230619072914124,
+      "clean_return_mae": 0.08058108389377594,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.20084096491336823,
+      "adversarial_return_mae": 0.07534978538751602,
+      "clean_direction_brier": 0.26686200499534607,
+      "clean_loss": 0.19615735113620758,
+      "clean_return_mae": 0.07862557470798492,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.18980850279331207,
+      "adversarial_return_mae": 0.07913117855787277,
+      "clean_direction_brier": 0.23824931681156158,
+      "clean_loss": 0.18456412851810455,
+      "clean_return_mae": 0.07614264637231827,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.22786623239517212,
+      "adversarial_return_mae": 0.07357100397348404,
+      "clean_direction_brier": 0.2685239911079407,
+      "clean_loss": 0.23449750244617462,
+      "clean_return_mae": 0.0742097869515419,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.23155654966831207,
+      "adversarial_return_mae": 0.06194392964243889,
+      "clean_direction_brier": 0.31915202736854553,
+      "clean_loss": 0.23327048122882843,
+      "clean_return_mae": 0.061840906739234924,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1940973997116089,
+      "adversarial_return_mae": 0.05969834327697754,
+      "clean_direction_brier": 0.31286951899528503,
+      "clean_loss": 0.19651378691196442,
+      "clean_return_mae": 0.059750206768512726,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.19121268391609192,
+      "adversarial_return_mae": 0.05939730629324913,
+      "clean_direction_brier": 0.2874463200569153,
+      "clean_loss": 0.18997077643871307,
+      "clean_return_mae": 0.05905231460928917,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.19091340899467468,
+      "adversarial_return_mae": 0.05754896253347397,
+      "clean_direction_brier": 0.28900623321533203,
+      "clean_loss": 0.18667858839035034,
+      "clean_return_mae": 0.0572914183139801,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.1838657259941101,
+      "adversarial_return_mae": 0.049820054322481155,
+      "clean_direction_brier": 0.29599517583847046,
+      "clean_loss": 0.18919460475444794,
+      "clean_return_mae": 0.0551738366484642,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.15838244557380676,
+      "adversarial_return_mae": 0.05527198687195778,
+      "clean_direction_brier": 0.2531225085258484,
+      "clean_loss": 0.15305471420288086,
+      "clean_return_mae": 0.051066141575574875,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16622300446033478,
+      "adversarial_return_mae": 0.05728791281580925,
+      "clean_direction_brier": 0.24940110743045807,
+      "clean_loss": 0.16183026134967804,
+      "clean_return_mae": 0.053410086780786514,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16171300411224365,
+      "adversarial_return_mae": 0.06050008907914162,
+      "clean_direction_brier": 0.2463611513376236,
+      "clean_loss": 0.15860943496227264,
+      "clean_return_mae": 0.05868358537554741,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.17497317492961884,
+      "adversarial_return_mae": 0.05707727372646332,
+      "clean_direction_brier": 0.24921157956123352,
+      "clean_loss": 0.1681254655122757,
+      "clean_return_mae": 0.058850545436143875,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.16619271039962769,
+      "adversarial_return_mae": 0.07184641808271408,
+      "clean_direction_brier": 0.22254925966262817,
+      "clean_loss": 0.16419275104999542,
+      "clean_return_mae": 0.0793820470571518,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005000114440917969
+    },
+    {
+      "adversarial_loss": 0.18826253712177277,
+      "adversarial_return_mae": 0.08389103412628174,
+      "clean_direction_brier": 0.21667149662971497,
+      "clean_loss": 0.18859876692295074,
+      "clean_return_mae": 0.08231184631586075,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    },
+    {
+      "adversarial_loss": 0.17962829768657684,
+      "adversarial_return_mae": 0.07770742475986481,
+      "clean_direction_brier": 0.21968837082386017,
+      "clean_loss": 0.17606987059116364,
+      "clean_return_mae": 0.0778438001871109,
+      "feature_domain_projection": "standardized_domain_v1",
+      "feature_perturbation_linf": 0.005001068115234375
+    }
+  ],
+  "robust_training_hypothesis_id": "phase2b-p3-pgd-e005-b025-r6",
+  "robust_training_mode": "feature_pgd",
+  "robust_training_spec": {
+    "apl_alpha": 1.0,
+    "apl_beta": 1.0,
+    "apl_label_clip": 0.0001,
+    "beta": 0.25,
+    "epsilon": 0.005,
+    "feature_names": [
+      "log_return_1",
+      "log_return_5",
+      "log_return_10",
+      "log_return_20",
+      "intraday_range",
+      "close_open_return",
+      "overnight_gap",
+      "log_volume",
+      "volume_zscore_20",
+      "volatility_5",
+      "volatility_10",
+      "volatility_20",
+      "volatility_60",
+      "ma_deviation_5",
+      "ma_deviation_10",
+      "ma_deviation_20",
+      "price_position_20",
+      "breakout_20",
+      "cross_section_return_rank",
+      "is_suspended",
+      "is_listed",
+      "is_st",
+      "is_tradable"
+    ],
+    "hypothesis_id": "phase2b-p3-pgd-e005-b025-r6",
+    "missing_mode": "none",
+    "missing_rate": 0.0,
+    "mode": "feature_pgd",
+    "pgd_step_size": null,
+    "pgd_steps": 3
+  },
+  "runtime_backend": {
+    "cuda_available": true,
+    "cuda_device_count": 1,
+    "cuda_device_name": "Tesla P100-PCIE-16GB",
+    "cuda_runtime_version": "12.6",
+    "deterministic_algorithms": true,
+    "requested_device": "cuda",
+    "resolved_device": "cuda",
+    "torch_version": "2.8.0+cu126"
+  },
+  "split": {
+    "train_first": 1635318000000000000,
+    "train_last": 1700550000000000000,
+    "validation_first": 1701327600000000000,
+    "validation_last": 1718089200000000000
+  },
+  "train_loss": [
+    0.2316480665689423,
+    0.22200771601545433,
+    0.21832506261056378,
+    0.21514814855560424,
+    0.21329565127454106,
+    0.2115106148615716,
+    0.20893923820011198,
+    0.206915387795085,
+    0.20511164862130368,
+    0.2028331977152635,
+    0.20002968736465962,
+    0.19592445311210457,
+    0.19292576797306538,
+    0.19018698013609364,
+    0.18721203612429754,
+    0.1834376042649623,
+    0.1791250826347442,
+    0.17721504820067258,
+    0.1748989015108063,
+    0.17213907546644647,
+    0.1688201939391475,
+    0.16694479100110513,
+    0.162540888975537,
+    0.1615110192861822,
+    0.15730112993587103,
+    0.15608207989365808,
+    0.15351800512640723,
+    0.15080989112279244,
+    0.14929408250406148,
+    0.14621246155233136,
+    0.14393741015108333,
+    0.14120002018494737,
+    0.13913282388377757,
+    0.1371971033661375,
+    0.13484951324524388,
+    0.13267770550021576,
+    0.13022504176294047,
+    0.1282625532309924,
+    0.12549348228004953,
+    0.12314683703025656,
+    0.12069296023793637,
+    0.11872871217155267,
+    0.11695380387679925,
+    0.11350538909050917,
+    0.11164478440251616,
+    0.10928225784104258,
+    0.10618925619766945,
+    0.1045428903492552,
+    0.10253825441875036,
+    0.09921522768184779
+  ],
+  "train_samples": 58689,
+  "validation_cross_sections": 126,
+  "validation_embedding_snapshot": {
+    "manifest_path": "validation_embedding_manifest.json",
+    "manifest_sha256": "1b928601d92004075f5ea417ce844b1bdb6e19db4f95711808055f45ee2ef248",
+    "path": "validation_embeddings.npz"
+  },
+  "validation_loss": 0.17752747154898113,
+  "validation_ndcg_at_k": 0.47815092300882933,
+  "validation_prediction_artifact": {
+    "outputs": [
+      "expected_return",
+      "expected_volatility",
+      "direction_probability",
+      "lower_quantile",
+      "upper_quantile",
+      "confidence"
+    ],
+    "path": "validation_predictions.npz",
+    "schema_version": 1,
+    "sha256": "4c7d6850e8bcd6e0f259d8cdb634a9cae469c3e7a2be11945fa345ee766bff58"
+  },
+  "validation_ranking": {
+    "cross_sections": 126,
+    "head_metrics": {
+      "direction_brier": 0.23046672344207764,
+      "interval_coverage": 0.7339384983463514,
+      "interval_width": 0.1417340189218521,
+      "return_mae": 0.05866764858365059,
+      "volatility_mae": 0.012182667851448059
+    },
+    "ndcg_at_cutoff": 0.47815092300882933,
+    "precision_at_cutoff": 0.17817460317460318,
+    "rank_ic": 0.02373889344627203,
+    "top_bottom_utility_spread": 0.0027177044441198213,
+    "top_k_overlap": 0.724,
+    "top_k_turnover": 0.276,
+    "transition_count": 125
+  },
+  "validation_samples": 14211
+}

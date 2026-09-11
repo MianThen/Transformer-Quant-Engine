@@ -1,0 +1,35 @@
+[{"stream_name":"stdout","time":1.164528493,"data":"input entries: ['qbt_phase5_infots_gpu_v1']\n"}
+,{"stream_name":"stdout","time":11.864105104,"data":"\u003e\u003e\u003e pip install -q torch==2.8.0 --index-url https://download.pytorch.org/whl/cu126\n"}
+,{"stream_name":"stdout","time":16.041540676,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23.7/23.7 MB 154.7 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":16.192351546,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 897.7/897.7 kB 192.9 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":16.313649809,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.9/8.9 MB 175.6 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":18.600303304,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 393.1/393.1 MB 82.4 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":21.570971921,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 200.2/200.2 MB 100.9 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":22.709527977,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 56.3/56.3 MB 140.4 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":24.173545637,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 158.2/158.2 MB 107.3 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":26.297900377,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 216.6/216.6 MB 97.4 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":29.142982321,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 322.4/322.4 MB 87.9 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":30.892594975,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 89.3/89.3 kB 81.9 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":31.089154091,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 19.7/19.7 MB 132.9 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":31.240432143,"data":"     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.1/1.1 MB 177.9 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":56.765237608,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 821.8/821.8 MB 960.9 kB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":60.727597462,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 155.6/155.6 MB 6.8 MB/s eta 0:00:00\n"}
+,{"stream_name":"stderr","time":156.577389029,"data":"ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\n"}
+,{"stream_name":"stderr","time":156.577427539,"data":"torchaudio 2.10.0+cu128 requires torch==2.10.0, but you have torch 2.8.0+cu126 which is incompatible.\n"}
+,{"stream_name":"stderr","time":156.577434984,"data":"torchvision 0.25.0+cu128 requires torch==2.10.0, but you have torch 2.8.0+cu126 which is incompatible.\n"}
+,{"stream_name":"stdout","time":157.196286574,"data":"\u003e\u003e\u003e pip install -q numpy==2.0.2 pytest==8.4.2\n"}
+,{"stream_name":"stdout","time":160.844647462,"data":"\u003e\u003e\u003e python tools/phase5_infots_gpu_preflight.py --dataset data/research/phase1e_pit_120_dataset.npz --output runs/runtime_preflight.json\n"}
+,{"stream_name":"stdout","time":172.939180253,"data":"{\"cuda_runtime\": \"12.6\", \"dataset_sha256\": \"4261f9b5875176dcc6badd8ab9c68d681edab42b19ad8b34456c4a44c581f554\", \"device_name\": \"Tesla P100-PCIE-16GB\", \"device_total_memory_bytes\": 17059545088, \"feature_shape\": [173242, 64, 23], \"platform\": \"Linux-6.12.90+-x86_64-with-glibc2.35\", \"probe_sum\": 22898102272.0, \"python\": \"3.12.13\", \"sample_count\": 173242, \"schema_version\": 1, \"status\": \"CUDA_PREFLIGHT_PASS\", \"torch\": \"2.8.0+cu126\"}\n"}
+,{"stream_name":"stdout","time":173.804775919,"data":"\u003e\u003e\u003e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True CUBLAS_WORKSPACE_CONFIG=:4096:8 python runner.py --dataset data/research/phase1e_pit_120_dataset.npz --config runs/phase5_infots_pretraining_cuda.json --output runs/phase5-infots/artifact.json --checkpoint runs/phase5-infots/checkpoint.pt\n"}
+,{"stream_name":"stdout","time":173.900124247,"data":"=== PATCH CHUNKED FORWARD ===\n"}
+,{"stream_name":"stdout","time":175.759429671,"data":"patched: chunked inference enabled\n"}
+,{"stream_name":"stdout","time":795.982068256,"data":"{\"artifact_sha256\": \"b6eb3ed83ea3af9239913db6865783eab05df256d294db6885b7e883ea018887\", \"output\": \"runs/phase5-infots/artifact.json\", \"status\": \"PASS\"}\n"}
+,{"stream_name":"stdout","time":796.877019684,"data":"\u003e\u003e\u003e cp -r /kaggle/working/project/runs /kaggle/working/runs\n"}
+,{"stream_name":"stdout","time":797.035578557,"data":"ALL_DONE\n"}
+,{"stream_name":"stderr","time":799.611772729,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":799.611808847,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":799.948913789,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":799.948957849,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":800.726052542,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":802.284180714,"data":"[NbConvertApp] Writing 282138 bytes to __results__.html\n"}
+]

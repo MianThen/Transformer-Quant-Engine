@@ -1,0 +1,58 @@
+{
+  "checkpoint_count": 9,
+  "checkpoint_selection_validated": true,
+  "checkpoint_sha256": {
+    "fold-1/feature_pgd": {
+      "best": "2525f3f36979040aaf4c021ffa4bcfca5505f800517b31f325d3dcb46e78de6b",
+      "last": "ba62b2f05f1bff2d2fc5ea0d484a547381b07c40066975ffb6201e8e98a05cca",
+      "official": "2525f3f36979040aaf4c021ffa4bcfca5505f800517b31f325d3dcb46e78de6b"
+    },
+    "fold-1/none": {
+      "best": "be39648145cbc80d4fedf3ce4efd4c6aaf95f0aadebad930dc10256d203ca92d",
+      "last": "e30afc54b0867c6ce0f13108327c3623dfc746a8801ef19d587795dfd5c8b275",
+      "official": "be39648145cbc80d4fedf3ce4efd4c6aaf95f0aadebad930dc10256d203ca92d"
+    },
+    "fold-1/structured_missing": {
+      "best": "f23197cd8a9af5fcb0566426c69d3c8eb967bba75ac410c0295487f9ed69b2d8",
+      "last": "4dd095b3dd4c95d75e94ad07e3aceaf40b7e4b7c7359171f38ae29d20eb781c6",
+      "official": "f23197cd8a9af5fcb0566426c69d3c8eb967bba75ac410c0295487f9ed69b2d8"
+    },
+    "fold-2/feature_pgd": {
+      "best": "8ab547da9fc19a63b03ee01c9c2c14dfa206288cc8d366bd43b4973671b7b642",
+      "last": "d50077ea697cb73cf3972847778e02e7390e4ceb96a9c833d80af1918f07ee38",
+      "official": "8ab547da9fc19a63b03ee01c9c2c14dfa206288cc8d366bd43b4973671b7b642"
+    },
+    "fold-2/none": {
+      "best": "e33b7407134bb885cbeadbb49391fee233ada48da21186d1ec6ae426842d713a",
+      "last": "47fe5c1349273c791719e309a847e72c63004d00fdb0cb6ffb5c5baaf4946cf3",
+      "official": "e33b7407134bb885cbeadbb49391fee233ada48da21186d1ec6ae426842d713a"
+    },
+    "fold-2/structured_missing": {
+      "best": "25285bb2fe9da18e558dc7aae31daf1a1701e07e7b0799ad08b30d84b5d79a21",
+      "last": "496d99e2c82ee8b8c28174d3a135c49049bc0bc49d5619232e26f013f0d7634e",
+      "official": "25285bb2fe9da18e558dc7aae31daf1a1701e07e7b0799ad08b30d84b5d79a21"
+    },
+    "fold-3/feature_pgd": {
+      "best": "921f1980ebbf3bfe47351b79b9e06d44e289499c4038cbba8bb9b9914184086a",
+      "last": "37866c701f009699d9f7a19ce15c12226d369a3d878c723d019753211f4aa1dc",
+      "official": "921f1980ebbf3bfe47351b79b9e06d44e289499c4038cbba8bb9b9914184086a"
+    },
+    "fold-3/none": {
+      "best": "7b93d02ae36e9e3507405698c7698ae891ccff5b3252696bb7c1903fb47ea827",
+      "last": "31be5ef2ede555c5ab27368e8eb0a43ae4edc815e4ce7000a398d3b5616eef10",
+      "official": "7b93d02ae36e9e3507405698c7698ae891ccff5b3252696bb7c1903fb47ea827"
+    },
+    "fold-3/structured_missing": {
+      "best": "0b6f3bd59998545b9768a5dbe01982aa69746f0fa8476fd69a3b556dee7fed93",
+      "last": "b53f5aff0dba05c8dda3f64b80764409094897878c878db0017e39a868916561",
+      "official": "0b6f3bd59998545b9768a5dbe01982aa69746f0fa8476fd69a3b556dee7fed93"
+    }
+  },
+  "failures": [],
+  "manifest_present": false,
+  "mode": "validation",
+  "research_gate_status": "SEE_REPORT",
+  "root": "runs/phase2b-feature-pgd-v2-validation-r3",
+  "schema_version": 2,
+  "status": "PASS"
+}
