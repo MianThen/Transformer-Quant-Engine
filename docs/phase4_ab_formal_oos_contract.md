@@ -14,11 +14,14 @@
 
 - 来源：`phase1e_pit_120_2020plus.parquet`（PIT 120-symbol 宇宙，模型层既用的同一张源表）。
 - 预备脚本按 `(timestamp, symbol)` 计算：
-  - **情景收益** `r[i,t] = close(i,t) / close(i,t-1) − 1`（回看，无未来信息）；
-  - **前向收益** `f[i,t] = close(i,t+1) / close(i,t) − 1`（仅用于 OOS 度量，绝不进入估计）。
+  - **情景收益** `r[i,t] = close(i,t) / close(i,t−1) − 1`（回看，无未来信息）；
+  - **前向收益** `f[i,t] = close(i,t+5) / close(i,t) − 1`（一个调仓间隔；仅用于 OOS 度量，
+    绝不进入估计）。
+- 每 rebalance 的参与宇宙 = 该时点 `is_tradable` 且拥有完整 252 情景历史的 symbol 子集
+  （四个 arm 使用同一子集，保持下游共享）。截面有效 symbol < 60 时该步跳过并记录。
 - 预备产物：`scenarios.f64`（[M,N] 行主序）、`timestamps.i64`、`symbols.txt`、
   `forward.f64`、`prep_manifest.json`（全部 SHA-256）。symbol 缺 bar 的格点记 0 并在
-  manifest 记 missing mask；某 timestamp 截面有效 symbol < 60 时该步跳过并记录。
+  manifest 记 missing mask；tradable 掩码一并导出。
 
 ## 3. Walk-forward 设计
 
