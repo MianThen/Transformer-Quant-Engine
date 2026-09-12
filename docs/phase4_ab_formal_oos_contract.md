@@ -33,7 +33,10 @@ OOS 区间           = 估计窗之后全部 timestamp，等分为 3 个不重�
 
 每个 rebalance 时点 `t`：
 1. prior：`[t−252, t)` 情景矩阵 → `PriorScenarioArtifactV1`（等权样本矩，合同既定）。
-2. views（确定性、PIT、逐资产 mean-equality，共 N 条）：
+2. views（确定性、PIT、mean-equality）：截面动量 z 排序后取**最高/最低各 10%**
+   （各 ⌈0.1·n⌉ 条，约 24 条）symbol 建立 mean-equality view，loading 为对应单位向量；
+   FFV `max_iterations=1000`（其余 reference 默认）。该收缩在首次运行 FFV 全截面
+   NUMERICAL_FAILURE 后、任何有效 OOS 产出前确定：
    - target = 20-timestamp 动量的截面 z-score，clip ±2.0，乘以截面收益波动尺度
      （`view_scale = 过去 252 个 timestamp 的 |r| 截面均值`）；
    - confidence 固定 `0.30`；`observation_variance = view_scale²`；
@@ -48,8 +51,13 @@ OOS 区间           = 估计窗之后全部 timestamp，等分为 3 个不重�
 | `posterior_ffv` | FFV（同 views；`min_probability` 等取 reference 默认） | 同上 Posterior Direct |
 | `nco_ffv` | 同 `posterior_ffv` 的 posterior | NCO-MinVar（4B solver） |
 
-   NCO 聚类统一为：估计窗相关距离 + average-linkage 层次聚类、固定切割距离
-   （phase2a_hierarchical_linkage 合同方法），每步确定性重算。
+   NCO 聚类统一为：估计窗相关距离 + complete-linkage 层次聚类（phase2a 实现既定方法）、
+   固定切割距离 `0.70`，每步确定性重算。Posterior Direct 共享数值参数：`tolerance=1e-8`、
+   `max_iterations=200000`（两 arm 完全一致；运行前因日频尺度下投影梯度收敛慢而放宽，
+   此时仍无任何有效 OOS 产出）。
+3b. **FFV 数值降级阶梯**（两引擎同视图集，逐级收缩，确定性）：两端各 10% → 各 5% →
+   各 1 条 → 无视图（后验=prior 奇偶）。逐级尝试至 FFV 数值成功；该步视图层级记入报告。
+   全 run 降级步（<10% 层级）占比 > 20% 时 run 作废重设计，不得丢弃子窗口。
 4. 成本与度量：单边 `cost_bps = 10`，净收益
    `net_t = Σ_i w_i·f[i,t→t+5] − cost_bps·1e-4·Σ_i|w_i − w_i^prev|`（首个周期无成本项）。
 

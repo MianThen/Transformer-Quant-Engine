@@ -173,3 +173,7 @@ target_link_libraries(test_factor_risk_performance PRIVATE portfolio_math)
 qbt_enable_warnings(test_factor_risk_performance)
 qbt_static_test_runtime(test_factor_risk_performance)
 add_test(NAME test_factor_risk_performance COMMAND test_factor_risk_performance)
+
+add_executable(formal_oos_driver apps/formal_oos_driver.cpp)
+target_link_libraries(formal_oos_driver PRIVATE portfolio_math)
+qbt_enable_warnings(formal_oos_driver)
