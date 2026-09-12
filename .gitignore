@@ -59,6 +59,8 @@ experiments/*
 !experiments/phase2b/**
 !experiments/phase5/
 !experiments/phase5/**
+!experiments/phase4ab/
+!experiments/phase4ab/**
 
 # Secrets
 .env
