@@ -88,3 +88,21 @@ Posterior Direct policy 已生成固定 reference：
 report body SHA-256 为 `d9bacc818d5c3a5973648563124d06d20e8b066ddc069ac4e64cd098778c0d57`，
 完整文件 sidecar SHA-256 为 `92d5ada6bd54bc81cf2497e055b2d39875dbde8e42d19fd23b42b80f68927c45`。
 该 artifact 明确 `phase_exit_eligible=false`、`promotion_eligible=false`；真实 OOS 和成本 gate 之前不晋级。
+
+## 正式 OOS 终局判定（2026-09-12 登记）
+
+按 `docs/phase4_ab_formal_oos_contract.md`（预注册）完成 266 期 walk-forward 正式 OOS
+（PIT-119 宇宙、估计窗 252、5 点调仓、10 bps 单边成本、视图降级阶梯 13.5%）：
+
+```text
+formal_oos_complete = true
+winner              = incumbent (NCO risk-only, prior covariance)
+posterior_family    = NOT_PROMOTED   # 三 challenger 0/3 窗口、CI 全负、FDR 全拒
+phase_exit_eligible = true           # 对照闭环完成
+promotion_eligible  = false
+```
+
+证据：`experiments/phase4ab/formal-oos-20260912/`（GitHub）与
+`docs/phase4ab/formal_oos_report_20260912.json`（本仓库）。至此 Phase 4A/4B 的
+"NOT RUN" 项全部闭合：三 policy 对照、governance 诊断（FDR/DSR/子窗口）与成本后
+经济对照均已执行并按规则冻结判定。
