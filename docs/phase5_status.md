@@ -2,6 +2,28 @@
 
 更新时间：2026-09-12
 
+## 家族终局判定（2026-09-12 登记封闭）
+
+正则化修复复训（kernel `run-phase5-supervised-reg-ablation-v1`，2026-09-12，3 seed 配对，
+预注册规则 R1/R2/R3）判定：
+
+```text
+r3_training_dynamics_changed = true       # selected_epoch 中位 2→4、均值 2.4→11.8
+r1_positive_control_vol = FAIL            # vol MAE 改善在复训中反向（+0.021~+0.035，3/3 seed）
+r2_ranking_flip = false                   # RankIC/NDCG 方向混合，不满足 3/3 同向且 |Δ|>0.005
+family_status = CLOSED                    # 按预注册规则终止迭代，不再复训
+winner_selected = false
+phase_exit_eligible = false
+promotion_eligible = false
+```
+
+最终结论：InfoTS 对比预训练对监督六输出预测**无可复现收益**——排序增益两次独立复验均不存在；
+vol MAE 改善为训练配置依赖的脆弱效应（仅存在于无正则化 + 极早停条件），不构成可晋级证据。
+若未来重开必须以全新 hypothesis family 与新 untouched OOS 登记。证据链：
+`experiments/phase5/infots-supervised-ablation-20260911/`（首轮）、
+`.../infots-supervised-ablation-seeds-2026091x/`（复验）、
+`.../infots-supervised-reg-ablation-20260912/`（正则化复训终局，GitHub）。
+
 ## 监督消融与多 seed 复验判定（2026-09-12 登记）
 
 预训练已于 2026-08-22 在 Kaggle 完成（`GPU_TRAINED_REFERENCE_PENDING_OOS`）。监督三组等预算
