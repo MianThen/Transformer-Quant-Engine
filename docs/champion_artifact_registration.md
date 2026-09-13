@@ -23,9 +23,22 @@
 ```text
 validate_artifact        = PASS          # qbt-ml CLI：manifest/schema/文件齐全性
 pytorch_vs_ort_parity    = PASS_BITEXACT # 六输出 max|diff| = 0.000e+00（golden I/O）
-cpp_onnxruntime_thirdway = PENDING       # 需要 QBT_ENABLE_ML=ON + ONNXRUNTIME_ROOT 的 cpp_engine 构建
+cpp_onnxruntime_thirdway = BLOCKED       # SCHEMA 管线通过但推理产出 NaN：根因如下
 economic_gate            = NOT_RUN       # 生产晋级仍按合同保持关闭
 ```
+
+### C++ 三方一致性阻断项（2026-09-12 发现）
+
+C++ ORT (onnxruntime 1.19.2, arm64) 在真实 PIT 数据上推理返回 `NON_FINITE_OUTPUT`。
+诊断结论：**C++ BAR_V1 管线产出原始尺度特征**（min/max ≈ [-0.1, +20.5]，含 log_volume 等
+未标准化量），而 Python 训练数据集经过 train-fold standardizer 标准化（min/max ≈ [-5, +5]）。
+**ONNX 导出未嵌入 scaler**——模型期望标准化输入但 C++ 运行时喂了原始值。
+
+修复选项（任选其一后重跑三方验证）：
+1. 导出时在 ONNX 图首层嵌入 standardizer 参数（推荐，零运行时改动）；
+2. C++ BAR_V1 管线增加 scaler 配置读取（manifest 携带 mean/scale）。
+
+该发现是三方一致性验证协议的正确产出——部署前抓到了预处理脱节。
 
 ## 边界与使用
 
