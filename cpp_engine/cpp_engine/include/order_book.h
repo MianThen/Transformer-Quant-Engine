@@ -36,15 +36,12 @@ public:
 
     // 设定参考价(如用某根 bar 的 open 价成交延迟到本 bar 的市价单)
     void set_reference_price(Price price) { if (price > 0.0) last_price_ = price; }
-
-    // 最优价查询
     Price best_bid() const;
     Price best_ask() const;
     Price mid_price() const;
     Price last_price() const { return last_price_; }
 
 private:
-    // 撮合逻辑:市价单按参考价成交，限价单未成交部分进入等待队列。
     std::vector<Fill> match_order(const Order& order);
     void match_order(const Order& order, FillBuffer& fills);
 

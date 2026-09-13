@@ -1,0 +1,36 @@
+{
+  "enabled": true,
+  "model_id": "champion-temporal-transformer-v1",
+  "model_version": "legacy-fold3-20260912",
+  "calendar_id": "sse-minute-pit-v1",
+  "universe_id": "pit-120-symbols",
+  "data_cutoff_utc": "2023-05-17T07:00:00Z",
+  "lookback": 64,
+  "label_horizon_bars": 5,
+  "label_v2": {
+    "horizon_bars": 5,
+    "execution_lag_bars": 1,
+    "direction_threshold": 0.0,
+    "direction_temperature": 0.0025
+  },
+  "ranking_score": {
+    "mode": "raw_return",
+    "production_top_k": 20,
+    "risk_floor": 0.0001,
+    "cost_proxy_bps": 0.0,
+    "winsor_lower_quantile": 0.01,
+    "winsor_upper_quantile": 0.99,
+    "rank_temperature": 1.0,
+    "lambda_rank": 0.1,
+    "target_tie_policy": "symbol_ascending"
+  },
+  "ranking": {
+    "loss_variant": "legacy",
+    "cross_sections_per_batch": 1,
+    "return_weight": 1.0,
+    "direction_weight": 0.25,
+    "volatility_weight": 0.25,
+    "quantile_weight": 0.25
+  },
+  "export": {"format": "onnx", "opset": 18, "provider": "CPUExecutionProvider"}
+}

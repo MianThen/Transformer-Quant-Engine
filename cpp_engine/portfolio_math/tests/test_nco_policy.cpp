@@ -71,6 +71,54 @@ bool test_risk_budget_and_contributions() {
   return ok;
 }
 
+bool test_objective_ablations() {
+  const auto covariance = block_covariance();
+  const std::vector<std::uint32_t> clusters{0, 0, 1, 1};
+
+  portfolio_math::NcoPolicyOptions intra_options;
+  intra_options.objective_ablation =
+      portfolio_math::NcoObjectiveAblation::INTRA_ONLY;
+  const auto intra = portfolio_math::solve_nco_minvar(
+      quant_math::view(covariance), clusters, 2, intra_options);
+  bool ok = check(intra.diagnostics.status == portfolio_math::OptimizationStatus::OK,
+                  "NCO intra-only status");
+  ok &= check(intra.diagnostics.objective_ablation ==
+                  portfolio_math::NcoObjectiveAblation::INTRA_ONLY &&
+                  intra.diagnostics.intra_objective_enabled &&
+                  !intra.diagnostics.inter_objective_enabled,
+              "NCO intra-only provenance");
+  ok &= check(near(intra.diagnostics.cluster_weights[0], 0.5) &&
+                  near(intra.diagnostics.cluster_weights[1], 0.5),
+              "NCO intra-only equal cluster weights");
+
+  portfolio_math::NcoPolicyOptions inter_options;
+  inter_options.objective_ablation =
+      portfolio_math::NcoObjectiveAblation::INTER_ONLY;
+  const auto inter = portfolio_math::solve_nco_minvar(
+      quant_math::view(covariance), clusters, 2, inter_options);
+  ok &= check(inter.diagnostics.status == portfolio_math::OptimizationStatus::OK,
+              "NCO inter-only status");
+  ok &= check(inter.diagnostics.objective_ablation ==
+                  portfolio_math::NcoObjectiveAblation::INTER_ONLY &&
+                  !inter.diagnostics.intra_objective_enabled &&
+                  inter.diagnostics.inter_objective_enabled,
+              "NCO inter-only provenance");
+  ok &= check(near(inter.weights[0], inter.weights[1]) &&
+                  near(inter.weights[2], inter.weights[3]),
+              "NCO inter-only equal intra-cluster weights");
+
+  portfolio_math::NcoPolicyOptions invalid_options;
+  invalid_options.objective_ablation =
+      static_cast<portfolio_math::NcoObjectiveAblation>(255);
+  ok &= check(!portfolio_math::valid_nco_policy_options(invalid_options),
+              "NCO invalid objective options guard");
+  ok &= check(portfolio_math::solve_nco_minvar(
+                  quant_math::view(covariance), clusters, 2, invalid_options)
+                  .diagnostics.status == portfolio_math::OptimizationStatus::INVALID_INPUT,
+              "NCO invalid objective fails closed");
+  return ok;
+}
+
 bool test_permutation_and_failures() {
   const auto covariance = block_covariance();
   const std::vector<std::uint32_t> clusters{0, 0, 1, 1};
@@ -121,7 +169,8 @@ bool test_permutation_and_failures() {
 
 int main() {
   if (!(test_minvar_and_cluster_structure() &&
-        test_risk_budget_and_contributions() && test_permutation_and_failures())) {
+        test_risk_budget_and_contributions() && test_objective_ablations() &&
+        test_permutation_and_failures())) {
     return 1;
   }
   std::printf("test_nco_policy: all checks passed\n");

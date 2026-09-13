@@ -119,7 +119,7 @@ endif()
 add_test(NAME test_gateway_faults COMMAND test_gateway_faults)
 
 if(COMMAND qbt_enable_warnings)
-    foreach(target te_core trading_engine replay_feed test_mode_router test_ring_buffer test_order_state test_decoder test_utilities test_tcp_socket test_order_gateway test_replay_feed test_network_adapters test_gateway_faults)
+    foreach(target te_core trading_engine replay_feed test_ring_buffer test_order_state test_decoder test_utilities test_tcp_socket test_order_gateway test_replay_feed test_network_adapters test_gateway_faults)
         qbt_enable_warnings(${target})
     endforeach()
 endif()

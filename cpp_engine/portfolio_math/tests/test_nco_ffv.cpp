@@ -51,6 +51,12 @@ bool test_nco_ffv_reference_and_provenance() {
   ok &= check(serialized.find("\"posterior_artifact_hash\":") != std::string::npos &&
                   serialized.find("\"eligible_for_official_risk\":false") !=
                       std::string::npos &&
+                  serialized.find("\"objective_ablation\":\"full\"") !=
+                      std::string::npos &&
+                  serialized.find("\"intra_objective_enabled\":true") !=
+                      std::string::npos &&
+                  serialized.find("\"inter_objective_enabled\":true") !=
+                      std::string::npos &&
                   serialized.find("\"artifact_hash\":") != std::string::npos,
               "NCO-FFV serialization");
   const auto repeated = portfolio_math::solve_nco_ffv_minvar(
@@ -75,6 +81,52 @@ bool test_nco_ffv_fail_closed() {
       invalid_posterior, clusters, 2);
   ok &= check(future.status == portfolio_math::OptimizationStatus::INVALID_INPUT,
               "NCO-FFV posterior future guard");
+
+  portfolio_math::NcoFfvPolicyOptions invalid_options;
+  invalid_options.nco.objective_ablation =
+      static_cast<portfolio_math::NcoObjectiveAblation>(255);
+  const auto invalid_objective = portfolio_math::solve_nco_ffv_minvar(
+      posterior, clusters, 2, invalid_options);
+  ok &= check(invalid_objective.status ==
+                  portfolio_math::OptimizationStatus::INVALID_INPUT &&
+                  invalid_objective.nco.weights.empty() &&
+                  !invalid_objective.eligible_for_official_risk,
+              "NCO-FFV invalid objective fails closed");
+  return ok;
+}
+
+bool test_nco_ffv_objective_hashes() {
+  const auto posterior = make_posterior();
+  const std::vector<std::uint32_t> clusters{0, 0, 1, 1};
+  portfolio_math::NcoFfvPolicyOptions intra_options;
+  intra_options.nco.objective_ablation =
+      portfolio_math::NcoObjectiveAblation::INTRA_ONLY;
+  portfolio_math::NcoFfvPolicyOptions inter_options;
+  inter_options.nco.objective_ablation =
+      portfolio_math::NcoObjectiveAblation::INTER_ONLY;
+  const auto full = portfolio_math::solve_nco_ffv_minvar(
+      posterior, clusters, 2);
+  const auto intra = portfolio_math::solve_nco_ffv_minvar(
+      posterior, clusters, 2, intra_options);
+  const auto inter = portfolio_math::solve_nco_ffv_minvar(
+      posterior, clusters, 2, inter_options);
+  bool ok = check(full.status == portfolio_math::OptimizationStatus::OK &&
+                      intra.status == portfolio_math::OptimizationStatus::OK &&
+                      inter.status == portfolio_math::OptimizationStatus::OK,
+                  "NCO-FFV objective modes status");
+  ok &= check(full.artifact_hash != intra.artifact_hash &&
+                  full.artifact_hash != inter.artifact_hash &&
+                  intra.artifact_hash != inter.artifact_hash,
+              "NCO-FFV objective modes hash separation");
+  const auto intra_serialized =
+      portfolio_math::serialize_nco_ffv_policy_result(intra);
+  const auto inter_serialized =
+      portfolio_math::serialize_nco_ffv_policy_result(inter);
+  ok &= check(intra_serialized.find("\"objective_ablation\":\"intra_only\"") !=
+                      std::string::npos &&
+                  inter_serialized.find("\"objective_ablation\":\"inter_only\"") !=
+                      std::string::npos,
+              "NCO-FFV objective mode serialization");
   return ok;
 }
 
@@ -82,7 +134,7 @@ bool test_nco_ffv_fail_closed() {
 
 int main() {
   if (!(test_nco_ffv_reference_and_provenance() &&
-        test_nco_ffv_fail_closed())) {
+        test_nco_ffv_fail_closed() && test_nco_ffv_objective_hashes())) {
     return 1;
   }
   std::printf("test_nco_ffv: all checks passed\n");

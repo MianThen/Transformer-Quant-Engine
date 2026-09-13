@@ -392,6 +392,444 @@ std::vector<std::pair<double, double>> build_fhs_losses(
     return losses;
 }
 
+struct PotGpdCandidate {
+    TailRiskStatus status{TailRiskStatus::INVALID_INPUT};
+    EvtThresholdDiagnostic diagnostic;
+};
+
+PotGpdCandidate fit_pot_gpd_candidate(
+    const std::vector<std::pair<double, double>>& losses,
+    double threshold_quantile,
+    const TailRiskSpec& spec) {
+    PotGpdCandidate candidate;
+    candidate.diagnostic.threshold_quantile = threshold_quantile;
+    const auto fail = [&candidate](TailRiskStatus status) {
+        candidate.status = status;
+        candidate.diagnostic.status = status;
+        return candidate;
+    };
+    double cumulative_probability = 0.0;
+    double threshold = losses.back().first;
+    for (const auto& [loss, probability] : losses) {
+        cumulative_probability += probability;
+        if (cumulative_probability + 1e-15 >= threshold_quantile) {
+            threshold = loss;
+            break;
+        }
+    }
+    candidate.diagnostic.threshold_loss = threshold;
+    double tail_probability = 0.0;
+    double squared_tail_probability = 0.0;
+    double weighted_excess_sum = 0.0;
+    double weighted_excess_second_moment = 0.0;
+    std::uint32_t exceedance_count = 0;
+    for (const auto& [loss, probability] : losses) {
+        if (loss <= threshold || probability == 0.0) continue;
+        const double excess = loss - threshold;
+        if (!std::isfinite(excess) || !(excess > 0.0)) {
+            return fail(TailRiskStatus::EVT_FIT_FAILURE);
+        }
+        tail_probability += probability;
+        squared_tail_probability += probability * probability;
+        weighted_excess_sum += probability * excess;
+        weighted_excess_second_moment += probability * excess * excess;
+        ++exceedance_count;
+    }
+    candidate.diagnostic.exceedance_count = exceedance_count;
+    candidate.diagnostic.tail_probability = tail_probability;
+    const double effective_exceedances = squared_tail_probability > 0.0
+        ? tail_probability * tail_probability / squared_tail_probability
+        : 0.0;
+    candidate.diagnostic.effective_exceedances = effective_exceedances;
+    const double target_tail_probability = 1.0 - spec.confidence_level;
+    if (!std::isfinite(threshold) ||
+        exceedance_count < spec.evt_minimum_exceedances ||
+        effective_exceedances + 1e-12 <
+            static_cast<double>(spec.evt_minimum_exceedances) ||
+        !(tail_probability > target_tail_probability) ||
+        !(target_tail_probability > 0.0)) {
+        return fail(TailRiskStatus::INSUFFICIENT_TAIL);
+    }
+    const double excess_mean = weighted_excess_sum / tail_probability;
+    const double excess_second_moment =
+        weighted_excess_second_moment / tail_probability;
+    const double excess_variance =
+        excess_second_moment - excess_mean * excess_mean;
+    if (!(excess_mean > 0.0) || !std::isfinite(excess_mean) ||
+        !std::isfinite(excess_variance) || !(excess_variance > 1e-18)) {
+        return fail(TailRiskStatus::EVT_FIT_FAILURE);
+    }
+    const double mean_variance_ratio =
+        excess_mean * excess_mean / excess_variance;
+    const double shape = 0.5 * (1.0 - mean_variance_ratio);
+    const double scale =
+        0.5 * excess_mean * (1.0 + mean_variance_ratio);
+    candidate.diagnostic.gpd_shape = shape;
+    candidate.diagnostic.gpd_scale = scale;
+    if (!std::isfinite(shape) || !std::isfinite(scale) || !(scale > 0.0)) {
+        return fail(TailRiskStatus::EVT_FIT_FAILURE);
+    }
+    for (const auto& [loss, probability] : losses) {
+        if (loss <= threshold || probability == 0.0) continue;
+        const double support = 1.0 + shape * (loss - threshold) / scale;
+        if (!std::isfinite(support) || !(support > 0.0)) {
+            return fail(TailRiskStatus::EVT_FIT_FAILURE);
+        }
+    }
+    const GpdTailEvaluation evaluation = evaluate_gpd_tail(
+        threshold, tail_probability, shape, scale, spec.confidence_level,
+        spec.evt_shape_upper_guard);
+    if (evaluation.status != TailRiskStatus::OK) {
+        return fail(evaluation.status);
+    }
+    candidate.diagnostic.value_at_risk_loss = evaluation.value_at_risk_loss;
+    candidate.diagnostic.expected_shortfall_loss =
+        evaluation.expected_shortfall_loss;
+    const double bulk_probability = 1.0 - tail_probability;
+    candidate.diagnostic.splice_continuity_error =
+        std::abs(tail_probability - tail_probability * 1.0);
+    candidate.diagnostic.splice_probability_error =
+        std::abs(bulk_probability + tail_probability - 1.0);
+    candidate.status = TailRiskStatus::OK;
+    candidate.diagnostic.status = TailRiskStatus::OK;
+    return candidate;
+}
+
+TailRiskEstimate apply_pot_gpd_splice(
+    const TailRiskProblemView& problem,
+    std::vector<std::pair<double, double>> losses,
+    std::uint64_t input_hash,
+    TailRiskEstimate result) {
+    hash_value(input_hash, problem.spec.evt_minimum_exceedances);
+    hash_value(input_hash, problem.spec.evt_threshold_grid_points);
+    hash_value(input_hash, std::bit_cast<std::uint64_t>(
+        problem.spec.evt_threshold_quantile_min));
+    hash_value(input_hash, std::bit_cast<std::uint64_t>(
+        problem.spec.evt_threshold_quantile_max));
+    hash_value(input_hash, std::bit_cast<std::uint64_t>(
+        problem.spec.evt_shape_upper_guard));
+    hash_value(input_hash, std::bit_cast<std::uint64_t>(
+        problem.spec.evt_max_shape_spread));
+    hash_value(input_hash, std::bit_cast<std::uint64_t>(
+        problem.spec.evt_max_relative_es_spread));
+    hash_value(input_hash,
+               problem.spec.training_only_tail_calibration ? 1U : 0U);
+    double probability_sum = 0.0;
+    for (const auto& [loss, probability] : losses) {
+        if (!std::isfinite(loss) || !std::isfinite(probability) ||
+            probability < 0.0) {
+            result.status = TailRiskStatus::INVALID_INPUT;
+            return result;
+        }
+        probability_sum += probability;
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(loss));
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(probability));
+    }
+    if (losses.empty() || std::abs(probability_sum - 1.0) > 1e-12) {
+        result.status = TailRiskStatus::INVALID_INPUT;
+        return result;
+    }
+    std::sort(losses.begin(), losses.end(),
+        [](const auto& left, const auto& right) {
+            return left.first < right.first;
+        });
+    double minimum_shape = std::numeric_limits<double>::infinity();
+    double maximum_shape = -std::numeric_limits<double>::infinity();
+    double minimum_es = std::numeric_limits<double>::infinity();
+    double maximum_es = -std::numeric_limits<double>::infinity();
+    double es_sum = 0.0;
+    std::size_t selected_diagnostic_index = 0;
+    std::uint32_t valid_candidate_count = 0;
+    TailRiskStatus last_failure = TailRiskStatus::EVT_FIT_FAILURE;
+    bool infinite_mean_candidate = false;
+    result.evt_threshold_diagnostics.reserve(
+        problem.spec.evt_threshold_grid_points);
+    for (std::uint32_t grid_index = 0;
+         grid_index < problem.spec.evt_threshold_grid_points; ++grid_index) {
+        const double fraction = static_cast<double>(grid_index) /
+            static_cast<double>(problem.spec.evt_threshold_grid_points - 1);
+        const double threshold_quantile =
+            problem.spec.evt_threshold_quantile_min + fraction *
+                (problem.spec.evt_threshold_quantile_max -
+                 problem.spec.evt_threshold_quantile_min);
+        const PotGpdCandidate candidate = fit_pot_gpd_candidate(
+            losses, threshold_quantile, problem.spec);
+        result.evt_threshold_diagnostics.push_back(candidate.diagnostic);
+        if (candidate.status != TailRiskStatus::OK) {
+            last_failure = candidate.status;
+            infinite_mean_candidate = infinite_mean_candidate ||
+                candidate.status == TailRiskStatus::EVT_INFINITE_MEAN;
+            continue;
+        }
+        if (valid_candidate_count == 0) {
+            selected_diagnostic_index =
+                result.evt_threshold_diagnostics.size() - 1;
+        }
+        ++valid_candidate_count;
+        minimum_shape = std::min(minimum_shape, candidate.diagnostic.gpd_shape);
+        maximum_shape = std::max(maximum_shape, candidate.diagnostic.gpd_shape);
+        minimum_es = std::min(
+            minimum_es, candidate.diagnostic.expected_shortfall_loss);
+        maximum_es = std::max(
+            maximum_es, candidate.diagnostic.expected_shortfall_loss);
+        es_sum += candidate.diagnostic.expected_shortfall_loss;
+    }
+    if (infinite_mean_candidate || valid_candidate_count < 3) {
+        result.status = infinite_mean_candidate
+            ? TailRiskStatus::EVT_INFINITE_MEAN
+            : last_failure;
+        return result;
+    }
+    const double shape_spread = maximum_shape - minimum_shape;
+    const double mean_es = es_sum /
+        static_cast<double>(valid_candidate_count);
+    const double relative_es_spread = (maximum_es - minimum_es) /
+        std::max(std::abs(mean_es), 1e-12);
+    result.evt_shape_spread = shape_spread;
+    result.evt_relative_es_spread = relative_es_spread;
+    if (!std::isfinite(shape_spread) || !std::isfinite(relative_es_spread) ||
+        shape_spread > problem.spec.evt_max_shape_spread ||
+        relative_es_spread > problem.spec.evt_max_relative_es_spread) {
+        result.status = TailRiskStatus::EVT_FIT_FAILURE;
+        return result;
+    }
+    const EvtThresholdDiagnostic& selected =
+        result.evt_threshold_diagnostics[selected_diagnostic_index];
+    result.evt_selected_threshold_quantile = selected.threshold_quantile;
+    result.evt_threshold = selected.threshold_loss;
+    result.evt_exceedance_count = selected.exceedance_count;
+    result.evt_effective_exceedances = selected.effective_exceedances;
+    result.gpd_shape = selected.gpd_shape;
+    result.gpd_scale = selected.gpd_scale;
+    const double value_at_risk = selected.value_at_risk_loss;
+    const double expected_shortfall = selected.expected_shortfall_loss;
+    result.status = TailRiskStatus::OK;
+    result.confidence_level = problem.spec.confidence_level;
+    result.effective_observations =
+        static_cast<std::uint32_t>(losses.size());
+    result.value_at_risk_loss = value_at_risk;
+    result.expected_shortfall_loss = expected_shortfall;
+    result.return_cvar = -expected_shortfall;
+    result.input_hash = input_hash;
+    hash_value(result.input_hash, std::bit_cast<std::uint64_t>(
+        selected.threshold_loss));
+    hash_value(result.input_hash, result.evt_exceedance_count);
+    result.artifact_hash = result.input_hash;
+    hash_value(result.artifact_hash,
+               static_cast<std::uint64_t>(result.estimator));
+    hash_value(result.artifact_hash,
+               static_cast<std::uint64_t>(result.scenario_model));
+    hash_value(result.artifact_hash, std::bit_cast<std::uint64_t>(
+        selected.gpd_shape));
+    hash_value(result.artifact_hash, std::bit_cast<std::uint64_t>(
+        selected.gpd_scale));
+    hash_value(result.artifact_hash,
+               std::bit_cast<std::uint64_t>(value_at_risk));
+    hash_value(result.artifact_hash,
+               std::bit_cast<std::uint64_t>(expected_shortfall));
+    hash_value(result.artifact_hash,
+               std::bit_cast<std::uint64_t>(shape_spread));
+    hash_value(result.artifact_hash,
+               std::bit_cast<std::uint64_t>(relative_es_spread));
+    for (const auto& diagnostic : result.evt_threshold_diagnostics) {
+        hash_value(result.artifact_hash,
+                   static_cast<std::uint64_t>(diagnostic.status));
+        hash_value(result.artifact_hash, std::bit_cast<std::uint64_t>(
+            diagnostic.threshold_quantile));
+        hash_value(result.artifact_hash, std::bit_cast<std::uint64_t>(
+            diagnostic.threshold_loss));
+        hash_value(result.artifact_hash, diagnostic.exceedance_count);
+        hash_value(result.artifact_hash, std::bit_cast<std::uint64_t>(
+            diagnostic.gpd_shape));
+        hash_value(result.artifact_hash, std::bit_cast<std::uint64_t>(
+            diagnostic.gpd_scale));
+    }
+    return result;
+}
+
+TailRiskEstimate estimate_asset_vector_garch_tail_risk(
+    const TailRiskProblemView& problem) {
+    TailRiskEstimate result;
+    result.estimator = problem.spec.estimator;
+    result.scenario_model = problem.spec.scenario_model;
+    result.confidence_level = problem.spec.confidence_level;
+    const auto returns = problem.asset_return_history;
+    const bool timestamps_ordered = std::is_sorted(
+        problem.history_timestamps.begin(), problem.history_timestamps.end()) &&
+        std::adjacent_find(problem.history_timestamps.begin(),
+                           problem.history_timestamps.end()) ==
+            problem.history_timestamps.end();
+    const bool symbols_ordered = std::is_sorted(
+        problem.symbols.begin(), problem.symbols.end()) &&
+        std::adjacent_find(problem.symbols.begin(), problem.symbols.end()) ==
+            problem.symbols.end();
+    const bool fhs_estimator = problem.spec.estimator ==
+        TailRiskEstimatorKind::GARCH_FILTERED_HISTORICAL_SIMULATION;
+    const bool evt_estimator = problem.spec.estimator ==
+        TailRiskEstimatorKind::GARCH_FHS_POT_GPD;
+    if (!valid_tail_risk_spec(problem.spec) ||
+        (!fhs_estimator && !evt_estimator) ||
+        problem.spec.scenario_model !=
+            TailScenarioModelKind::ASSET_VECTOR_SYNCHRONIZED ||
+        !problem.spec.synchronized_residual_rows || problem.decision_at <= 0 ||
+        returns.data == nullptr || returns.rows < 40 || returns.cols == 0 ||
+        returns.cols > 200 || returns.row_stride < returns.cols ||
+        returns.rows != problem.history_timestamps.size() ||
+        returns.cols != problem.symbols.size() ||
+        problem.fixed_portfolio_weights.size() != problem.symbols.size() ||
+        !timestamps_ordered || !symbols_ordered ||
+        problem.history_timestamps.back() > problem.decision_at ||
+        !problem.portfolio_return_history.empty() ||
+        problem.factor_return_history.rows != 0 ||
+        problem.specific_return_history.rows != 0 ||
+        problem.factor_risk_model != nullptr ||
+        (!problem.scenario_probabilities.empty() &&
+            problem.scenario_probabilities.size() != returns.rows) ||
+        !quant_math::validate_finite(returns).ok) {
+        return result;
+    }
+
+    double weight_sum = 0.0;
+    std::uint64_t input_hash = kFnvOffset;
+    hash_value(input_hash, problem.spec.config_hash);
+    hash_value(input_hash, problem.spec.mean_model_spec_hash);
+    hash_value(input_hash, problem.spec.volatility_model_spec_hash);
+    hash_value(input_hash, problem.spec.evt_threshold_spec_hash);
+    hash_value(input_hash, problem.spec.scenario_seed);
+    hash_value(input_hash, static_cast<std::uint64_t>(problem.spec.estimator));
+    hash_value(input_hash,
+               static_cast<std::uint64_t>(problem.spec.scenario_model));
+    hash_value(input_hash, std::bit_cast<std::uint64_t>(
+        problem.spec.confidence_level));
+    hash_value(input_hash, returns.rows);
+    hash_value(input_hash, returns.cols);
+    for (std::size_t col = 0; col < returns.cols; ++col) {
+        const double weight = problem.fixed_portfolio_weights[col];
+        if (!std::isfinite(weight) || weight < 0.0) return result;
+        weight_sum += weight;
+        hash_value(input_hash, problem.symbols[col]);
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(weight));
+    }
+    if (!(weight_sum > 0.0) || weight_sum > 1.0 + 1e-12) return result;
+    for (std::size_t row = 0; row < returns.rows; ++row) {
+        if (problem.history_timestamps[row] <= 0) return result;
+        hash_value(input_hash, static_cast<std::uint64_t>(
+            problem.history_timestamps[row]));
+        for (std::size_t col = 0; col < returns.cols; ++col) {
+            hash_value(input_hash, std::bit_cast<std::uint64_t>(
+                returns(row, col)));
+        }
+    }
+    double probability_sum = 0.0;
+    if (!problem.scenario_probabilities.empty()) {
+        for (const double probability : problem.scenario_probabilities) {
+            if (!std::isfinite(probability) || probability < 0.0) return result;
+            probability_sum += probability;
+            hash_value(input_hash, std::bit_cast<std::uint64_t>(probability));
+        }
+        if (std::abs(probability_sum - 1.0) > 1e-12) return result;
+    }
+
+    std::vector<GarchFit> fits;
+    fits.reserve(returns.cols);
+    result.asset_garch_diagnostics.reserve(returns.cols);
+    for (std::size_t col = 0; col < returns.cols; ++col) {
+        std::vector<double> asset_returns(returns.rows);
+        for (std::size_t row = 0; row < returns.rows; ++row) {
+            asset_returns[row] = returns(row, col);
+        }
+        GarchFit fit = fit_garch11(asset_returns);
+        if (!fit.ok) {
+            result.status = TailRiskStatus::VOLATILITY_FIT_FAILURE;
+            return result;
+        }
+        TailRiskEstimate diagnostic_result;
+        if (!attach_garch_diagnostics(fit, diagnostic_result)) {
+            result.status = TailRiskStatus::RESIDUAL_DIAGNOSTIC_FAILURE;
+            return result;
+        }
+        result.asset_garch_diagnostics.push_back(AssetGarchDiagnostic{
+            problem.symbols[col], fit.mean, fit.omega, fit.alpha, fit.beta,
+            fit.forecast_variance, 1.0 - fit.alpha - fit.beta,
+            *diagnostic_result.standardized_residual_mean,
+            *diagnostic_result.standardized_residual_variance,
+            *diagnostic_result.residual_ljung_box,
+            *diagnostic_result.squared_residual_ljung_box,
+            *diagnostic_result.maximum_standardized_residual,
+        });
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(fit.mean));
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(fit.omega));
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(fit.alpha));
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(fit.beta));
+        fits.push_back(std::move(fit));
+    }
+
+    std::vector<std::pair<double, double>> losses;
+    losses.reserve(returns.rows);
+    for (std::size_t row = 0; row < returns.rows; ++row) {
+        double scenario_return = 0.0;
+        for (std::size_t col = 0; col < returns.cols; ++col) {
+            scenario_return += problem.fixed_portfolio_weights[col] *
+                (fits[col].mean + std::sqrt(fits[col].forecast_variance) *
+                    fits[col].standardized_residuals[row]);
+        }
+        const double probability = problem.scenario_probabilities.empty()
+            ? 1.0 / static_cast<double>(returns.rows)
+            : problem.scenario_probabilities[row];
+        if (!std::isfinite(scenario_return)) {
+            result.status = TailRiskStatus::NUMERICAL_FAILURE;
+            return result;
+        }
+        losses.emplace_back(-scenario_return, probability);
+        hash_value(input_hash, std::bit_cast<std::uint64_t>(scenario_return));
+    }
+    if (evt_estimator) {
+        return apply_pot_gpd_splice(
+            problem, std::move(losses), input_hash, std::move(result));
+    }
+    std::sort(losses.begin(), losses.end(),
+        [](const auto& left, const auto& right) {
+            return left.first < right.first;
+        });
+    double cumulative_probability = 0.0;
+    double value_at_risk = losses.back().first;
+    for (const auto& [loss, probability] : losses) {
+        cumulative_probability += probability;
+        if (cumulative_probability + 1e-15 >=
+            problem.spec.confidence_level) {
+            value_at_risk = loss;
+            break;
+        }
+    }
+    double excess_loss = 0.0;
+    for (const auto& [loss, probability] : losses) {
+        excess_loss += probability * std::max(loss - value_at_risk, 0.0);
+    }
+    const double expected_shortfall = value_at_risk + excess_loss /
+        (1.0 - problem.spec.confidence_level);
+    if (!std::isfinite(expected_shortfall) ||
+        expected_shortfall < value_at_risk) {
+        result.status = TailRiskStatus::NUMERICAL_FAILURE;
+        return result;
+    }
+    result.status = TailRiskStatus::OK;
+    result.value_at_risk_loss = value_at_risk;
+    result.expected_shortfall_loss = expected_shortfall;
+    result.return_cvar = -expected_shortfall;
+    result.effective_observations = static_cast<std::uint32_t>(returns.rows);
+    result.input_hash = input_hash;
+    result.artifact_hash = input_hash;
+    hash_value(result.artifact_hash,
+               static_cast<std::uint64_t>(result.estimator));
+    hash_value(result.artifact_hash,
+               static_cast<std::uint64_t>(result.scenario_model));
+    hash_value(result.artifact_hash,
+               std::bit_cast<std::uint64_t>(value_at_risk));
+    hash_value(result.artifact_hash,
+               std::bit_cast<std::uint64_t>(expected_shortfall));
+    return result;
+}
+
 }  // namespace
 
 bool valid_tail_risk_spec(const TailRiskSpec& spec) noexcept {
@@ -403,6 +841,9 @@ bool valid_tail_risk_spec(const TailRiskSpec& spec) noexcept {
     if (spec.estimator == TailRiskEstimatorKind::EMPIRICAL_ROCKAFELLAR_URYASEV) {
         return spec.scenario_model == TailScenarioModelKind::PORTFOLIO_RETURN_SERIES &&
             spec.expectile_level == 0.0 && spec.evt_minimum_exceedances == 0 &&
+            spec.evt_threshold_grid_points == 0 &&
+            spec.evt_max_shape_spread == 0.0 &&
+            spec.evt_max_relative_es_spread == 0.0 &&
             spec.mean_model_spec_hash == 0 && spec.volatility_model_spec_hash == 0 &&
             spec.evt_threshold_spec_hash == 0 && spec.expectile_feature_spec_hash == 0;
     }
@@ -414,9 +855,12 @@ bool valid_tail_risk_spec(const TailRiskSpec& spec) noexcept {
             spec.scenario_model == TailScenarioModelKind::PORTFOLIO_RETURN_SERIES &&
             spec.mean_model_spec_hash == 0 && spec.volatility_model_spec_hash == 0 &&
             spec.evt_minimum_exceedances == 0 &&
+            spec.evt_threshold_grid_points == 0 &&
             spec.evt_threshold_quantile_min == 0.0 &&
             spec.evt_threshold_quantile_max == 0.0 &&
             spec.evt_shape_upper_guard == 0.0 &&
+            spec.evt_max_shape_spread == 0.0 &&
+            spec.evt_max_relative_es_spread == 0.0 &&
             spec.evt_threshold_spec_hash == 0;
     }
     if (spec.estimator == TailRiskEstimatorKind::GARCH_FILTERED_HISTORICAL_SIMULATION) {
@@ -424,29 +868,140 @@ bool valid_tail_risk_spec(const TailRiskSpec& spec) noexcept {
             spec.mean_model_spec_hash != 0 && spec.forecast_horizon_periods == 1 &&
             spec.residual_block_length == 1 && spec.filtered_volatility_state_only &&
             spec.evt_minimum_exceedances == 0 &&
+            spec.evt_threshold_grid_points == 0 &&
             spec.evt_threshold_quantile_min == 0.0 &&
             spec.evt_threshold_quantile_max == 0.0 &&
             spec.evt_shape_upper_guard == 0.0 &&
+            spec.evt_max_shape_spread == 0.0 &&
+            spec.evt_max_relative_es_spread == 0.0 &&
             spec.evt_threshold_spec_hash == 0 &&
             spec.expectile_feature_spec_hash == 0 &&
             (spec.scenario_model == TailScenarioModelKind::PORTFOLIO_RETURN_SERIES ||
-             spec.synchronized_residual_rows);
+             (spec.scenario_model ==
+                  TailScenarioModelKind::ASSET_VECTOR_SYNCHRONIZED &&
+              spec.synchronized_residual_rows));
     }
     return spec.expectile_level == 0.0 && spec.volatility_model_spec_hash != 0 &&
         spec.mean_model_spec_hash != 0 && spec.forecast_horizon_periods == 1 &&
         spec.residual_block_length == 1 && spec.filtered_volatility_state_only &&
+        spec.training_only_tail_calibration &&
         spec.expectile_feature_spec_hash == 0 &&
-        spec.evt_minimum_exceedances > 0 && spec.evt_threshold_spec_hash != 0 &&
+        spec.evt_minimum_exceedances > 0 &&
+        spec.evt_threshold_grid_points == 4 &&
+        spec.evt_threshold_spec_hash != 0 &&
         spec.evt_shape_upper_guard > 0.0 && spec.evt_shape_upper_guard < 1.0 &&
-        spec.evt_threshold_quantile_min > 0.5 &&
+        spec.evt_max_shape_spread > 0.0 &&
+        spec.evt_max_shape_spread <= 1.0 &&
+        spec.evt_max_relative_es_spread > 0.0 &&
+        spec.evt_max_relative_es_spread <= 1.0 &&
+        spec.evt_threshold_quantile_min == 0.75 &&
         spec.evt_threshold_quantile_max > spec.evt_threshold_quantile_min &&
-        spec.evt_threshold_quantile_max < 1.0 &&
+        spec.evt_threshold_quantile_max == 0.90 &&
         (spec.scenario_model == TailScenarioModelKind::PORTFOLIO_RETURN_SERIES ||
-         spec.synchronized_residual_rows);
+         (spec.scenario_model ==
+              TailScenarioModelKind::ASSET_VECTOR_SYNCHRONIZED &&
+          spec.synchronized_residual_rows));
+}
+
+GpdTailEvaluation evaluate_gpd_tail(
+    double threshold_loss, double threshold_tail_probability,
+    double gpd_shape, double gpd_scale, double confidence_level,
+    double shape_upper_guard) noexcept {
+    GpdTailEvaluation result;
+    const double target_tail_probability = 1.0 - confidence_level;
+    if (!std::isfinite(threshold_loss) ||
+        !std::isfinite(threshold_tail_probability) ||
+        !(threshold_tail_probability > target_tail_probability) ||
+        threshold_tail_probability > 1.0 ||
+        !(target_tail_probability > 0.0) ||
+        !std::isfinite(gpd_shape) || !std::isfinite(gpd_scale) ||
+        !(gpd_scale > 0.0) || !std::isfinite(shape_upper_guard) ||
+        !(shape_upper_guard > 0.0) || !(shape_upper_guard < 1.0)) {
+        return result;
+    }
+    if (gpd_shape >= 1.0 || gpd_shape >= shape_upper_guard) {
+        result.status = TailRiskStatus::EVT_INFINITE_MEAN;
+        return result;
+    }
+    const double ratio =
+        threshold_tail_probability / target_tail_probability;
+    double value_at_risk = 0.0;
+    if (std::abs(gpd_shape) < 1e-8) {
+        value_at_risk = threshold_loss + gpd_scale * std::log(ratio);
+    } else {
+        const double support_term = std::pow(ratio, gpd_shape);
+        value_at_risk = threshold_loss +
+            gpd_scale / gpd_shape * (support_term - 1.0);
+    }
+    const double value_at_risk_excess = value_at_risk - threshold_loss;
+    const double value_at_risk_support =
+        1.0 + gpd_shape * value_at_risk_excess / gpd_scale;
+    if (!std::isfinite(value_at_risk) || value_at_risk < threshold_loss ||
+        !std::isfinite(value_at_risk_support) ||
+        !(value_at_risk_support > 0.0)) {
+        result.status = TailRiskStatus::EVT_FIT_FAILURE;
+        return result;
+    }
+    const double mean_excess_at_var =
+        gpd_scale + gpd_shape * value_at_risk_excess;
+    const double expected_shortfall = value_at_risk +
+        mean_excess_at_var / (1.0 - gpd_shape);
+    if (!std::isfinite(mean_excess_at_var) || !(mean_excess_at_var > 0.0) ||
+        !std::isfinite(expected_shortfall) ||
+        expected_shortfall < value_at_risk) {
+        result.status = TailRiskStatus::EVT_FIT_FAILURE;
+        return result;
+    }
+    result.status = TailRiskStatus::OK;
+    result.value_at_risk_loss = value_at_risk;
+    result.expected_shortfall_loss = expected_shortfall;
+    return result;
+}
+
+TailRiskEstimate estimate_fhs_pot_gpd_splice(
+    std::span<const double> fhs_losses,
+    std::span<const double> scenario_probabilities,
+    const TailRiskSpec& spec) {
+    TailRiskEstimate result;
+    result.estimator = spec.estimator;
+    result.scenario_model = spec.scenario_model;
+    result.confidence_level = spec.confidence_level;
+    if (!valid_tail_risk_spec(spec) ||
+        spec.estimator != TailRiskEstimatorKind::GARCH_FHS_POT_GPD ||
+        fhs_losses.empty() ||
+        (!scenario_probabilities.empty() &&
+            scenario_probabilities.size() != fhs_losses.size())) {
+        return result;
+    }
+    std::vector<std::pair<double, double>> losses;
+    losses.reserve(fhs_losses.size());
+    for (std::size_t index = 0; index < fhs_losses.size(); ++index) {
+        const double probability = scenario_probabilities.empty()
+            ? 1.0 / static_cast<double>(fhs_losses.size())
+            : scenario_probabilities[index];
+        losses.emplace_back(fhs_losses[index], probability);
+    }
+    TailRiskProblemView problem;
+    problem.spec = spec;
+    std::uint64_t input_hash = kFnvOffset;
+    hash_value(input_hash, spec.config_hash);
+    hash_value(input_hash, spec.mean_model_spec_hash);
+    hash_value(input_hash, spec.volatility_model_spec_hash);
+    hash_value(input_hash, spec.evt_threshold_spec_hash);
+    hash_value(input_hash, static_cast<std::uint64_t>(spec.estimator));
+    hash_value(input_hash, static_cast<std::uint64_t>(spec.scenario_model));
+    hash_value(input_hash,
+               std::bit_cast<std::uint64_t>(spec.confidence_level));
+    return apply_pot_gpd_splice(
+        problem, std::move(losses), input_hash, std::move(result));
 }
 
 TailRiskEstimate estimate_garch_fhs_tail_risk(
     const TailRiskProblemView& problem) {
+    if (problem.spec.scenario_model ==
+        TailScenarioModelKind::ASSET_VECTOR_SYNCHRONIZED) {
+        return estimate_asset_vector_garch_tail_risk(problem);
+    }
     TailRiskEstimate result;
     result.estimator = problem.spec.estimator;
     result.scenario_model = problem.spec.scenario_model;
@@ -547,6 +1102,10 @@ TailRiskEstimate estimate_garch_fhs_tail_risk(
 
 TailRiskEstimate estimate_garch_fhs_evt_tail_risk(
     const TailRiskProblemView& problem) {
+    if (problem.spec.scenario_model ==
+        TailScenarioModelKind::ASSET_VECTOR_SYNCHRONIZED) {
+        return estimate_asset_vector_garch_tail_risk(problem);
+    }
     TailRiskEstimate result;
     result.estimator = problem.spec.estimator;
     result.scenario_model = problem.spec.scenario_model;
@@ -628,125 +1187,8 @@ TailRiskEstimate estimate_garch_fhs_evt_tail_risk(
         result.status = TailRiskStatus::INVALID_INPUT;
         return result;
     }
-    double probability_sum = 0.0;
-    for (const auto& [loss, probability] : losses) {
-        if (!std::isfinite(loss) || !std::isfinite(probability) || probability < 0.0) {
-            result.status = TailRiskStatus::INVALID_INPUT;
-            return result;
-        }
-        probability_sum += probability;
-    }
-    if (std::abs(probability_sum - 1.0) > 1e-12) {
-        result.status = TailRiskStatus::INVALID_INPUT;
-        return result;
-    }
-    std::sort(losses.begin(), losses.end(), [](const auto& left, const auto& right) {
-        return left.first < right.first;
-    });
-    const double threshold_quantile = problem.spec.evt_threshold_quantile_max;
-    double cumulative_probability = 0.0;
-    double threshold = losses.back().first;
-    for (const auto& [loss, probability] : losses) {
-        cumulative_probability += probability;
-        if (cumulative_probability + 1e-15 >= threshold_quantile) {
-            threshold = loss;
-            break;
-        }
-    }
-    std::vector<double> excesses;
-    double tail_probability = 0.0;
-    for (const auto& [loss, probability] : losses) {
-        if (loss > threshold) {
-            excesses.push_back(loss - threshold);
-            tail_probability += probability;
-        }
-    }
-    result.evt_threshold = threshold;
-    result.evt_exceedance_count = static_cast<std::uint32_t>(excesses.size());
-    const double target_tail_probability = 1.0 - problem.spec.confidence_level;
-    if (!std::isfinite(threshold) ||
-        excesses.size() < problem.spec.evt_minimum_exceedances ||
-        !(tail_probability > target_tail_probability) ||
-        !(target_tail_probability > 0.0)) {
-        result.status = TailRiskStatus::INSUFFICIENT_TAIL;
-        return result;
-    }
-    double excess_mean = 0.0;
-    double excess_second_moment = 0.0;
-    for (const double excess : excesses) {
-        if (!std::isfinite(excess) || !(excess > 0.0)) {
-            result.status = TailRiskStatus::EVT_FIT_FAILURE;
-            return result;
-        }
-        excess_mean += excess;
-        excess_second_moment += excess * excess;
-    }
-    excess_mean /= static_cast<double>(excesses.size());
-    excess_second_moment /= static_cast<double>(excesses.size());
-    const double excess_variance = excess_second_moment - excess_mean * excess_mean;
-    if (!(excess_mean > 0.0) || !std::isfinite(excess_mean) ||
-        !std::isfinite(excess_variance)) {
-        result.status = TailRiskStatus::EVT_FIT_FAILURE;
-        return result;
-    }
-    double shape = 0.0;
-    double scale = excess_mean;
-    if (excess_variance > 1e-18) {
-        const double mean_variance_ratio = excess_mean * excess_mean /
-            excess_variance;
-        shape = 0.5 * (1.0 - mean_variance_ratio);
-        scale = 0.5 * excess_mean * (1.0 + mean_variance_ratio);
-    }
-    result.gpd_shape = shape;
-    result.gpd_scale = scale;
-    if (!std::isfinite(shape) || !std::isfinite(scale) || !(scale > 0.0) ||
-        shape >= problem.spec.evt_shape_upper_guard) {
-        result.status = shape >= problem.spec.evt_shape_upper_guard
-            ? TailRiskStatus::EVT_INFINITE_MEAN
-            : TailRiskStatus::EVT_FIT_FAILURE;
-        return result;
-    }
-    const double ratio = tail_probability / target_tail_probability;
-    double value_at_risk = 0.0;
-    if (std::abs(shape) < 1e-8) {
-        value_at_risk = threshold + scale * std::log(ratio);
-    } else {
-        const double support_term = std::pow(ratio, shape);
-        value_at_risk = threshold + scale / shape * (support_term - 1.0);
-    }
-    if (!std::isfinite(value_at_risk) || value_at_risk < threshold) {
-        result.status = TailRiskStatus::EVT_FIT_FAILURE;
-        return result;
-    }
-    const double mean_excess_at_var = scale + shape * (value_at_risk - threshold);
-    const double expected_shortfall = value_at_risk + mean_excess_at_var /
-        (1.0 - shape);
-    if (!std::isfinite(expected_shortfall) ||
-        expected_shortfall < value_at_risk) {
-        result.status = shape >= 1.0
-            ? TailRiskStatus::EVT_INFINITE_MEAN
-            : TailRiskStatus::EVT_FIT_FAILURE;
-        return result;
-    }
-    result.status = TailRiskStatus::OK;
-    result.confidence_level = problem.spec.confidence_level;
-    result.effective_observations = static_cast<std::uint32_t>(returns.size());
-    result.value_at_risk_loss = value_at_risk;
-    result.expected_shortfall_loss = expected_shortfall;
-    result.return_cvar = -expected_shortfall;
-    result.input_hash = input_hash;
-    hash_value(result.input_hash, std::bit_cast<std::uint64_t>(threshold));
-    hash_value(result.input_hash, result.evt_exceedance_count);
-    result.artifact_hash = result.input_hash;
-    hash_value(result.artifact_hash,
-               static_cast<std::uint64_t>(result.estimator));
-    hash_value(result.artifact_hash, std::bit_cast<std::uint64_t>(shape));
-    hash_value(result.artifact_hash, std::bit_cast<std::uint64_t>(scale));
-    hash_value(result.artifact_hash,
-               std::bit_cast<std::uint64_t>(value_at_risk));
-    hash_value(result.artifact_hash,
-               std::bit_cast<std::uint64_t>(expected_shortfall));
-    return result;
+    return apply_pot_gpd_splice(
+        problem, std::move(losses), input_hash, std::move(result));
 }
 
 TailRiskEstimate estimate_expectile_tail_risk(
@@ -1015,12 +1457,88 @@ std::string serialize_tail_risk_artifact(
            << ",\"maximum_standardized_residual\":"
            << optional_number(estimate.maximum_standardized_residual)
            << "}"
-           << ",\"evt\":{\"exceedance_count\":"
+           << ",\"asset_garch\":[";
+    for (std::size_t index = 0;
+         index < estimate.asset_garch_diagnostics.size(); ++index) {
+        if (index != 0) output << ',';
+        const auto& diagnostic = estimate.asset_garch_diagnostics[index];
+        output << "{\"symbol_id\":" << diagnostic.symbol_id
+               << ",\"mean\":" << json_number(diagnostic.mean)
+               << ",\"omega\":" << json_number(diagnostic.omega)
+               << ",\"alpha\":" << json_number(diagnostic.alpha)
+               << ",\"beta\":" << json_number(diagnostic.beta)
+               << ",\"forecast_variance\":"
+               << json_number(diagnostic.forecast_variance)
+               << ",\"stationarity_margin\":"
+               << json_number(diagnostic.stationarity_margin)
+               << ",\"standardized_residual_mean\":"
+               << json_number(diagnostic.standardized_residual_mean)
+               << ",\"standardized_residual_variance\":"
+               << json_number(diagnostic.standardized_residual_variance)
+               << ",\"residual_ljung_box\":"
+               << json_number(diagnostic.residual_ljung_box)
+               << ",\"squared_residual_ljung_box\":"
+               << json_number(diagnostic.squared_residual_ljung_box)
+               << ",\"maximum_standardized_residual\":"
+               << json_number(diagnostic.maximum_standardized_residual)
+               << '}';
+    }
+    output << "]"
+           << ",\"evt\":{\"method_id\":\"WEIGHTED_MOMENTS_FOUR_POINT_GRID_V1\""
+           << ",\"threshold_grid_points\":"
+           << spec.evt_threshold_grid_points
+           << ",\"minimum_valid_grid_points\":3"
+           << ",\"selection_rule\":\"LOWEST_QUANTILE_AMONG_VALID_STABLE_GRID_V1\""
+           << ",\"threshold_quantile_min\":"
+           << json_number(spec.evt_threshold_quantile_min)
+           << ",\"threshold_quantile_max\":"
+           << json_number(spec.evt_threshold_quantile_max)
+           << ",\"maximum_shape_spread\":"
+           << json_number(spec.evt_max_shape_spread)
+           << ",\"maximum_relative_es_spread\":"
+           << json_number(spec.evt_max_relative_es_spread)
+           << ",\"selected_threshold_quantile\":"
+           << optional_number(estimate.evt_selected_threshold_quantile)
+           << ",\"exceedance_count\":"
            << estimate.evt_exceedance_count
+           << ",\"effective_exceedances\":"
+           << optional_number(estimate.evt_effective_exceedances)
            << ",\"threshold\":" << optional_number(estimate.evt_threshold)
            << ",\"shape\":" << optional_number(estimate.gpd_shape)
            << ",\"scale\":" << optional_number(estimate.gpd_scale)
-           << "}"
+           << ",\"shape_spread\":"
+           << optional_number(estimate.evt_shape_spread)
+           << ",\"relative_es_spread\":"
+           << optional_number(estimate.evt_relative_es_spread)
+           << ",\"threshold_diagnostics\":[";
+    for (std::size_t index = 0;
+         index < estimate.evt_threshold_diagnostics.size(); ++index) {
+        if (index != 0) output << ',';
+        const auto& diagnostic = estimate.evt_threshold_diagnostics[index];
+        output << "{\"status\":" << static_cast<int>(diagnostic.status)
+               << ",\"threshold_quantile\":"
+               << json_number(diagnostic.threshold_quantile)
+               << ",\"threshold_loss\":"
+               << json_number(diagnostic.threshold_loss)
+               << ",\"exceedance_count\":"
+               << diagnostic.exceedance_count
+               << ",\"effective_exceedances\":"
+               << json_number(diagnostic.effective_exceedances)
+               << ",\"tail_probability\":"
+               << json_number(diagnostic.tail_probability)
+               << ",\"shape\":" << json_number(diagnostic.gpd_shape)
+               << ",\"scale\":" << json_number(diagnostic.gpd_scale)
+               << ",\"var_loss\":"
+               << json_number(diagnostic.value_at_risk_loss)
+               << ",\"expected_shortfall_loss\":"
+               << json_number(diagnostic.expected_shortfall_loss)
+               << ",\"splice_continuity_error\":"
+               << json_number(diagnostic.splice_continuity_error)
+               << ",\"splice_probability_error\":"
+               << json_number(diagnostic.splice_probability_error)
+               << '}';
+    }
+    output << "]}"
            << ",\"expectile_loss\":"
            << optional_number(estimate.expectile_loss)
            << ",\"calibrated_expectile_level\":"
@@ -1132,9 +1650,17 @@ TailRiskBacktestResult backtest_tail_risk(
     constexpr double kTolerance = 1e-12;
     double exceedance_sum = 0.0;
     double es_excess_sum = 0.0;
+    double fz0_score_sum = 0.0;
+    const double tail_probability = 1.0 - problem.confidence_level;
     std::vector<bool> exceptions(observation_count, false);
     for (std::size_t index = 0; index < observation_count; ++index) {
         const double loss = -problem.realized_returns[index];
+        const double value_at_risk = problem.value_at_risk_loss[index];
+        const double expected_shortfall = problem.expected_shortfall_loss[index];
+        if (!(expected_shortfall > 0.0)) {
+            result.status = TailRiskBacktestStatus::FZ0_DOMAIN_FAILURE;
+            return result;
+        }
         if (loss > problem.value_at_risk_loss[index] + kTolerance) {
             exceptions[index] = true;
             ++result.exception_count;
@@ -1144,6 +1670,18 @@ TailRiskBacktestResult backtest_tail_risk(
             ++result.es_violation_count;
             es_excess_sum += loss - problem.expected_shortfall_loss[index];
         }
+        const double fz0_score =
+            ((loss > value_at_risk + kTolerance)
+                 ? (loss - value_at_risk) /
+                       (tail_probability * expected_shortfall)
+                 : 0.0) +
+            value_at_risk / expected_shortfall +
+            std::log(expected_shortfall) - 1.0;
+        if (!std::isfinite(fz0_score)) {
+            result.status = TailRiskBacktestStatus::NUMERICAL_FAILURE;
+            return result;
+        }
+        fz0_score_sum += fz0_score;
     }
     for (std::size_t index = 1; index < exceptions.size(); ++index) {
         if (!exceptions[index - 1] && !exceptions[index]) ++result.transition_00;
@@ -1160,6 +1698,8 @@ TailRiskBacktestResult backtest_tail_risk(
         ? 0.0 : exceedance_sum / static_cast<double>(result.exception_count);
     result.mean_es_excess_loss = result.es_violation_count == 0
         ? 0.0 : es_excess_sum / static_cast<double>(result.es_violation_count);
+    result.mean_fz0_score =
+        fz0_score_sum / static_cast<double>(observation_count);
 
     const double expected_exception_probability = 1.0 - problem.confidence_level;
     const double null_log_likelihood = bernoulli_log_likelihood(
@@ -1208,6 +1748,8 @@ TailRiskBacktestResult backtest_tail_risk(
                std::bit_cast<std::uint64_t>(result.kupiec_lr));
     hash_value(result.artifact_hash,
                std::bit_cast<std::uint64_t>(result.christoffersen_lr));
+    hash_value(result.artifact_hash,
+               std::bit_cast<std::uint64_t>(result.mean_fz0_score));
     return result;
 }
 
@@ -1242,6 +1784,8 @@ std::string serialize_tail_risk_backtest_artifact(
            << json_number(result.christoffersen_lr)
            << ",\"christoffersen_p_value\":"
            << json_number(result.christoffersen_p_value)
+           << ",\"mean_fz0_score\":"
+           << json_number(result.mean_fz0_score)
            << ",\"input_hash\":" << result.input_hash
            << ",\"artifact_hash\":" << result.artifact_hash
            << ",\"manifest\":{\"source_dataset_fingerprint\":\""

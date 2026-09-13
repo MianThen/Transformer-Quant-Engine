@@ -15,7 +15,6 @@ struct FeeSchedule {
     double transfer_fee_rate = 0.0;
 };
 
-// Bar 级执行模型配置。价格单位为基点(1bp = 0.01%)。
 struct ExecutionConfig {
     double max_volume_participation = 0.10;
     double slippage_bps = 0.0;

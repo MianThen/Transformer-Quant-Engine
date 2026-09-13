@@ -124,6 +124,15 @@ struct FactorRiskModelArtifact {
 [[nodiscard]] std::uint64_t factor_model_artifact_hash(
     const FactorRiskModelArtifact& artifact) noexcept;
 
+[[nodiscard]] std::uint64_t factor_exposure_payload_hash(
+    const FactorRiskModelArtifact& artifact) noexcept;
+
+[[nodiscard]] std::uint64_t factor_covariance_payload_hash(
+    const FactorRiskModelArtifact& artifact) noexcept;
+
+[[nodiscard]] std::uint64_t specific_variance_payload_hash(
+    const FactorRiskModelArtifact& artifact) noexcept;
+
 [[nodiscard]] std::string serialize_factor_model_artifact(
     const FactorRiskModelArtifact& artifact);
 

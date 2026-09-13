@@ -77,29 +77,3 @@ python tools/run_python_boundary_benchmarks.py `
 Feed capture/replay, WAL recovery/reconciliation, epoll/IOCP, runtime modes and
 operational metrics are covered by the Release CTest suite and documented in
 `benchmarks/VNEXT_COMPLETION.md`.
-
-## ML runtime benchmark
-
-`qbt_ml_benchmark` must be built with Release, LTO and the real ONNX Runtime CPU
-backend. The wrapper rejects non-Release/non-LTO output and records model lineage,
-binary SHA-256, hardware, compiler, ORT version and git revision.
-
-```bash
-ONNXRUNTIME_ROOT=/path/to/onnxruntime cmake -S . -B build/ml-benchmark-release \
-  -DCMAKE_BUILD_TYPE=Release -DQBT_BUILD_PYTHON=OFF -DQBT_ENABLE_ML=ON \
-  -DQBT_ML_BACKEND=onnxruntime -DQBT_BUILD_BENCHMARKS=ON -DQBT_ENABLE_LTO=ON
-cmake --build build/ml-benchmark-release --target qbt_ml_benchmark --parallel
-python3 tools/run_ml_runtime_benchmarks.py \
-  --executable build/ml-benchmark-release/strategy_runtime/qbt_ml_benchmark \
-  --artifact /path/to/manifest-v2-artifact \
-  --output benchmarks/reports/ml-runtime-current.json \
-  --iterations 100 --chunk-size 512 \
-  --benchmark-scope production_candidate
-```
-
-The Phase D M4 Pro baseline is stored in
-`benchmarks/reports/ml-runtime-m4-pro-phase-d.json`. It uses the frozen small V2
-test artifact and is an engineering baseline, not a production-model quality claim.
-The default scope remains `engineering_test_artifact`; Phase E only accepts a report
-that explicitly uses `--benchmark-scope production_candidate` and matches the
-candidate model and training-dataset lineage.

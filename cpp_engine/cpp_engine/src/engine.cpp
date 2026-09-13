@@ -421,7 +421,7 @@ std::vector<Order> BacktestEngine::run_strategy_runtime(
     const auto status = strategy_runtime_->on_market_batch(
         market_view, portfolio_view, output);
     if (status != engine_common::StrategyStatus::OK) {
-        throw std::runtime_error("strategy runtime failed during backtest");
+        throw std::runtime_error(std::string("strategy runtime failed during backtest, status=") + std::to_string(static_cast<int>(status)));
     }
     const auto decision = strategy_runtime_->last_decision();
     if (replay_analytics_sink_) {

@@ -47,6 +47,15 @@ const char* status_name(OptimizationStatus status) {
   return "invalid";
 }
 
+const char* objective_ablation_name(NcoObjectiveAblation value) {
+  switch (value) {
+    case NcoObjectiveAblation::FULL: return "full";
+    case NcoObjectiveAblation::INTRA_ONLY: return "intra_only";
+    case NcoObjectiveAblation::INTER_ONLY: return "inter_only";
+  }
+  return "invalid";
+}
+
 void json_weights(std::ostringstream& output, std::span<const double> values) {
   output << '[';
   for (std::size_t index = 0; index < values.size(); ++index) {
@@ -66,6 +75,11 @@ NcoFfvPolicyResult solve_nco_ffv_minvar(
   NcoFfvPolicyResult result;
   result.posterior_artifact_hash = posterior.artifact_hash;
   result.cluster_spec_hash = cluster_hash(cluster_id_by_symbol, cluster_count);
+  result.nco.diagnostics.objective_ablation = options.nco.objective_ablation;
+  result.nco.diagnostics.intra_objective_enabled =
+      options.nco.objective_ablation != NcoObjectiveAblation::INTER_ONLY;
+  result.nco.diagnostics.inter_objective_enabled =
+      options.nco.objective_ablation != NcoObjectiveAblation::INTRA_ONLY;
   if (options.require_valid_posterior &&
       !valid_posterior_scenario_artifact(posterior)) {
     result.artifact_hash = nco_ffv_policy_artifact_hash(result);
@@ -96,6 +110,10 @@ std::uint64_t nco_ffv_policy_artifact_hash(
   hash_value(hash, result.nco.diagnostics.cluster_count);
   hash_value(hash, result.nco.diagnostics.intra_cluster_iterations);
   hash_value(hash, result.nco.diagnostics.inter_cluster_iterations);
+  hash_byte(hash, static_cast<std::uint8_t>(
+                       result.nco.diagnostics.objective_ablation));
+  hash_byte(hash, result.nco.diagnostics.intra_objective_enabled ? 1 : 0);
+  hash_byte(hash, result.nco.diagnostics.inter_objective_enabled ? 1 : 0);
   hash_double(hash, result.nco.diagnostics.predicted_risk);
   hash_double(hash, result.nco.diagnostics.weight_sum);
   for (double value : result.nco.weights) hash_double(hash, value);
@@ -114,6 +132,12 @@ std::string serialize_nco_ffv_policy_result(
   json_weights(output, result.nco.weights);
   output << ",\"cluster_count\":"
          << result.nco.diagnostics.cluster_count
+         << ",\"objective_ablation\":\""
+         << objective_ablation_name(result.nco.diagnostics.objective_ablation)
+         << "\",\"intra_objective_enabled\":"
+         << (result.nco.diagnostics.intra_objective_enabled ? "true" : "false")
+         << ",\"inter_objective_enabled\":"
+         << (result.nco.diagnostics.inter_objective_enabled ? "true" : "false")
          << ",\"predicted_risk\":" << std::setprecision(17)
          << result.nco.diagnostics.predicted_risk
          << ",\"eligible_for_official_risk\":"

@@ -29,6 +29,25 @@ from .topk_stability import (
     softsort_topk_weights,
     temporal_topk_stability_penalty,
 )
+from .infots import (
+    InfoTSArtifactValidationError,
+    InfoTSAugmentationSpecV1,
+    apply_causal_augmentations,
+    build_infots_pretraining_artifact,
+    info_nce_loss,
+    select_information_aware_augmentation,
+    validate_infots_pretraining_artifact,
+)
+from .infots_training import (
+    InfoTSTrainingSpecV1,
+    InfoTSTrainingUnavailable,
+    InfoTSCausalEncoder,
+    InfoTSSiamesePretrainer,
+    PRODUCTION_OUTPUT_KEYS,
+    train_infots_pretraining,
+    validate_infots_training_artifact,
+    validate_six_output_contract,
+)
 
 __all__ = [
     "FrozenCppLedger",
@@ -52,4 +71,19 @@ __all__ = [
     "finite_difference_temporal_gradient",
     "softsort_topk_weights",
     "temporal_topk_stability_penalty",
+    "InfoTSArtifactValidationError",
+    "InfoTSAugmentationSpecV1",
+    "apply_causal_augmentations",
+    "build_infots_pretraining_artifact",
+    "info_nce_loss",
+    "select_information_aware_augmentation",
+    "validate_infots_pretraining_artifact",
+    "InfoTSTrainingSpecV1",
+    "InfoTSTrainingUnavailable",
+    "InfoTSCausalEncoder",
+    "InfoTSSiamesePretrainer",
+    "PRODUCTION_OUTPUT_KEYS",
+    "train_infots_pretraining",
+    "validate_infots_training_artifact",
+    "validate_six_output_contract",
 ]

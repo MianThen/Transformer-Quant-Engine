@@ -40,6 +40,19 @@ void hash_matrix(std::uint64_t& hash, const DenseMatrix& matrix) {
   }
 }
 
+std::uint64_t matrix_payload_hash(const DenseMatrix& matrix) {
+  std::uint64_t hash = kFnvOffset;
+  hash_matrix(hash, matrix);
+  return hash;
+}
+
+std::uint64_t vector_payload_hash(const DenseVector& values) {
+  std::uint64_t hash = kFnvOffset;
+  hash_value(hash, static_cast<std::uint64_t>(values.size()));
+  for (const double value : values) hash_double(hash, value);
+  return hash;
+}
+
 void hash_exposure_source_manifest(
     std::uint64_t& hash, const FactorExposureSourceManifest& manifest) {
   hash_value(hash, static_cast<std::uint8_t>(manifest.status));
@@ -449,6 +462,31 @@ std::uint64_t factor_model_artifact_hash(
   return hash_factor_artifact(artifact);
 }
 
+std::uint64_t factor_exposure_payload_hash(
+    const FactorRiskModelArtifact& artifact) noexcept {
+  if (artifact.status != FactorModelStatus::OK || artifact.exposures.rows() == 0) {
+    return 0;
+  }
+  return matrix_payload_hash(artifact.exposures);
+}
+
+std::uint64_t factor_covariance_payload_hash(
+    const FactorRiskModelArtifact& artifact) noexcept {
+  if (artifact.status != FactorModelStatus::OK ||
+      artifact.factor_covariance.rows() == 0) {
+    return 0;
+  }
+  return matrix_payload_hash(artifact.factor_covariance);
+}
+
+std::uint64_t specific_variance_payload_hash(
+    const FactorRiskModelArtifact& artifact) noexcept {
+  if (artifact.status != FactorModelStatus::OK || artifact.specific_variance.size() == 0) {
+    return 0;
+  }
+  return vector_payload_hash(artifact.specific_variance);
+}
+
 std::string serialize_factor_model_artifact(
     const FactorRiskModelArtifact& artifact) {
   if (!valid_factor_model_artifact(artifact, artifact.available_at)) return {};
@@ -463,6 +501,12 @@ std::string serialize_factor_model_artifact(
          << ",\"wls_spec_hash\":" << artifact.wls_spec_hash
          << ",\"config_hash\":" << artifact.config_hash
          << ",\"pit_exposure_hash\":" << artifact.pit_exposure_hash
+         << ",\"factor_exposure_payload_hash\":"
+         << factor_exposure_payload_hash(artifact)
+         << ",\"factor_covariance_payload_hash\":"
+         << factor_covariance_payload_hash(artifact)
+         << ",\"specific_variance_payload_hash\":"
+         << specific_variance_payload_hash(artifact)
          << ",\"exposure_source\":{\"status\":\""
          << exposure_source_status_name(artifact.exposure_source.status)
          << "\",\"source_schema_hash\":"

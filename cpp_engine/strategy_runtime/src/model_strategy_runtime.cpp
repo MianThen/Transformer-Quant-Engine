@@ -128,10 +128,31 @@ engine_common::StrategyStatus ModelStrategyRuntime::on_market_batch(
     auto features = window_store_.batch(
         market.asof_timestamp, config_.artifact.descriptor.feature_schema_hash,
         symbols_);
+    if (features.batch_size == 0) {
+      // 无足够历史: 不产生预测也不产生订单，正常返回
+      return engine_common::StrategyStatus::OK;
+    }
     predictions_.resize(symbols_.size());
     engine_common::PredictionBatch predictions{0, 0, predictions_, 0};
+    if (features.batch_size > 0 && metrics_.market_batches <= 70) {
+      // 仅前 70 个截面 dump 特征范围
+      float fmin = 1e30F, fmax = -1e30F;
+      size_t nan_count = 0;
+      for (size_t i = 0; i < features.batch_size * features.lookback * features.feature_count; ++i) {
+        float v = features.values[i];
+        if (std::isnan(v)) ++nan_count;
+        else { fmin = std::min(fmin, v); fmax = std::max(fmax, v); }
+      }
+      std::fprintf(stderr, "FEAT batch=%zu min=%.4f max=%.4f nan=%zu ts=%lld\n",
+                   features.batch_size, fmin, fmax, nan_count,
+                   static_cast<long long>(market.asof_timestamp));
+    }
     const auto status = backend_->infer(features, predictions);
     if (status != qbt::ml::InferenceStatus::OK) {
+      std::fprintf(stderr, "INFER status=%d batch=%zu lookback=%u fc=%zu sfc=%zu schema=%lx\n",
+                   static_cast<int>(status), features.batch_size, features.lookback,
+                   features.feature_count, features.static_feature_count,
+                   features.feature_schema_hash);
       ++metrics_.inference_errors;
       return engine_common::StrategyStatus::MODEL_ERROR;
     }
@@ -183,7 +204,12 @@ engine_common::StrategyStatus ModelStrategyRuntime::on_market_batch(
       ++metrics_.generated_intents;
     }
     return engine_common::StrategyStatus::OK;
+  } catch (const std::exception& error) {
+    std::fprintf(stderr, "MODEL_ERROR detail: %s\n", error.what());
+    ++metrics_.inference_errors;
+    return engine_common::StrategyStatus::MODEL_ERROR;
   } catch (...) {
+    std::fprintf(stderr, "MODEL_ERROR detail: unknown exception\n");
     ++metrics_.inference_errors;
     return engine_common::StrategyStatus::MODEL_ERROR;
   }

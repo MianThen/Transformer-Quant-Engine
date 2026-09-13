@@ -15,7 +15,7 @@ struct ArrowFieldView {
 
 inline void validate_arrow_market_schema(std::span<const ArrowFieldView> fields) {
     std::unordered_map<std::string_view, std::string_view> formats;
-    formats.reserve(fields.size());
+    formats.reserve(fields.size());//提前分配内存
     for (const ArrowFieldView field : fields) {
         if (field.name.empty() || field.format.empty() ||
             !formats.emplace(field.name, field.format).second) {

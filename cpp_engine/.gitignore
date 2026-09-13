@@ -1,0 +1,51 @@
+# macOS and IDE state
+.DS_Store
+.idea/
+.claude/settings.local.json
+.codex/
+
+# CMake and packaging outputs
+build/
+cmake-build-*/
+dist/
+*.egg-info/
+*.so
+*.dylib
+*.pyd
+
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local data, run state and credentials
+runs/
+work/
+data/
+.env
+.env.*
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.parquet
+*.feather
+*.arrow
+*.onnx
+*.pem
+*.key
+
+# Generated experiment archives and editor backups
+experiments/**/archives/
+*.orig
+*.swp
+*.zip
+*.tar.gz
+*.replay
+*.wal

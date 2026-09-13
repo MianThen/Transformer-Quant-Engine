@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "INFOTS-SUPERVISED-BUDGET-ABLATION-V1",
+  "group_ids": ["from_scratch", "fixed_augmentation", "infots"],
+  "fold_ids": [1, 2, 3],
+  "supervised_budget": 50,
+  "gate_spec_sha256": "74f2ad9e09b588079d92cbe0ee9f9e13d7940f6041dff90a5c632ef156ebddc7",
+  "prediction_outputs": [
+    "expected_return",
+    "expected_volatility",
+    "direction_probability",
+    "lower_quantile",
+    "upper_quantile",
+    "confidence"
+  ],
+  "embedding_snapshot_roles": ["validation", "test"],
+  "production_eval": false
+}

@@ -140,6 +140,12 @@ bool valid_covariance(const DenseMatrix& covariance, const NcoPolicyOptions& opt
   return true;
 }
 
+bool valid_objective_ablation(NcoObjectiveAblation value) noexcept {
+  return value == NcoObjectiveAblation::FULL ||
+      value == NcoObjectiveAblation::INTRA_ONLY ||
+      value == NcoObjectiveAblation::INTER_ONLY;
+}
+
 DenseMatrix cluster_covariance(const DenseMatrix& covariance,
                                const std::vector<std::vector<std::size_t>>& members,
                                const std::vector<std::vector<double>>& local_weights) {
@@ -174,7 +180,9 @@ NcoPolicyResult solve_impl(quant_math::MatrixView official_covariance,
                            std::span<const double> cluster_risk_budgets,
                            bool risk_budget_mode,
                            NcoPolicyOptions options) {
-  if (!valid_nco_policy_options(options) || official_covariance.rows == 0 ||
+  if (!valid_nco_policy_options(options) ||
+      !valid_objective_ablation(options.objective_ablation) ||
+      official_covariance.rows == 0 ||
       official_covariance.rows != official_covariance.cols ||
       official_covariance.rows != cluster_ids.size()) {
     return failed(OptimizationStatus::INVALID_INPUT);
@@ -205,6 +213,11 @@ NcoPolicyResult solve_impl(quant_math::MatrixView official_covariance,
   NcoPolicyResult result;
   auto& diagnostics = result.diagnostics;
   diagnostics.cluster_count = cluster_count;
+  diagnostics.objective_ablation = options.objective_ablation;
+  diagnostics.intra_objective_enabled =
+      options.objective_ablation != NcoObjectiveAblation::INTER_ONLY;
+  diagnostics.inter_objective_enabled =
+      options.objective_ablation != NcoObjectiveAblation::INTRA_ONLY;
   diagnostics.cluster_sizes.reserve(cluster_count);
   for (const auto& cluster : members) {
     diagnostics.cluster_sizes.push_back(static_cast<std::uint32_t>(cluster.size()));
@@ -212,7 +225,11 @@ NcoPolicyResult solve_impl(quant_math::MatrixView official_covariance,
   std::vector<std::vector<double>> local_weights(cluster_count);
   for (std::size_t cluster = 0; cluster < cluster_count; ++cluster) {
     const DenseMatrix local_covariance = extract_submatrix(covariance, members[cluster]);
-    if (risk_budget_mode) {
+    if (!diagnostics.intra_objective_enabled) {
+      local_weights[cluster].assign(
+          members[cluster].size(),
+          1.0 / static_cast<double>(members[cluster].size()));
+    } else if (risk_budget_mode) {
       std::vector<double> budgets(members[cluster].size(),
                                   1.0 / static_cast<double>(members[cluster].size()));
       RiskBudgetOptions budget_options;
@@ -245,7 +262,11 @@ NcoPolicyResult solve_impl(quant_math::MatrixView official_covariance,
   const DenseMatrix inter_covariance =
       cluster_covariance(covariance, members, local_weights);
   std::vector<double> cluster_weights;
-  if (risk_budget_mode) {
+  if (!diagnostics.inter_objective_enabled) {
+    cluster_weights.assign(
+        cluster_count, options.target_investment /
+            static_cast<double>(cluster_count));
+  } else if (risk_budget_mode) {
     RiskBudgetOptions budget_options;
     budget_options.max_iterations = options.max_iterations;
     budget_options.tolerance = options.tolerance;
@@ -296,7 +317,8 @@ bool valid_nco_policy_options(const NcoPolicyOptions& options) noexcept {
          options.tolerance > 0.0 && std::isfinite(options.symmetry_tolerance) &&
          options.symmetry_tolerance >= 0.0 && std::isfinite(options.psd_tolerance) &&
          options.psd_tolerance > 0.0 && std::isfinite(options.target_investment) &&
-         options.target_investment > 0.0 && options.target_investment <= 1.0;
+         options.target_investment > 0.0 && options.target_investment <= 1.0 &&
+         valid_objective_ablation(options.objective_ablation);
 }
 
 NcoPolicyResult solve_nco_minvar(

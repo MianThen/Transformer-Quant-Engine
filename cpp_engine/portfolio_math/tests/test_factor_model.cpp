@@ -63,7 +63,13 @@ int main() {
   ok = ok && portfolio_math::valid_factor_model_artifact(artifact, 30);
   const auto serialized = portfolio_math::serialize_factor_model_artifact(artifact);
   ok = ok && portfolio_math::factor_model_artifact_hash(artifact) == artifact.artifact_hash &&
+      portfolio_math::factor_exposure_payload_hash(artifact) != 0 &&
+      portfolio_math::factor_covariance_payload_hash(artifact) != 0 &&
+      portfolio_math::specific_variance_payload_hash(artifact) != 0 &&
       serialized.find("\"exposure_source\"") != std::string::npos &&
+      serialized.find("\"factor_exposure_payload_hash\"") != std::string::npos &&
+      serialized.find("\"factor_covariance_payload_hash\"") != std::string::npos &&
+      serialized.find("\"specific_variance_payload_hash\"") != std::string::npos &&
       serialized.find("\"status\":\"KNOWN\"") != std::string::npos;
   ok = ok && artifact.factor_covariance.rows() == 2;
   ok = ok && artifact.specific_variance.size() == 3;

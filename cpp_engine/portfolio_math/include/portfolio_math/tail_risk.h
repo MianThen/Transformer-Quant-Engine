@@ -49,9 +49,12 @@ struct TailRiskSpec {
     std::uint32_t forecast_horizon_periods{1};
     std::uint32_t residual_block_length{1};
     std::uint32_t evt_minimum_exceedances{0};
+    std::uint32_t evt_threshold_grid_points{0};
     double evt_threshold_quantile_min{0.0};
     double evt_threshold_quantile_max{0.0};
     double evt_shape_upper_guard{0.0};
+    double evt_max_shape_spread{0.0};
+    double evt_max_relative_es_spread{0.0};
     bool synchronized_residual_rows{false};
     bool filtered_volatility_state_only{true};
     bool training_only_tail_calibration{true};
@@ -77,6 +80,36 @@ struct TailRiskProblemView {
     TailRiskSpec spec;
 };
 
+struct AssetGarchDiagnostic {
+    engine_common::SymbolId symbol_id{0};
+    double mean{0.0};
+    double omega{0.0};
+    double alpha{0.0};
+    double beta{0.0};
+    double forecast_variance{0.0};
+    double stationarity_margin{0.0};
+    double standardized_residual_mean{0.0};
+    double standardized_residual_variance{0.0};
+    double residual_ljung_box{0.0};
+    double squared_residual_ljung_box{0.0};
+    double maximum_standardized_residual{0.0};
+};
+
+struct EvtThresholdDiagnostic {
+    TailRiskStatus status{TailRiskStatus::INVALID_INPUT};
+    double threshold_quantile{0.0};
+    double threshold_loss{0.0};
+    std::uint32_t exceedance_count{0};
+    double effective_exceedances{0.0};
+    double tail_probability{0.0};
+    double gpd_shape{0.0};
+    double gpd_scale{0.0};
+    double value_at_risk_loss{0.0};
+    double expected_shortfall_loss{0.0};
+    double splice_continuity_error{0.0};
+    double splice_probability_error{0.0};
+};
+
 struct TailRiskEstimate {
     TailRiskStatus status{TailRiskStatus::INVALID_INPUT};
     TailRiskEstimatorKind estimator{
@@ -91,6 +124,10 @@ struct TailRiskEstimate {
     std::optional<double> calibrated_expectile_level;
     std::uint32_t effective_observations{0};
     std::uint32_t evt_exceedance_count{0};
+    std::optional<double> evt_effective_exceedances;
+    std::optional<double> evt_selected_threshold_quantile;
+    std::optional<double> evt_shape_spread;
+    std::optional<double> evt_relative_es_spread;
     std::optional<double> evt_threshold;
     std::optional<double> gpd_shape;
     std::optional<double> gpd_scale;
@@ -106,6 +143,8 @@ struct TailRiskEstimate {
     std::optional<double> squared_residual_ljung_box;
     std::optional<double> arch_lm_statistic;
     std::optional<double> maximum_standardized_residual;
+    std::vector<AssetGarchDiagnostic> asset_garch_diagnostics;
+    std::vector<EvtThresholdDiagnostic> evt_threshold_diagnostics;
     double missing_fraction{0.0};
     std::uint64_t input_hash{0};
     std::uint64_t artifact_hash{0};
@@ -120,10 +159,17 @@ struct TailRiskArtifactSpec {
     std::vector<std::string> limitations;
 };
 
+struct GpdTailEvaluation {
+    TailRiskStatus status{TailRiskStatus::INVALID_INPUT};
+    double value_at_risk_loss{0.0};
+    double expected_shortfall_loss{0.0};
+};
+
 enum class TailRiskBacktestStatus : std::uint8_t {
     OK,
     INVALID_INPUT,
     INSUFFICIENT_OBSERVATIONS,
+    FZ0_DOMAIN_FAILURE,
     NUMERICAL_FAILURE,
 };
 
@@ -155,6 +201,78 @@ struct TailRiskBacktestResult {
     double kupiec_p_value{1.0};
     double christoffersen_lr{0.0};
     double christoffersen_p_value{1.0};
+    double mean_fz0_score{0.0};
+    std::uint64_t input_hash{0};
+    std::uint64_t artifact_hash{0};
+};
+
+enum class TailRiskEsrVariant : std::uint8_t {
+    STRICT,
+    AUXILIARY,
+    STRICT_INTERCEPT,
+};
+
+enum class TailRiskEsrStatus : std::uint8_t {
+    OK,
+    INVALID_INPUT,
+    INSUFFICIENT_OBSERVATIONS,
+    OPTIMIZATION_FAILURE,
+    COVARIANCE_FAILURE,
+    DOMAIN_FAILURE,
+};
+
+enum class TailRiskEsrCovarianceKind : std::uint8_t {
+    CORRECT_SPEC_IID,
+    MISSPECIFICATION_ROBUST_HAC,
+};
+
+struct TailRiskEsrSpec {
+    double confidence_level{0.0};
+    std::uint32_t minimum_observations{40};
+    std::uint32_t maximum_iterations{4000};
+    std::uint32_t hac_lag{4};
+    double convergence_tolerance{1e-9};
+    TailRiskEsrCovarianceKind covariance_kind{
+        TailRiskEsrCovarianceKind::MISSPECIFICATION_ROBUST_HAC};
+    std::uint64_t regression_spec_hash{0};
+    std::uint64_t covariance_spec_hash{0};
+    std::uint64_t config_hash{0};
+};
+
+struct TailRiskEsrProblemView {
+    std::span<const engine_common::TimestampNs> realization_timestamps;
+    std::span<const double> realized_returns;
+    std::span<const double> value_at_risk_loss;
+    std::span<const double> expected_shortfall_loss;
+    engine_common::TimestampNs available_at{0};
+    TailRiskEsrSpec spec;
+};
+
+struct TailRiskEsrVariantResult {
+    TailRiskEsrStatus status{TailRiskEsrStatus::INVALID_INPUT};
+    TailRiskEsrVariant variant{TailRiskEsrVariant::STRICT};
+    std::vector<double> quantile_coefficients;
+    std::vector<double> expected_shortfall_coefficients;
+    double objective{0.0};
+    double density_at_quantile{0.0};
+    double truncated_residual_variance{0.0};
+    double wald_statistic{0.0};
+    double two_sided_p_value{1.0};
+    std::optional<double> one_sided_underestimation_p_value;
+    std::uint32_t optimization_iterations{0};
+    std::uint64_t artifact_hash{0};
+};
+
+struct TailRiskEsrBacktestResult {
+    TailRiskEsrStatus status{TailRiskEsrStatus::INVALID_INPUT};
+    double confidence_level{0.0};
+    std::uint32_t effective_observations{0};
+    std::uint32_t hac_lag{0};
+    TailRiskEsrCovarianceKind covariance_kind{
+        TailRiskEsrCovarianceKind::MISSPECIFICATION_ROBUST_HAC};
+    TailRiskEsrVariantResult strict;
+    TailRiskEsrVariantResult auxiliary;
+    TailRiskEsrVariantResult strict_intercept;
     std::uint64_t input_hash{0};
     std::uint64_t artifact_hash{0};
 };
@@ -170,6 +288,16 @@ struct TailRiskBacktestResult {
 [[nodiscard]] TailRiskEstimate estimate_garch_fhs_evt_tail_risk(
     const TailRiskProblemView& problem);
 
+[[nodiscard]] TailRiskEstimate estimate_fhs_pot_gpd_splice(
+    std::span<const double> fhs_losses,
+    std::span<const double> scenario_probabilities,
+    const TailRiskSpec& spec);
+
+[[nodiscard]] GpdTailEvaluation evaluate_gpd_tail(
+    double threshold_loss, double threshold_tail_probability,
+    double gpd_shape, double gpd_scale, double confidence_level,
+    double shape_upper_guard) noexcept;
+
 [[nodiscard]] TailRiskEstimate estimate_expectile_tail_risk(
     const TailRiskProblemView& problem);
 
@@ -180,8 +308,15 @@ struct TailRiskBacktestResult {
 [[nodiscard]] TailRiskBacktestResult backtest_tail_risk(
     const TailRiskBacktestProblemView& problem);
 
+[[nodiscard]] TailRiskEsrBacktestResult backtest_tail_risk_esr(
+    const TailRiskEsrProblemView& problem);
+
 [[nodiscard]] std::string serialize_tail_risk_backtest_artifact(
     const TailRiskBacktestResult& result,
+    const TailRiskArtifactSpec& artifact_spec);
+
+[[nodiscard]] std::string serialize_tail_risk_esr_backtest_artifact(
+    const TailRiskEsrBacktestResult& result,
     const TailRiskArtifactSpec& artifact_spec);
 
 }  // namespace portfolio_math

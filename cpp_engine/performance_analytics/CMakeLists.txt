@@ -2,6 +2,7 @@ add_library(performance_analytics STATIC
     src/active_attribution.cpp
     src/factor_attribution_v2.cpp
     src/implementation_shortfall.cpp
+    src/infots_replay.cpp
     src/period_contribution_coordinator.cpp
     src/period_contribution_replay_sink.cpp
     src/performance_spec.cpp
@@ -13,6 +14,11 @@ add_library(performance_analytics STATIC
 )
 target_include_directories(performance_analytics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(performance_analytics PUBLIC engine_common)
+if(QBT_ENABLE_PORTFOLIO_MATH)
+    target_sources(performance_analytics PRIVATE
+        src/policy_family_governance.cpp)
+    target_link_libraries(performance_analytics PUBLIC portfolio_math)
+endif()
 qbt_enable_warnings(performance_analytics)
 qbt_enable_lto(performance_analytics)
 
@@ -27,6 +33,12 @@ target_link_libraries(test_return_analysis PRIVATE performance_analytics)
 qbt_enable_warnings(test_return_analysis)
 qbt_static_test_runtime(test_return_analysis)
 add_test(NAME test_return_analysis COMMAND test_return_analysis)
+
+add_executable(test_infots_replay tests/test_infots_replay.cpp)
+target_link_libraries(test_infots_replay PRIVATE performance_analytics)
+qbt_enable_warnings(test_infots_replay)
+qbt_static_test_runtime(test_infots_replay)
+add_test(NAME test_infots_replay COMMAND test_infots_replay)
 
 add_executable(test_implementation_shortfall tests/test_implementation_shortfall.cpp)
 target_link_libraries(test_implementation_shortfall PRIVATE performance_analytics)
@@ -66,3 +78,34 @@ target_link_libraries(test_factor_attribution_v2 PRIVATE performance_analytics)
 qbt_enable_warnings(test_factor_attribution_v2)
 qbt_static_test_runtime(test_factor_attribution_v2)
 add_test(NAME test_factor_attribution_v2 COMMAND test_factor_attribution_v2)
+
+if(QBT_ENABLE_PORTFOLIO_MATH)
+    add_executable(test_policy_family_governance
+        tests/test_policy_family_governance.cpp)
+    target_link_libraries(test_policy_family_governance PRIVATE
+        performance_analytics)
+    qbt_enable_warnings(test_policy_family_governance)
+    qbt_static_test_runtime(test_policy_family_governance)
+    add_test(NAME test_policy_family_governance
+        COMMAND test_policy_family_governance)
+
+    add_executable(phase4b_governance_reference
+        tests/phase4b_governance_reference.cpp)
+    target_link_libraries(phase4b_governance_reference PRIVATE
+        performance_analytics)
+    qbt_enable_warnings(phase4b_governance_reference)
+    qbt_static_test_runtime(phase4b_governance_reference)
+    add_test(NAME test_phase4b_governance_reference
+        COMMAND phase4b_governance_reference --output
+            "${CMAKE_CURRENT_BINARY_DIR}/phase4b-governance-reference/phase4b_governance_reference.json")
+
+    add_executable(phase4a_posterior_direct_reference
+        tests/phase4a_posterior_direct_reference.cpp)
+    target_link_libraries(phase4a_posterior_direct_reference PRIVATE
+        performance_analytics)
+    qbt_enable_warnings(phase4a_posterior_direct_reference)
+    qbt_static_test_runtime(phase4a_posterior_direct_reference)
+    add_test(NAME test_phase4a_posterior_direct_reference
+        COMMAND phase4a_posterior_direct_reference --output
+            "${CMAKE_CURRENT_BINARY_DIR}/phase4a-posterior-direct-reference/phase4a_posterior_direct_reference.json")
+endif()

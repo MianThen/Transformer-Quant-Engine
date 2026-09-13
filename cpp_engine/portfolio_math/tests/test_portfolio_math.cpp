@@ -466,7 +466,8 @@ bool test_tail_risk_backtest() {
   ok &= check(near(result.exception_rate, 0.25) &&
                   near(result.es_violation_rate, 0.125) &&
                   near(result.mean_exceedance_loss, 0.3) &&
-                  near(result.mean_es_excess_loss, 0.1),
+                  near(result.mean_es_excess_loss, 0.1) &&
+                  near(result.mean_fz0_score, std::log(0.7)),
               "VaR/ES joint backtest tail diagnostics");
   ok &= check(result.transition_00 == 3 && result.transition_01 == 2 &&
                   result.transition_10 == 2 && result.transition_11 == 0 &&
@@ -482,6 +483,8 @@ bool test_tail_risk_backtest() {
   ok &= check(serialized.find("\"role\":\"tail_risk_backtest\"") !=
                   std::string::npos &&
                   serialized.find("\"transition_01\":2") !=
+                      std::string::npos &&
+                  serialized.find("\"mean_fz0_score\"") !=
                       std::string::npos &&
                   serialized.find("\"promotion_eligible\":false") !=
                       std::string::npos,
@@ -499,6 +502,15 @@ bool test_tail_risk_backtest() {
   ok &= check(portfolio_math::backtest_tail_risk(problem).status ==
                   portfolio_math::TailRiskBacktestStatus::INVALID_INPUT,
               "ES below VaR closes VaR/ES backtest");
+  problem.expected_shortfall_loss = es_loss;
+  const std::vector<double> negative_var_loss(timestamps.size(), -0.2);
+  const std::vector<double> zero_es_loss(timestamps.size(), 0.0);
+  problem.value_at_risk_loss = negative_var_loss;
+  problem.expected_shortfall_loss = zero_es_loss;
+  ok &= check(portfolio_math::backtest_tail_risk(problem).status ==
+                  portfolio_math::TailRiskBacktestStatus::FZ0_DOMAIN_FAILURE,
+              "nonpositive loss-ES closes FZ0 scoring domain");
+  problem.value_at_risk_loss = var_loss;
   problem.expected_shortfall_loss = es_loss;
   problem.realized_returns = std::span<const double>(returns.data(), 2);
   problem.realization_timestamps = std::span<const engine_common::TimestampNs>(
@@ -605,13 +617,62 @@ bool test_garch_fhs() {
   ok &= check(portfolio_math::estimate_garch_fhs_tail_risk(invalid_spec).status ==
                   portfolio_math::TailRiskStatus::INVALID_INPUT,
               "GARCH-FHS unfrozen mean model closes replay");
-  auto unsupported_vector = problem;
-  unsupported_vector.spec.scenario_model =
+  quant_math::DenseMatrix synchronized_returns(observation_count, 2);
+  for (std::size_t row = 0; row < observation_count; ++row) {
+    synchronized_returns(static_cast<Eigen::Index>(row), 0) = returns[row];
+    synchronized_returns(static_cast<Eigen::Index>(row), 1) = returns[row];
+  }
+  const std::vector<engine_common::SymbolId> vector_symbols{17, 18};
+  const std::vector<double> vector_weights{0.6, 0.4};
+  auto synchronized_vector = problem;
+  synchronized_vector.symbols = vector_symbols;
+  synchronized_vector.fixed_portfolio_weights = vector_weights;
+  synchronized_vector.portfolio_return_history = {};
+  synchronized_vector.asset_return_history =
+      quant_math::view(synchronized_returns);
+  synchronized_vector.spec.scenario_model =
       portfolio_math::TailScenarioModelKind::ASSET_VECTOR_SYNCHRONIZED;
-  unsupported_vector.spec.synchronized_residual_rows = true;
-  ok &= check(portfolio_math::estimate_garch_fhs_tail_risk(unsupported_vector).status ==
+  synchronized_vector.spec.synchronized_residual_rows = true;
+  synchronized_vector.spec.scenario_seed = 704;
+  synchronized_vector.spec.config_hash = 705;
+  const auto vector_result =
+      portfolio_math::estimate_garch_fhs_tail_risk(synchronized_vector);
+  ok &= check(vector_result.status == portfolio_math::TailRiskStatus::OK &&
+                  vector_result.scenario_model ==
+                      portfolio_math::TailScenarioModelKind::
+                          ASSET_VECTOR_SYNCHRONIZED &&
+                  vector_result.asset_garch_diagnostics.size() == 2 &&
+                  vector_result.value_at_risk_loss &&
+                  vector_result.expected_shortfall_loss &&
+                  near(*vector_result.value_at_risk_loss,
+                       *result.value_at_risk_loss) &&
+                  near(*vector_result.expected_shortfall_loss,
+                       *result.expected_shortfall_loss),
+              "asset-vector FHS preserves synchronized residual-row parity");
+  const auto vector_replay =
+      portfolio_math::estimate_tail_risk(synchronized_vector);
+  ok &= check(vector_replay.status == portfolio_math::TailRiskStatus::OK &&
+                  vector_replay.artifact_hash == vector_result.artifact_hash,
+              "asset-vector FHS deterministic replay");
+  const auto vector_artifact = portfolio_math::serialize_tail_risk_artifact(
+      vector_result, synchronized_vector.spec, artifact_spec);
+  ok &= check(vector_artifact.find("\"asset_garch\":[{") !=
+                      std::string::npos &&
+                  vector_artifact.find("\"symbol_id\":18") !=
+                      std::string::npos,
+              "asset-vector FHS records per-asset diagnostics");
+  auto unsynchronized_vector = synchronized_vector;
+  unsynchronized_vector.spec.synchronized_residual_rows = false;
+  ok &= check(portfolio_math::estimate_garch_fhs_tail_risk(
+                  unsynchronized_vector).status ==
                   portfolio_math::TailRiskStatus::INVALID_INPUT,
-              "GARCH-FHS unsupported vector path closes replay");
+              "independent per-asset residual sampling is rejected");
+  auto future_vector = synchronized_vector;
+  future_vector.decision_at = static_cast<engine_common::TimestampNs>(
+      observation_count - 1);
+  ok &= check(portfolio_math::estimate_garch_fhs_tail_risk(future_vector).status ==
+                  portfolio_math::TailRiskStatus::INVALID_INPUT,
+              "future asset-vector observation closes replay");
   auto missing_problem = problem;
   std::vector<double> missing_returns = returns;
   missing_returns[observation_count / 2] = std::numeric_limits<double>::quiet_NaN();
@@ -623,16 +684,28 @@ bool test_garch_fhs() {
   evt_problem.spec.estimator = portfolio_math::TailRiskEstimatorKind::
       GARCH_FHS_POT_GPD;
   evt_problem.spec.evt_minimum_exceedances = 12;
+  evt_problem.spec.evt_threshold_grid_points = 4;
   evt_problem.spec.evt_threshold_quantile_min = 0.75;
   evt_problem.spec.evt_threshold_quantile_max = 0.90;
   evt_problem.spec.evt_shape_upper_guard = 0.99;
+  evt_problem.spec.evt_max_shape_spread = 0.35;
+  evt_problem.spec.evt_max_relative_es_spread = 0.25;
   evt_problem.spec.evt_threshold_spec_hash = 704;
   evt_problem.spec.config_hash = 705;
   const auto evt = portfolio_math::estimate_garch_fhs_evt_tail_risk(evt_problem);
+  if (evt.status != portfolio_math::TailRiskStatus::OK) {
+    std::fprintf(stderr, "EVT status=%d diagnostics=%zu spread=%g/%g\n",
+                 static_cast<int>(evt.status),
+                 evt.evt_threshold_diagnostics.size(),
+                 evt.evt_shape_spread.value_or(-1.0),
+                 evt.evt_relative_es_spread.value_or(-1.0));
+  }
   ok &= check(evt.status == portfolio_math::TailRiskStatus::OK &&
                   evt.estimator == portfolio_math::TailRiskEstimatorKind::
                       GARCH_FHS_POT_GPD && evt.evt_threshold && evt.gpd_shape &&
                   evt.gpd_scale && evt.evt_exceedance_count >= 12 &&
+                  evt.evt_threshold_diagnostics.size() == 4 &&
+                  evt.evt_selected_threshold_quantile &&
                   evt.value_at_risk_loss && evt.expected_shortfall_loss &&
                   *evt.expected_shortfall_loss >= *evt.value_at_risk_loss,
               "GARCH-FHS POT-GPD finite tail output");
@@ -643,8 +716,224 @@ bool test_garch_fhs() {
   const auto evt_artifact = portfolio_math::serialize_tail_risk_artifact(
       evt, evt_problem.spec, artifact_spec);
   ok &= check(evt_artifact.find("\"evt\"") != std::string::npos &&
-                  evt_artifact.find("\"shape\"") != std::string::npos,
+                  evt_artifact.find("WEIGHTED_MOMENTS_FOUR_POINT_GRID_V1") !=
+                      std::string::npos &&
+                  evt_artifact.find("\"threshold_diagnostics\":[{") !=
+                      std::string::npos,
               "GARCH-FHS POT-GPD artifact diagnostics");
+  auto synchronized_evt = synchronized_vector;
+  synchronized_evt.spec.estimator = portfolio_math::TailRiskEstimatorKind::
+      GARCH_FHS_POT_GPD;
+  synchronized_evt.spec.evt_minimum_exceedances = 12;
+  synchronized_evt.spec.evt_threshold_grid_points = 4;
+  synchronized_evt.spec.evt_threshold_quantile_min = 0.75;
+  synchronized_evt.spec.evt_threshold_quantile_max = 0.90;
+  synchronized_evt.spec.evt_shape_upper_guard = 0.99;
+  synchronized_evt.spec.evt_max_shape_spread = 0.35;
+  synchronized_evt.spec.evt_max_relative_es_spread = 0.25;
+  synchronized_evt.spec.evt_threshold_spec_hash = 706;
+  synchronized_evt.spec.config_hash = 707;
+  const auto synchronized_evt_result =
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(synchronized_evt);
+  if (synchronized_evt_result.status != portfolio_math::TailRiskStatus::OK) {
+    std::fprintf(stderr,
+                 "vector EVT status=%d diagnostics=%zu spread=%g/%g\n",
+                 static_cast<int>(synchronized_evt_result.status),
+                 synchronized_evt_result.evt_threshold_diagnostics.size(),
+                 synchronized_evt_result.evt_shape_spread.value_or(-1.0),
+                 synchronized_evt_result.evt_relative_es_spread.value_or(-1.0));
+  }
+  ok &= check(
+      synchronized_evt_result.status == portfolio_math::TailRiskStatus::OK &&
+          synchronized_evt_result.estimator ==
+              portfolio_math::TailRiskEstimatorKind::GARCH_FHS_POT_GPD &&
+          synchronized_evt_result.scenario_model ==
+              portfolio_math::TailScenarioModelKind::
+                  ASSET_VECTOR_SYNCHRONIZED &&
+          synchronized_evt_result.asset_garch_diagnostics.size() == 2 &&
+          synchronized_evt_result.evt_threshold &&
+          synchronized_evt_result.gpd_shape &&
+          synchronized_evt_result.gpd_scale &&
+          synchronized_evt_result.evt_threshold_diagnostics.size() == 4 &&
+          synchronized_evt_result.value_at_risk_loss &&
+          synchronized_evt_result.expected_shortfall_loss &&
+          synchronized_evt_result.evt_exceedance_count >= 12 &&
+          *synchronized_evt_result.gpd_scale > 0.0 &&
+          *synchronized_evt_result.gpd_shape <
+              synchronized_evt.spec.evt_shape_upper_guard &&
+          *synchronized_evt_result.expected_shortfall_loss >=
+              *synchronized_evt_result.value_at_risk_loss &&
+          synchronized_evt_result.input_hash != 0 &&
+          synchronized_evt_result.artifact_hash != 0,
+      "asset-vector synchronized FHS POT-GPD finite tail output");
+  if (synchronized_evt_result.status == portfolio_math::TailRiskStatus::OK) {
+    const double support = 1.0 + *synchronized_evt_result.gpd_shape *
+        (*synchronized_evt_result.value_at_risk_loss -
+         *synchronized_evt_result.evt_threshold) /
+        *synchronized_evt_result.gpd_scale;
+    ok &= check(support > 0.0 && std::isfinite(support),
+                "asset-vector POT-GPD VaR remains inside support");
+    ok &= check(
+        synchronized_evt_result.evt_exceedance_count ==
+                evt.evt_exceedance_count &&
+            near(*synchronized_evt_result.evt_threshold,
+                 *evt.evt_threshold, 1e-12) &&
+            near(*synchronized_evt_result.gpd_shape,
+                 *evt.gpd_shape, 1e-12) &&
+            near(*synchronized_evt_result.gpd_scale,
+                 *evt.gpd_scale, 1e-12) &&
+            near(*synchronized_evt_result.value_at_risk_loss,
+                 *evt.value_at_risk_loss, 1e-12) &&
+            near(*synchronized_evt_result.expected_shortfall_loss,
+                 *evt.expected_shortfall_loss, 1e-12),
+        "identical assets preserve synchronized portfolio-loss EVT parity");
+  }
+  const auto synchronized_evt_replay =
+      portfolio_math::estimate_tail_risk(synchronized_evt);
+  ok &= check(
+      synchronized_evt_replay.status == portfolio_math::TailRiskStatus::OK &&
+          synchronized_evt_replay.artifact_hash ==
+              synchronized_evt_result.artifact_hash,
+      "asset-vector synchronized POT-GPD deterministic replay");
+  quant_math::DenseMatrix heterogeneous_returns(observation_count, 2);
+  quant_math::DenseMatrix permuted_heterogeneous_returns(observation_count, 2);
+  std::uint64_t second_state = 1099511628211ULL;
+  double first_variance = 0.0001;
+  double second_variance = 0.00016;
+  constexpr double second_mean = -0.0001;
+  constexpr double second_omega = 0.000003;
+  constexpr double second_alpha = 0.06;
+  constexpr double second_beta = 0.90;
+  for (std::size_t row = 0; row < observation_count; ++row) {
+    double independent_normal = 0.0;
+    for (int draw = 0; draw < 3; ++draw) {
+      second_state = second_state * 2862933555777941757ULL + 3037000493ULL;
+      const double uniform = static_cast<double>(second_state >> 11) /
+          static_cast<double>(1ULL << 53);
+      independent_normal += uniform;
+    }
+    independent_normal = 2.0 * independent_normal - 3.0;
+    const double first_epsilon = returns[row] - mean;
+    const double first_standardized =
+        first_epsilon / std::sqrt(first_variance);
+    const double second_standardized =
+        0.6 * first_standardized + 0.8 * independent_normal;
+    const double second_asset =
+        second_mean + std::sqrt(second_variance) * second_standardized;
+    heterogeneous_returns(static_cast<Eigen::Index>(row), 0) = returns[row];
+    heterogeneous_returns(static_cast<Eigen::Index>(row), 1) = second_asset;
+    permuted_heterogeneous_returns(static_cast<Eigen::Index>(row), 0) =
+        second_asset;
+    permuted_heterogeneous_returns(static_cast<Eigen::Index>(row), 1) =
+        returns[row];
+    first_variance = omega + alpha * first_epsilon * first_epsilon +
+        beta * first_variance;
+    const double second_epsilon = second_asset - second_mean;
+    second_variance = second_omega +
+        second_alpha * second_epsilon * second_epsilon +
+        second_beta * second_variance;
+  }
+  const std::vector<double> heterogeneous_weights{0.35, 0.65};
+  const std::vector<double> permuted_heterogeneous_weights{0.65, 0.35};
+  auto heterogeneous_evt = synchronized_evt;
+  heterogeneous_evt.fixed_portfolio_weights = heterogeneous_weights;
+  heterogeneous_evt.asset_return_history =
+      quant_math::view(heterogeneous_returns);
+  heterogeneous_evt.spec.config_hash = 1707;
+  const auto heterogeneous_result =
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(heterogeneous_evt);
+  auto permuted_heterogeneous_evt = heterogeneous_evt;
+  permuted_heterogeneous_evt.fixed_portfolio_weights =
+      permuted_heterogeneous_weights;
+  permuted_heterogeneous_evt.asset_return_history =
+      quant_math::view(permuted_heterogeneous_returns);
+  permuted_heterogeneous_evt.spec.config_hash = 1707;
+  const auto permuted_heterogeneous_result =
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(
+          permuted_heterogeneous_evt);
+  if (heterogeneous_result.status != portfolio_math::TailRiskStatus::OK ||
+      permuted_heterogeneous_result.status !=
+          portfolio_math::TailRiskStatus::OK) {
+    std::fprintf(stderr,
+                 "heterogeneous EVT status=%d/%d diagnostics=%zu/%zu\n",
+                 static_cast<int>(heterogeneous_result.status),
+                 static_cast<int>(permuted_heterogeneous_result.status),
+                 heterogeneous_result.evt_threshold_diagnostics.size(),
+                 permuted_heterogeneous_result.evt_threshold_diagnostics.size());
+  }
+  ok &= check(
+      heterogeneous_result.status == portfolio_math::TailRiskStatus::OK &&
+          permuted_heterogeneous_result.status ==
+              portfolio_math::TailRiskStatus::OK &&
+          heterogeneous_result.value_at_risk_loss &&
+          permuted_heterogeneous_result.value_at_risk_loss &&
+          heterogeneous_result.expected_shortfall_loss &&
+          permuted_heterogeneous_result.expected_shortfall_loss &&
+          near(*heterogeneous_result.value_at_risk_loss,
+               *permuted_heterogeneous_result.value_at_risk_loss, 1e-12) &&
+          near(*heterogeneous_result.expected_shortfall_loss,
+               *permuted_heterogeneous_result.expected_shortfall_loss,
+               1e-12),
+      "non-identical correlated assets preserve column-order EVT distribution parity");
+  auto changed_evt_hash = synchronized_evt;
+  changed_evt_hash.spec.evt_threshold_spec_hash = 708;
+  const auto changed_evt_hash_result =
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(changed_evt_hash);
+  ok &= check(
+      changed_evt_hash_result.status == portfolio_math::TailRiskStatus::OK &&
+          changed_evt_hash_result.artifact_hash !=
+              synchronized_evt_result.artifact_hash,
+      "asset-vector POT-GPD threshold spec hash binds artifact");
+  auto missing_evt_hash = synchronized_evt;
+  missing_evt_hash.spec.evt_threshold_spec_hash = 0;
+  ok &= check(
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(missing_evt_hash).status ==
+          portfolio_math::TailRiskStatus::INVALID_INPUT,
+      "asset-vector POT-GPD missing threshold hash closes replay");
+  auto non_training_evt = synchronized_evt;
+  non_training_evt.spec.training_only_tail_calibration = false;
+  ok &= check(
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(non_training_evt).status ==
+          portfolio_math::TailRiskStatus::INVALID_INPUT,
+      "asset-vector POT-GPD rejects non-training tail calibration");
+  auto unsynchronized_evt = synchronized_evt;
+  unsynchronized_evt.spec.synchronized_residual_rows = false;
+  ok &= check(
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(unsynchronized_evt).status ==
+          portfolio_math::TailRiskStatus::INVALID_INPUT,
+      "asset-vector POT-GPD rejects independent residual sampling");
+  auto future_evt = synchronized_evt;
+  future_evt.decision_at = static_cast<engine_common::TimestampNs>(
+      observation_count - 1);
+  ok &= check(
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(future_evt).status ==
+          portfolio_math::TailRiskStatus::INVALID_INPUT,
+      "future asset-vector POT-GPD observation closes replay");
+  auto insufficient_vector_evt = synchronized_evt;
+  insufficient_vector_evt.spec.evt_minimum_exceedances = 1000;
+  ok &= check(
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(
+          insufficient_vector_evt).status ==
+          portfolio_math::TailRiskStatus::INSUFFICIENT_TAIL,
+      "asset-vector POT-GPD insufficient tail closes replay");
+  quant_math::DenseMatrix oversized_returns(observation_count, 201);
+  std::vector<engine_common::SymbolId> oversized_symbols(201);
+  std::vector<double> oversized_weights(201, 1.0 / 201.0);
+  for (std::size_t col = 0; col < oversized_symbols.size(); ++col) {
+    oversized_symbols[col] = static_cast<engine_common::SymbolId>(1000 + col);
+    for (std::size_t row = 0; row < observation_count; ++row) {
+      oversized_returns(static_cast<Eigen::Index>(row),
+                        static_cast<Eigen::Index>(col)) = returns[row];
+    }
+  }
+  auto oversized_evt = synchronized_evt;
+  oversized_evt.symbols = oversized_symbols;
+  oversized_evt.fixed_portfolio_weights = oversized_weights;
+  oversized_evt.asset_return_history = quant_math::view(oversized_returns);
+  ok &= check(
+      portfolio_math::estimate_garch_fhs_evt_tail_risk(oversized_evt).status ==
+          portfolio_math::TailRiskStatus::INVALID_INPUT,
+      "asset-vector POT-GPD enforces N at most 200");
   auto insufficient_evt = evt_problem;
   insufficient_evt.spec.evt_minimum_exceedances = 1000;
   ok &= check(portfolio_math::estimate_garch_fhs_evt_tail_risk(insufficient_evt).status ==

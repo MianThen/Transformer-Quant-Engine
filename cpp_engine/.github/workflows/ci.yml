@@ -1,0 +1,60 @@
+name: cpp-ci
+
+on: [push, pull_request]
+
+jobs:
+  linux-gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake --preset ci-gcc
+      - run: cmake --build --preset ci-gcc --parallel 2
+      - run: ctest --preset ci-gcc
+      - run: build/ci-gcc/trading_engine/te_pipeline_benchmark --quick > benchmarks/reports/te-pipeline-ci.json
+      - run: python tools/check_pipeline_budget.py --report benchmarks/reports/te-pipeline-ci.json --budget benchmarks/golden/te-pipeline-budget-v1.json --warning-percent 5 --failure-percent 10
+
+  linux-clang-sanitize:
+    runs-on: ubuntu-latest
+    env: {CC: clang, CXX: clang++}
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake --preset ci-clang-sanitize
+      - run: cmake --build --preset ci-clang-sanitize --parallel 2
+      - run: ASAN_OPTIONS=detect_leaks=1 ctest --preset ci-clang-sanitize
+      - run: build/ci-clang-sanitize/trading_engine/fuzz_decoder -runs=10000
+      - run: build/ci-clang-sanitize/trading_engine/fuzz_wire_protocol -runs=10000
+      - run: build/ci-clang-sanitize/cpp_engine/fuzz_arrow_schema -runs=10000
+
+  linux-clang-tsan:
+    runs-on: ubuntu-latest
+    env: {CC: clang, CXX: clang++}
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake --preset ci-clang-tsan
+      - run: cmake --build --preset ci-clang-tsan --parallel 2
+      - run: ctest --preset ci-clang-tsan
+
+  windows-msvc:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake --preset live-release -A x64
+      - run: cmake --build --preset live-release --config Release --parallel 2
+      - run: ctest --preset live-release -C Release
+
+  python-wheel:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ matrix.python }}"}
+      - run: python -m pip install pybind11==3.0.4 build==1.3.0
+      - run: python -m build --wheel
+      - run: python -m pip install --force-reinstall --no-deps dist/*.whl
+      - run: python -c "import cpp_engine; assert cpp_engine.__build_type__ == 'Release'; assert cpp_engine.BacktestEngine(1000.0).get_cash() == 1000.0"
+        working-directory: /tmp
+      - run: python "$GITHUB_WORKSPACE/tools/run_python_boundary_benchmarks.py" --runs 5 --symbols 1000 --output "$GITHUB_WORKSPACE/benchmarks/reports/python-boundary-ci.json"
+        working-directory: /tmp

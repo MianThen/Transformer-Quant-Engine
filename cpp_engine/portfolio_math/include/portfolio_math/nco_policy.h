@@ -9,12 +9,19 @@
 
 namespace portfolio_math {
 
+enum class NcoObjectiveAblation : std::uint8_t {
+  FULL,
+  INTRA_ONLY,
+  INTER_ONLY,
+};
+
 struct NcoPolicyOptions {
   std::uint32_t max_iterations{10'000};
   double tolerance{1e-10};
   double symmetry_tolerance{1e-10};
   double psd_tolerance{1e-10};
   double target_investment{1.0};
+  NcoObjectiveAblation objective_ablation{NcoObjectiveAblation::FULL};
 };
 
 struct NcoPolicyDiagnostics {
@@ -26,6 +33,9 @@ struct NcoPolicyDiagnostics {
   double max_risk_budget_error{0.0};
   double predicted_risk{0.0};
   double weight_sum{0.0};
+  NcoObjectiveAblation objective_ablation{NcoObjectiveAblation::FULL};
+  bool intra_objective_enabled{true};
+  bool inter_objective_enabled{true};
   std::vector<std::uint32_t> cluster_sizes;
   std::vector<double> cluster_weights;
   bool eligible_for_official_risk{false};

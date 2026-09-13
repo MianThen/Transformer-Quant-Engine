@@ -140,6 +140,7 @@ InferenceStatus OnnxRuntimeBackend::infer(
         output.values.size() < input.batch_size) {
         return InferenceStatus::OUTPUT_OVERFLOW;
     }
+    if (input.batch_size == 0) return InferenceStatus::OK;  // 空截面跳过推理
     try {
         const auto started = std::chrono::steady_clock::now();
         Ort::MemoryInfo memory = Ort::MemoryInfo::CreateCpu(

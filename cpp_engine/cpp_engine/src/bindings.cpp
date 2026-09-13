@@ -28,6 +28,7 @@
 #include "performance_analytics/performance_spec.h"
 #include "performance_analytics/return_analysis.h"
 #include "performance_analytics/return_ledger.h"
+#include "performance_analytics/infots_replay.h"
 #endif
 #ifdef QBT_ENABLE_PORTFOLIO_MATH
 #include "portfolio_math/tail_risk.h"
@@ -188,6 +189,124 @@ std::string serialize_drift_snapshot_binding(const py::dict& fields) {
     throw py::value_error("invalid drift snapshot contract");
   return artifact;
 }
+
+py::dict run_infots_precomputed_replay_binding(
+    const py::dict& fields, const py::sequence& row_values) {
+  performance_analytics::InfoTSReplaySpecV1 spec;
+  const auto required_string = [&fields](const char* name) {
+    if (!fields.contains(name)) {
+      throw py::value_error(std::string("InfoTS replay spec missing ") + name);
+    }
+    return fields[name].cast<std::string>();
+  };
+  if (fields.contains("schema_version"))
+    spec.schema_version = fields["schema_version"].cast<std::uint32_t>();
+  spec.group_id = required_string("group_id");
+  spec.fold_id = fields.contains("fold_id")
+      ? fields["fold_id"].cast<std::uint32_t>() : 0;
+  if (fields.contains("policy_id"))
+    spec.policy_id = fields["policy_id"].cast<std::string>();
+  spec.contract_sha256 = required_string("contract_sha256");
+  spec.dataset_fingerprint = required_string("dataset_fingerprint");
+  spec.prediction_artifact_sha256 =
+      required_string("prediction_artifact_sha256");
+  spec.validation_embedding_sha256 =
+      required_string("validation_embedding_sha256");
+  spec.test_embedding_sha256 = required_string("test_embedding_sha256");
+  spec.source_snapshot_set_sha256 =
+      required_string("source_snapshot_set_sha256");
+  if (fields.contains("declared_source_replay_sha256"))
+    spec.declared_source_replay_sha256 =
+        fields["declared_source_replay_sha256"].cast<std::string>();
+  if (fields.contains("calendar_id"))
+    spec.calendar_id = fields["calendar_id"].cast<std::string>();
+  if (fields.contains("calendar_periods_per_year"))
+    spec.calendar_periods_per_year =
+        fields["calendar_periods_per_year"].cast<double>();
+  if (fields.contains("config_hash"))
+    spec.config_hash = fields["config_hash"].cast<std::uint64_t>();
+  if (fields.contains("minimum_tail_observations"))
+    spec.minimum_tail_observations =
+        fields["minimum_tail_observations"].cast<std::uint32_t>();
+  if (fields.contains("initial_equity"))
+    spec.initial_equity = fields["initial_equity"].cast<double>();
+  for (const auto& name : {"claim_scope", "reference_price_quality",
+                           "execution_data_state", "corporate_action_state",
+                           "bar_reference_policy", "action_policy",
+                           "lot_policy", "limit_policy", "fee_policy",
+                           "slippage_policy"}) {
+    if (fields.contains(name)) fields[name].cast<std::string>();
+  }
+  const auto field_string = [&fields](const char* name,
+                                      std::string current) {
+    return fields.contains(name) ? fields[name].cast<std::string>()
+                                 : std::move(current);
+  };
+  spec.claim_scope = field_string("claim_scope", std::move(spec.claim_scope));
+  spec.reference_price_quality =
+      field_string("reference_price_quality",
+                   std::move(spec.reference_price_quality));
+  spec.execution_data_state =
+      field_string("execution_data_state", std::move(spec.execution_data_state));
+  spec.corporate_action_state =
+      field_string("corporate_action_state",
+                   std::move(spec.corporate_action_state));
+  spec.bar_reference_policy =
+      field_string("bar_reference_policy", std::move(spec.bar_reference_policy));
+  spec.action_policy = field_string("action_policy", std::move(spec.action_policy));
+  spec.lot_policy = field_string("lot_policy", std::move(spec.lot_policy));
+  spec.limit_policy = field_string("limit_policy", std::move(spec.limit_policy));
+  spec.fee_policy = field_string("fee_policy", std::move(spec.fee_policy));
+  spec.slippage_policy =
+      field_string("slippage_policy", std::move(spec.slippage_policy));
+
+  std::vector<performance_analytics::InfoTSReplayRowV1> rows;
+  rows.reserve(static_cast<std::size_t>(py::len(row_values)));
+  for (const auto& item : row_values) {
+    if (!py::isinstance<py::dict>(item))
+      throw py::value_error("InfoTS replay rows must be objects");
+    const py::dict row_fields = item.cast<py::dict>();
+    performance_analytics::InfoTSReplayRowV1 row;
+    row.session_id = row_fields["session_id"].cast<std::uint64_t>();
+    row.prediction_available_at =
+        row_fields["prediction_available_at"].cast<engine_common::TimestampNs>();
+    row.decision_at = row_fields["decision_at"].cast<engine_common::TimestampNs>();
+    row.realized_at = row_fields["realized_at"].cast<engine_common::TimestampNs>();
+    row.realized_proxy_return =
+        row_fields["realized_proxy_return"].cast<double>();
+    const py::sequence outputs =
+        row_fields["prediction_outputs"].cast<py::sequence>();
+    if (py::len(outputs) != row.prediction_outputs.size())
+      throw py::value_error("InfoTS replay rows require six prediction outputs");
+    for (std::size_t index = 0; index < row.prediction_outputs.size(); ++index)
+      row.prediction_outputs[index] = outputs[index].cast<double>();
+    rows.push_back(row);
+  }
+  const auto result =
+      performance_analytics::run_infots_precomputed_replay(spec, rows);
+  py::dict output;
+  output["status"] = performance_analytics::infots_replay_status_name(result.status);
+  output["group_id"] = result.group_id;
+  output["fold_id"] = result.fold_id;
+  output["policy_id"] = result.policy_id;
+  output["row_count"] = result.row_count;
+  output["source_replay_sha256"] = result.source_replay_sha256;
+  output["ledger_sha256"] = result.ledger_sha256;
+  output["artifact_sha256"] = result.artifact_sha256;
+  output["ledger_hash"] = result.ledger_hash;
+  output["observations"] = result.observations;
+  output["cumulative_return"] = result.cumulative_return;
+  output["sharpe"] = result.sharpe;
+  output["maximum_drawdown"] = result.maximum_drawdown;
+  output["var_loss"] = result.var_loss;
+  output["expected_shortfall_loss"] = result.expected_shortfall_loss;
+  output["return_cvar"] = result.return_cvar;
+  output["research_comparison_eligible"] = result.research_comparison_eligible;
+  output["phase_exit_eligible"] = result.phase_exit_eligible;
+  output["promotion_eligible"] = result.promotion_eligible;
+  output["artifact_json"] = result.artifact_json;
+  return output;
+}
 #endif
 
 #ifdef QBT_ENABLE_PORTFOLIO_MATH
@@ -226,6 +345,116 @@ py::dict estimate_empirical_cvar_binding(const std::vector<double>& returns,
   artifact_spec.limitations.push_back("REFERENCE_PRICE_PROXY");
   result["artifact_json"] = portfolio_math::serialize_tail_risk_artifact(
       estimate, spec, artifact_spec);
+  return result;
+}
+
+py::dict backtest_tail_risk_binding(
+    const std::vector<double>& realized_returns,
+    const std::vector<Timestamp>& timestamps,
+    const std::vector<double>& value_at_risk_loss,
+    const std::vector<double>& expected_shortfall_loss,
+    double confidence_level, std::uint64_t config_hash) {
+  if (realized_returns.empty() || realized_returns.size() != timestamps.size() ||
+      realized_returns.size() != value_at_risk_loss.size() ||
+      realized_returns.size() != expected_shortfall_loss.size()) {
+    throw py::value_error("tail backtest inputs must be non-empty and aligned");
+  }
+  const portfolio_math::TailRiskBacktestProblemView problem{
+      timestamps, realized_returns, value_at_risk_loss,
+      expected_shortfall_loss, confidence_level, timestamps.back(),
+      config_hash};
+  const auto backtest = portfolio_math::backtest_tail_risk(problem);
+  py::dict result;
+  result["status"] = static_cast<int>(backtest.status);
+  result["confidence_level"] = backtest.confidence_level;
+  result["effective_observations"] = backtest.effective_observations;
+  result["exception_count"] = backtest.exception_count;
+  result["es_violation_count"] = backtest.es_violation_count;
+  result["exception_rate"] = backtest.exception_rate;
+  result["es_violation_rate"] = backtest.es_violation_rate;
+  result["kupiec_lr"] = backtest.kupiec_lr;
+  result["kupiec_p_value"] = backtest.kupiec_p_value;
+  result["christoffersen_lr"] = backtest.christoffersen_lr;
+  result["christoffersen_p_value"] = backtest.christoffersen_p_value;
+  result["mean_fz0_score"] = backtest.mean_fz0_score;
+  result["input_hash"] = backtest.input_hash;
+  result["artifact_hash"] = backtest.artifact_hash;
+  portfolio_math::TailRiskArtifactSpec artifact_spec;
+  artifact_spec.reference_price_quality = "PROXY";
+  artifact_spec.limitations.push_back("OBSERVED_PROXY_RESEARCH_DIAGNOSTIC");
+  result["artifact_json"] =
+      portfolio_math::serialize_tail_risk_backtest_artifact(
+          backtest, artifact_spec);
+  return result;
+}
+
+py::dict esr_variant_binding(
+    const portfolio_math::TailRiskEsrVariantResult& variant) {
+  py::dict result;
+  result["status"] = static_cast<int>(variant.status);
+  result["variant"] = static_cast<int>(variant.variant);
+  result["quantile_coefficients"] = variant.quantile_coefficients;
+  result["expected_shortfall_coefficients"] =
+      variant.expected_shortfall_coefficients;
+  result["objective"] = variant.objective;
+  result["density_at_quantile"] = variant.density_at_quantile;
+  result["truncated_residual_variance"] =
+      variant.truncated_residual_variance;
+  result["wald_statistic"] = variant.wald_statistic;
+  result["two_sided_p_value"] = variant.two_sided_p_value;
+  result["one_sided_underestimation_p_value"] =
+      variant.one_sided_underestimation_p_value
+          ? py::cast(*variant.one_sided_underestimation_p_value)
+          : py::none();
+  result["optimization_iterations"] = variant.optimization_iterations;
+  result["artifact_hash"] = variant.artifact_hash;
+  return result;
+}
+
+py::dict backtest_tail_risk_esr_binding(
+    const std::vector<double>& realized_returns,
+    const std::vector<Timestamp>& timestamps,
+    const std::vector<double>& value_at_risk_loss,
+    const std::vector<double>& expected_shortfall_loss,
+    double confidence_level, std::uint32_t minimum_observations,
+    std::uint32_t maximum_iterations, double convergence_tolerance,
+    std::uint64_t regression_spec_hash,
+    std::uint64_t covariance_spec_hash, std::uint64_t config_hash) {
+  if (realized_returns.empty() || realized_returns.size() != timestamps.size() ||
+      realized_returns.size() != value_at_risk_loss.size() ||
+      realized_returns.size() != expected_shortfall_loss.size()) {
+    throw py::value_error("ESR inputs must be non-empty and aligned");
+  }
+  portfolio_math::TailRiskEsrSpec spec;
+  spec.confidence_level = confidence_level;
+  spec.minimum_observations = minimum_observations;
+  spec.maximum_iterations = maximum_iterations;
+  spec.convergence_tolerance = convergence_tolerance;
+  spec.regression_spec_hash = regression_spec_hash;
+  spec.covariance_spec_hash = covariance_spec_hash;
+  spec.config_hash = config_hash;
+  const portfolio_math::TailRiskEsrProblemView problem{
+      timestamps, realized_returns, value_at_risk_loss,
+      expected_shortfall_loss, timestamps.back(), spec};
+  const auto backtest = portfolio_math::backtest_tail_risk_esr(problem);
+  py::dict result;
+  result["status"] = static_cast<int>(backtest.status);
+  result["confidence_level"] = backtest.confidence_level;
+  result["effective_observations"] = backtest.effective_observations;
+  result["covariance_kind"] = static_cast<int>(backtest.covariance_kind);
+  result["hac_lag"] = backtest.hac_lag;
+  result["strict"] = esr_variant_binding(backtest.strict);
+  result["auxiliary"] = esr_variant_binding(backtest.auxiliary);
+  result["strict_intercept"] =
+      esr_variant_binding(backtest.strict_intercept);
+  result["input_hash"] = backtest.input_hash;
+  result["artifact_hash"] = backtest.artifact_hash;
+  portfolio_math::TailRiskArtifactSpec artifact_spec;
+  artifact_spec.reference_price_quality = "PROXY";
+  artifact_spec.limitations.push_back("OBSERVED_PROXY_RESEARCH_DIAGNOSTIC");
+  result["artifact_json"] =
+      portfolio_math::serialize_tail_risk_esr_backtest_artifact(
+          backtest, artifact_spec);
   return result;
 }
 #endif
@@ -454,6 +683,9 @@ PYBIND11_MODULE(cpp_engine, m) {
 #ifdef QBT_ENABLE_PERFORMANCE_ANALYTICS
   m.def("serialize_drift_snapshot_artifact",
         &serialize_drift_snapshot_binding, py::arg("fields"));
+  m.def("run_infots_precomputed_replay",
+        &run_infots_precomputed_replay_binding, py::arg("spec"),
+        py::arg("rows"));
 
   py::class_<engine_common::IReplayAnalyticsSink,
              std::shared_ptr<engine_common::IReplayAnalyticsSink>>(
@@ -548,6 +780,23 @@ PYBIND11_MODULE(cpp_engine, m) {
   m.def("estimate_empirical_cvar", &estimate_empirical_cvar_binding,
         py::arg("returns"), py::arg("timestamps"),
         py::arg("confidence_level") = 0.95,
+        py::arg("config_hash") = 1);
+  m.def("backtest_tail_risk", &backtest_tail_risk_binding,
+        py::arg("realized_returns"), py::arg("timestamps"),
+        py::arg("value_at_risk_loss"),
+        py::arg("expected_shortfall_loss"),
+        py::arg("confidence_level") = 0.95,
+        py::arg("config_hash") = 1);
+  m.def("backtest_tail_risk_esr", &backtest_tail_risk_esr_binding,
+        py::arg("realized_returns"), py::arg("timestamps"),
+        py::arg("value_at_risk_loss"),
+        py::arg("expected_shortfall_loss"),
+        py::arg("confidence_level") = 0.95,
+        py::arg("minimum_observations") = 40,
+        py::arg("maximum_iterations") = 4000,
+        py::arg("convergence_tolerance") = 1e-9,
+        py::arg("regression_spec_hash") = 1,
+        py::arg("covariance_spec_hash") = 1,
         py::arg("config_hash") = 1);
 #endif
 

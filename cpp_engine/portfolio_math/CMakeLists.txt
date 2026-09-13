@@ -22,6 +22,7 @@ add_library(portfolio_math STATIC
     src/posterior.cpp
     src/posterior_direct.cpp
     src/nco_ffv.cpp
+    src/nco_policy_comparison.cpp
 )
 target_link_libraries(portfolio_math PUBLIC engine_common)
 target_include_directories(portfolio_math PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -34,6 +35,12 @@ target_link_libraries(test_portfolio_math PRIVATE portfolio_math)
 qbt_enable_warnings(test_portfolio_math)
 qbt_static_test_runtime(test_portfolio_math)
 add_test(NAME test_portfolio_math COMMAND test_portfolio_math)
+
+add_executable(phase1a_closure_report tests/phase1a_closure_report.cpp)
+target_link_libraries(phase1a_closure_report PRIVATE portfolio_math)
+qbt_enable_warnings(phase1a_closure_report)
+qbt_static_test_runtime(phase1a_closure_report)
+add_test(NAME test_phase1a_closure COMMAND phase1a_closure_report)
 
 add_executable(test_tail_risk_esr tests/test_tail_risk_esr.cpp)
 target_link_libraries(test_tail_risk_esr PRIVATE portfolio_math)
@@ -143,6 +150,12 @@ qbt_enable_warnings(test_nco_ffv)
 qbt_static_test_runtime(test_nco_ffv)
 add_test(NAME test_nco_ffv COMMAND test_nco_ffv)
 
+add_executable(test_nco_policy_comparison tests/test_nco_policy_comparison.cpp)
+target_link_libraries(test_nco_policy_comparison PRIVATE portfolio_math)
+qbt_enable_warnings(test_nco_policy_comparison)
+qbt_static_test_runtime(test_nco_policy_comparison)
+add_test(NAME test_nco_policy_comparison COMMAND test_nco_policy_comparison)
+
 add_executable(test_factor_model tests/test_factor_model.cpp)
 target_link_libraries(test_factor_model PRIVATE portfolio_math)
 qbt_enable_warnings(test_factor_model)
@@ -160,3 +173,7 @@ target_link_libraries(test_factor_risk_performance PRIVATE portfolio_math)
 qbt_enable_warnings(test_factor_risk_performance)
 qbt_static_test_runtime(test_factor_risk_performance)
 add_test(NAME test_factor_risk_performance COMMAND test_factor_risk_performance)
+
+add_executable(formal_oos_driver apps/formal_oos_driver.cpp)
+target_link_libraries(formal_oos_driver PRIVATE portfolio_math)
+qbt_enable_warnings(formal_oos_driver)
