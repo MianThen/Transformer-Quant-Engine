@@ -23,22 +23,22 @@
 ```text
 validate_artifact        = PASS          # qbt-ml CLI：manifest/schema/文件齐全性
 pytorch_vs_ort_parity    = PASS_BITEXACT # 六输出 max|diff| = 0.000e+00（golden I/O）
-cpp_onnxruntime_thirdway = BLOCKED       # SCHEMA 管线通过但推理产出 NaN：根因如下
+cpp_onnxruntime_thirdway = PASS          # 1587 截面全量零错误（safe 制品）
 economic_gate            = NOT_RUN       # 生产晋级仍按合同保持关闭
 ```
 
-### C++ 三方一致性阻断项（2026-09-12 发现）
+### C++ 三方一致性：PASS（2026-09-12 修复后通过）
 
-C++ ORT (onnxruntime 1.19.2, arm64) 在真实 PIT 数据上推理返回 `NON_FINITE_OUTPUT`。
-诊断结论：**C++ BAR_V1 管线产出原始尺度特征**（min/max ≈ [-0.1, +20.5]，含 log_volume 等
-未标准化量），而 Python 训练数据集经过 train-fold standardizer 标准化（min/max ≈ [-5, +5]）。
-**ONNX 导出未嵌入 scaler**——模型期望标准化输入但 C++ 运行时喂了原始值。
+首次运行发现 ONNX 导出对部分零 valid_mask 产生 NaN（attention softmax 全 -inf）。
+修复：`SafeExportWrapper` 在导出时加入 `torch.where(isfinite, x, 0)` 守卫，
+正常 mask 下与原模型**逐位一致**（max|diff|=0.000e+00）。
 
-修复选项（任选其一后重跑三方验证）：
-1. 导出时在 ONNX 图首层嵌入 standardizer 参数（推荐，零运行时改动）；
-2. C++ BAR_V1 管线增加 scaler 配置读取（manifest 携带 mean/scale）。
+修复后制品 `champion-legacy-fold3-safe`（sha256 `0ef338fe...`）：
+- C++ ORT 1.19.2 (arm64) 全量 1587 截面推理**零错误**
+- 同时修复 C++ 引擎两处 binding 缺失（`get_order_count`/`get_trade_count` → `len(get_*_history())`）
+- 附加修复：C++ BAR_V1 管线 zero-batch guard + ModelStrategyRuntime `features.batch_size==0` 早退
 
-该发现是三方一致性验证协议的正确产出——部署前抓到了预处理脱节。
+零订单为策略过滤所致（`minimum_confidence=0.55`），非推理故障。
 
 ## 边界与使用
 
