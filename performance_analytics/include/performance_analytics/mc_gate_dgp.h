@@ -41,6 +41,30 @@ inline double shortvol_z(const ShortVol& sv, double u) {
 }
 
 // τ 的长度 = T（每条策略一个）。§3.4：mixed / mixed_signed 的 k = ceil(T/4)。
+// v1.4.5 §3.6.1 约束 4：κ（真策略下标）必须来自 **assign** 子流，不能从 ret 种子推。
+// 因此提供显式 κ 的版本；旧的 make_tau 保留，内部按 seed % T 取 κ（仅为向后兼容）。
+inline std::vector<double> make_tau_k(Composition comp, int T, double S, int kappa) {
+  std::vector<double> tau(static_cast<std::size_t>(T > 0 ? T : 0), 0.0);
+  if (T <= 0) return tau;
+  int k = kappa % T;
+  if (k < 0) k += T;
+  if (comp == Composition::Null) {
+    // all 0
+  } else if (comp == Composition::OneGood) {
+    tau[static_cast<std::size_t>(k)] = S;
+  } else if (comp == Composition::Mixed) {
+    const int kk = (T + 3) / 4;
+    for (int i = 0; i < kk && i < T; ++i) tau[static_cast<std::size_t>((k + i) % T)] = S;
+  } else if (comp == Composition::MixedSigned) {
+    const int kk = (T + 3) / 4;
+    for (int i = 0; i < kk && i < T; ++i) tau[static_cast<std::size_t>((k + i) % T)] = S;
+    for (int i = kk; i < kk + kk && i < T; ++i) tau[static_cast<std::size_t>((k + i) % T)] = -S;
+  } else if (comp == Composition::AllNegative) {
+    for (int i = 0; i < T; ++i) tau[static_cast<std::size_t>(i)] = S;
+  }
+  return tau;
+}
+
 inline std::vector<double> make_tau(Composition comp, int T, double S, std::uint64_t seed) {
   std::vector<double> tau(static_cast<std::size_t>(T > 0 ? T : 0), 0.0);
   if (T <= 0) return tau;
@@ -65,8 +89,8 @@ inline std::vector<double> make_tau(Composition comp, int T, double S, std::uint
 //   2) 再按 i = 0..T-1 逐策略抽 e_{i,1} … e_{i,N}（T×N 个）
 // 禁止列优先、禁止按策略并行取流、禁止先 e 后 f。
 // ---------------------------------------------------------------------------
-inline ReturnMatrix generate(Family fam, Composition comp, int T, int N,
-                             double rho, double S, std::uint64_t seed) {
+inline ReturnMatrix generate_with_kappa(Family fam, Composition comp, int T, int N,
+                                        double rho, double S, std::uint64_t seed, int kappa) {
   ReturnMatrix m;
   m.T = T;
   m.N = N;
@@ -76,7 +100,7 @@ inline ReturnMatrix generate(Family fam, Composition comp, int T, int N,
   if (T <= 0 || N <= 0) return m;
 
   Pcg64 rng(seed);
-  const std::vector<double> tau = make_tau(comp, T, S, seed);
+  const std::vector<double> tau = make_tau_k(comp, T, S, kappa);
 
   const std::size_t nN = static_cast<std::size_t>(N);
 
@@ -139,6 +163,13 @@ inline ReturnMatrix generate(Family fam, Composition comp, int T, int N,
   }
 
   return m;
+}
+
+// 向后兼容：κ 由 ret 种子派生（新代码请用 generate_with_kappa + assign 子流的 κ）
+inline ReturnMatrix generate(Family fam, Composition comp, int T, int N,
+                             double rho, double S, std::uint64_t seed) {
+  const int kappa = (T > 0) ? static_cast<int>(seed % static_cast<std::uint64_t>(T)) : 0;
+  return generate_with_kappa(fam, comp, T, N, rho, S, seed, kappa);
 }
 
 // 平均绝对相关（AC-41 自检量）：全部 i<j 的 |corr| 均值。

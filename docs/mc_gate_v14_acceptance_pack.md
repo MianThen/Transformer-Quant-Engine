@@ -78,7 +78,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-06 | **✓** | C01：自实现 PCG64，golden 16/16 逐位命中；无 `std::normal_distribution` |
 | AC-07 | **✓** | C02：`garch` 的 `omega=1−α−β`、`corr≡rho`；`shortvol` 偏度 −2.5055、方差比 1.0025 |
 | AC-08 | ◐ | C03 实现了 `z_cell` 公式与 `T_eff`；但**未在整个网格上跑** τ 回收与 `Σz²≤242.8` 的判据 |
-| AC-09 | ✗ | canary 单元未实现。定档建议见发现 F2：`(T=100,N=126,S=4.0)` 实测功率 0.96 |
+| AC-09 | **✓** | C29 金丝雀（T=100, N=126, S=50）：20 个 rep 全部 `selected=1` 且 `index == κ`（κ 取自 `assign` 子流），20/20 |
 | AC-10 | **✓** | 全网格实测：`NEG` 9 格 × 1000 reps = 9,000 次里 GATE 选中 **0** 次（零选中率 100%，判据 ≥99.5%）；同格 B0 仍有 54.9% |
 | AC-11 | **✓** | `rho=0` 的 NUL 格全部落在解析带内：B0 0.9385/1.0000/1.0000（带 [0.90,0.97]/[0.99,1]/[0.999,1]），B1 0.1875/0.6505/0.9951（带 [0.16,0.21]/[0.60,0.69]/[0.985,1]） |
 | AC-12 | ◐ | C05 的 13 个 `DECIDE` 场景覆盖了四模式分离；"5 布尔全真 ⇒ candidate==winner" 未单列断言 |
@@ -111,7 +111,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-40 | **✓** | C26：`manifest.config_hash` 由 `config_hash(cfg)` 算出（覆盖 `run_seed`），`run_seed` 也单列进 manifest |
 | AC-41 | ◐ | `dgp` 自检已断言 `trials/obs/corr_dim` 且 `mean|r̂|` 落在 [0.22,0.38]；驱动层未加 |
 
-**统计：✓ 21 项、◐ 5 项、✗ 8 项。**
+**统计：✓ 22 项、◐ 5 项、✗ 7 项。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。

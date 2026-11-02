@@ -183,7 +183,25 @@ add_executable(mc_gate_full apps/mc_gate_full.cpp)
 target_include_directories(mc_gate_full PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../configs/mc)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../configs/mc)
 qbt_enable_warnings(mc_gate_full)
 target_compile_options(mc_gate_full PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_full)
+
+# AC-09 金丝雀探针（S=50，校验 index == assign 子流派生的 κ）
+add_executable(mc_gate_canary apps/mc_gate_canary.cpp)
+target_include_directories(mc_gate_canary PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_canary)
+target_compile_options(mc_gate_canary PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_canary)
+
+# OCN 门控探针（H0-OCN / Δ_ocn 分解）
+add_executable(mc_gate_ocn apps/mc_gate_ocn.cpp)
+target_include_directories(mc_gate_ocn PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_ocn)
+target_compile_options(mc_gate_ocn PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_ocn)
