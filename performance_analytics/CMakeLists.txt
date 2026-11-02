@@ -214,3 +214,12 @@ target_include_directories(mc_gate_retry PRIVATE
 qbt_enable_warnings(mc_gate_retry)
 target_compile_options(mc_gate_retry PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_retry)
+
+# H4 门槛回收探针（实测门槛 vs 解析门槛）
+add_executable(mc_gate_h4 apps/mc_gate_h4.cpp)
+target_include_directories(mc_gate_h4 PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_h4)
+target_compile_options(mc_gate_h4 PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_h4)
