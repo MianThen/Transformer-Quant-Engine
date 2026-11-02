@@ -16,12 +16,12 @@ tools/run_mc_gate_acceptance.sh
 
 | 步骤 | 内容 | 期望 |
 |---|---|---|
-| A. L0 自检 | 用归档的"已知正确样本"跑 6 个验收脚本 | 6 项 PASS（证明**验收脚本本身**判得对） |
+| A. L0 自检 | 用归档的"已知正确样本"跑 7 个验收脚本 | 7 项 PASS（证明**验收脚本本身**判得对） |
 | B. 构建 | cmake 配置 + 构建全部 11 个 mc_gate 目标 | PASS |
-| C. 单测 | `ctest -R mc_gate` | 10/10 Passed |
+| C. 单测 | `ctest -R mc_gate` | 11/11 Passed |
 | D. 驱动 | 跑 smoke 驱动 + 3 个诊断探针，检查完成标记 | 4 项 PASS |
 
-当前实测输出：**PASS 11 / 11**。
+当前实测输出：**PASS 13 / 13**（A 7 + B 1 + C 1 + D 4）。
 
 跳过构建用 `--skip-build`；换构建目录用 `--build-dir DIR`。
 
@@ -44,6 +44,7 @@ tools/run_mc_gate_acceptance.sh
 | C10 | `mc_gate_budget.py` | **AC-01**、AC-33（规则部分） | `python3 tools/mc_gate_budget.py` | 从 config 推出 269/194/617000（**源码不含这三个字面量**）；删 NEG 块 → 260/185/608000；`N=3` 桶成本 99 也不降 |
 | C11 | `mc_gate_reduce.py` | AC-15（归并部分） | `python3 tools/mc_gate_reduce.py` | 乱序双 shard 归并、聚合率、重复键、倒序再归并一致 |
 | C12 | `mc_gate_validation.cpp` | AC-03、AC-04（端到端） | `./build/mc-gate/performance_analytics/mc_gate_validation` | 1200 条记录；`GATE_SEL 47/7/11/8`（与独立 probe 逐一相同）；gzip 合法、mtime=0、1200 行、两次运行 md5 相同 |
+| C13 | `mc_gate_manifest.h` | **AC-02**、AC-32（部分）、AC-33（规则） | `ctest -R test_mc_gate_manifest` | manifest/metrics 的四个哈希字段同源一致（负向对照已验证改一个即挂）；键序固定、无时间戳；`budget_threshold_ms` 按 `%.6f`；降档表 8000→4000/2000→1000/1000→500、`N=3` 豁免；阈值 1.0 → `planned_calls=9500`，阈值 100 → 14000（与 `tools/mc_gate_budget.py` 的 Python 实现对得上） |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -56,7 +57,7 @@ tools/run_mc_gate_acceptance.sh
 | AC | 状态 | 说明 |
 |---|---|---|
 | AC-01 | **✓** | C10：`cells/datasets/calls` 全由 config 推导，源码无硬编码 |
-| AC-02 | ✗ | `manifest.json` 未实现（`contract_hash/config_hash/binary_sha256/git_commit` 未落盘） |
+| AC-02 | **✓** | C13：`manifest_json` 输出四个哈希；`metrics_json` 携带同一份四字段，二者一致性已被负向对照验证 |
 | AC-03 | **✓** | C08：无时间戳/主机名/耗时；gzip mtime=0（逐字节验证头 10 字节） |
 | AC-04 | **✓** | C12：每行含 `cell_id/rep_id/rule_id/selected/index/abstain/returns_sha256` |
 | AC-05 | **✓** | C06：`0/1` 与 `0/4..3/4`、`0/3..2/3` 拼接均与整体逐字节一致 |
@@ -87,11 +88,11 @@ tools/run_mc_gate_acceptance.sh
 | AC-30 | ◐ | C09 实现了 ONC 机制并复现 §5.3；`OCNP` 的 9 单元 × 200 reps 实跑未做 |
 | AC-31 | ◐ | 静态部分 ✓（decide 所在 TU 无计时）；`wall_by_rule` 的分项落盘未实现 |
 | AC-32 | ◐ | 分项成本已实测（F5）；未写进 `metrics.json.cost_profile` |
-| AC-33 | ◐ | 降级规则已实现（C10）；未与真实 `cost_profile` 联动 |
+| AC-33 | ◐ | C13 已用 C++ 实现降档规则并复算 `planned_calls`（与 C10 的 Python 版交叉一致）；尚未接入真实 run 的最终落盘 |
 | AC-34 | ✗ | `replay/` 每数据集一文件未实现 |
 | AC-35 | ✗ | 双轨门槛（analytic/empirical）未实现 |
 
-**统计：✓ 12 项、◐ 8 项、✗ 15 项。**
+**统计：✓ 13 项、◐ 8 项、✗ 14 项。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。
