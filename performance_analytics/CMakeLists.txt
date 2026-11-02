@@ -120,7 +120,7 @@ endif()
 # 因此仅对这几个目标关掉 -Wpedantic（其余告警保持开启）。
 # ---------------------------------------------------------------------------
 set(QBT_MC_GATE_HEADER_SELFTESTS
-    rng dgp truth baselines decide adapter runner scorer output onc manifest sha256 replay cost wall threshold seed panel)
+    rng dgp truth baselines decide adapter runner scorer output onc manifest sha256 replay cost wall threshold seed panel streams)
 
 foreach(mc_gate_name IN LISTS QBT_MC_GATE_HEADER_SELFTESTS)
     add_executable(test_mc_gate_${mc_gate_name}

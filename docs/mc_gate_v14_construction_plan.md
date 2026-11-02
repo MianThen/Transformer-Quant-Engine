@@ -168,6 +168,7 @@ C01–C17 共 26 次失败，**全部**是卡内规格/验收脚本/头文件清
 | 19 | C17 | 卡里写"用同样的 Σ(calls×分量)/total 公式再算一遍"，`total` 指代不明 | 模型把分母写成 Σcalls(=12000) 而不是 single_core_ms(=9046.8)，四个占比被整体缩小到 0.754 倍；**注意 `metrics.json` 里的 cost_profile 是对的**，只有 stdout 那行错 | 卡里明写"分母必须是 prof.single_core_ms"，并把错值 0.400200/0.247550/0.076450/0.029733 列为反面样例 |
 | 20 | C17 | 卡里要求打印 `FILES ... replay`，但没说明 replay 的文件名 | 模型写成 `/tmp/qgate/C17/replay/0.bin` 去查存在性；文件实际是 `dataset_0.bin`（写对了却报 0） | 卡里明写要检查 `/tmp/qgate/C17/replay/dataset_0.bin`（文件名是 dataset_<id>.bin） |
 | 21 | C17 | 我直接改了 `cards/card_C17.json` 的 `build_cmd`（补 `-I/tmp/qgate/C16`），**但没同步改生成器** `mk_c17_card.py`；后续重新生成卡片时把修复覆盖回去 | 2 轮 `BUILD_FAIL`（`mc_gate_cost.h: 没有那个文件或目录`），而模型代码其实是对的——**日志与手工复现矛盾**（我手打 `-I C16` 能编过、worker 记 BUILD_FAIL） | 规则：**卡片的唯一真源是生成器脚本**；任何对 JSON 的手改都必须回写到生成器，否则下次生成即丢。本次改生成器后同一份模型源码 `RC=0`，验收 `C17_PASS` |
+| 22 | C24 | 卡的 include 白名单只给了 `mc_gate_seed.h`/`mc_gate_dgp.h`，但要调用的 `sha256_hex` 在 `mc_gate_sha256.h` 里 | 模型**自己实现了一个 SHA-256**：`KAPPA`/`HOLD8` 全对、只有块哈希不对，一轮 `VERIFY_FAIL` | 白名单补上 `mc_gate_sha256.h` 并明写"禁止自己实现 SHA-256"；改后首轮 PASS |
 
 **结论（对 §6 风险的修正）**：C01–C17 共 26 次 `VERIFY_FAIL`/`BUILD_FAIL`，**全部**是卡内
 规格/验收脚本/头文件清单写错，模型代码本身 14 次都对（C06a 的 round1 构建失败原因未留档，round2 自愈；C06R round2 的验收失败完全是卡的解析规格缺失所致）。该模型在"给准常量 + 给准算法"时**代码一次正确**；真正的
@@ -308,7 +309,7 @@ v1.4.5 钉死 `i∈1..T`＝策略、`t∈1..N`＝期，并新增 §3.6 种子树
 
 | 条款 | 内容 | 状态 |
 |---|---|---|
-| §3.6 种子树 | `dataset_key` + `seed(dataset_key,rep,batch,stream)` + 五子流 | **已接进 `generate`**（C22 派生 + C23 面板）；五子流只用了 `ret`，其余四个未接 |
+| §3.6 种子树 | `dataset_key` + `seed(dataset_key,rep,batch,stream)` + 五子流 | **已实现 `ret`/`assign`/`hold` 三流**（C22/C23/C24）；`boot`/`aux` 仅留种子未取数 |
 | AC-36 | 逐位对齐 §3.6.7 的 6 个测试向量 | **向量部分已完成**（C22）；全量碰撞检查未做 |
 | AC-37 | `manifest` 记录每 `(dataset,stream)` 前 3 个 PCG64 指纹 | 未做 |
 | AC-39 | `replay/` 前 8 个 double 的十六进制 + 整块 SHA-256 对照 | **前缀 8 个已逐位对齐**（C23）；整块只能同机 |

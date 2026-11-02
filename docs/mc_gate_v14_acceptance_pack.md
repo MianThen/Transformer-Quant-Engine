@@ -18,7 +18,7 @@ tools/run_mc_gate_acceptance.sh
 |---|---|---|
 | A. L0 自检 | 用归档的"已知正确样本"跑 13 个验收脚本 | 13 项 PASS（证明**验收脚本本身**判得对） |
 | B. 构建 | cmake 配置 + 构建全部 16 个 mc_gate 目标和 6 个 app | PASS |
-| C. 单测 | `ctest -R mc_gate` | 18/18 Passed |
+| C. 单测 | `ctest -R mc_gate` | 19/19 Passed |
 | D. 驱动 | 跑 smoke/集成驱动 + 3 个探针 + 图追溯 | 6 项 PASS |
 
 当前实测输出：**PASS 21 / 21**（A 13 + B 1 + C 1 + D 6）。
@@ -55,6 +55,7 @@ tools/run_mc_gate_acceptance.sh
 | C21 | `tools/mc_gate_recheck.py` | AC-14（独立复算的核心） | `python3 tools/mc_gate_recheck.py [replay路径]` | 从 replay 原始字节**独立重算**：`m=0.503583985525`、`teff=1.593148215827`、`thr=1.654834515`、argmax=115（22.260256）、above=53，与 C++ 写出的 `GATE_Full selected=1 index=115` **完全一致** |
 | C22 | `mc_gate_seed.h` | **AC-36**（向量部分） | `ctest -R test_mc_gate_seed` | 合同 §3.6.7 的 6 个种子向量 + 3 个 `fnv1a64` **逐位命中**；`ds` 判别成立（R 与 A 只差 `ds`，`fnv` 与 seed 均不同）；`dataset_key` 的 4/2/1 位定点格式逐字符命中（负向 11/11） |
 | C23 | `mc_gate_panel.h` | **AC-39**（前缀部分） | `ctest -R test_mc_gate_panel` | 把 `seed_of` 接进 `generate`：`SEED` 与 §3.6 派生一致；`HEAD8` 的 8 个 double 位模式与独立 Python 实现**逐位相同**；块 `SHA256` 钉在目标机（跨平台差 1 ulp，见 F4） |
+| C24 | `mc_gate_streams.h` | **AC-17**（子流独立性）、§3.6.4 | `ctest -R test_mc_gate_streams` | `assign` 子流派生的 κ（T=4 时 rep 0..3 → 0/0/0/3，2000 reps 的分布 476/489/514/521 均匀）；`hold` 子流的部署期路径前 8 个 double 位模式与独立 Python **逐位一致**；块 SHA 钉目标机 |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -145,7 +146,7 @@ tools/run_mc_gate_acceptance.sh
 ```
 cmake -B /tmp/werror -DQBT_ENABLE_PERFORMANCE_ANALYTICS=ON -DQBT_WARNINGS_AS_ERRORS=ON
 cmake --build /tmp/werror -j8   → WERROR_BUILD_ALL_OK
-ctest -R mc_gate                → 18/18 Passed
+ctest -R mc_gate                → 19/19 Passed
 ```
 
 两处需注意（均已在 `performance_analytics/CMakeLists.txt` 里注释说明）：
