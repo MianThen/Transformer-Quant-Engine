@@ -16,12 +16,12 @@ tools/run_mc_gate_acceptance.sh
 
 | 步骤 | 内容 | 期望 |
 |---|---|---|
-| A. L0 自检 | 用归档的"已知正确样本"跑 8 个验收脚本 | 8 项 PASS（证明**验收脚本本身**判得对） |
-| B. 构建 | cmake 配置 + 构建全部 12 个 mc_gate 目标和 4 个 app | PASS |
-| C. 单测 | `ctest -R mc_gate` | 12/12 Passed |
+| A. L0 自检 | 用归档的"已知正确样本"跑 9 个验收脚本 | 9 项 PASS（证明**验收脚本本身**判得对） |
+| B. 构建 | cmake 配置 + 构建全部 13 个 mc_gate 目标和 4 个 app | PASS |
+| C. 单测 | `ctest -R mc_gate` | 13/13 Passed |
 | D. 驱动 | 跑 smoke 驱动 + 3 个诊断探针，检查完成标记 | 4 项 PASS |
 
-当前实测输出：**PASS 14 / 14**（A 8 + B 1 + C 1 + D 4）。
+当前实测输出：**PASS 15 / 15**（A 9 + B 1 + C 1 + D 4）。
 
 跳过构建用 `--skip-build`；换构建目录用 `--build-dir DIR`。
 
@@ -46,6 +46,7 @@ tools/run_mc_gate_acceptance.sh
 | C12 | `mc_gate_validation.cpp` | AC-03、AC-04（端到端） | `./build/mc-gate/performance_analytics/mc_gate_validation` | 1200 条记录；`GATE_SEL 47/7/11/8`（与独立 probe 逐一相同）；gzip 合法、mtime=0、1200 行、两次运行 md5 相同 |
 | C13 | `mc_gate_manifest.h` | **AC-02**、AC-32（部分）、AC-33（规则） | `ctest -R test_mc_gate_manifest` | manifest/metrics 的四个哈希字段同源一致（负向对照已验证改一个即挂）；键序固定、无时间戳；`budget_threshold_ms` 按 `%.6f`；降档表 8000→4000/2000→1000/1000→500、`N=3` 豁免；阈值 1.0 → `planned_calls=9500`，阈值 100 → 14000（与 `tools/mc_gate_budget.py` 的 Python 实现对得上） |
 | C14 | `mc_gate_sha256.h` | 支撑 AC-02/AC-34 的哈希能力 | `ctest -R test_mc_gate_sha256` | 6 个权威 golden 向量全中：`""`、`"abc"`、56 字节、1,000,000 个 `'a'`、字节序列 0..255、以及该序列重复 4 次；**构建带 `-Werror` 且零警告** |
+| C15 | `mc_gate_replay.h` | **AC-34** | `ctest -R test_mc_gate_replay` | 写 3 个数据集 → 目录里恰好 3 个 `dataset_*.bin`（**不是每 rep 一个**）；文件 = 小端 f64 数据段 + 32 字节 SHA-256；三个数据段的哈希与独立工具计算逐一相同；把数据段第 15 字节翻转后 `verify` 返回 0（损坏能被检出） |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -90,10 +91,10 @@ tools/run_mc_gate_acceptance.sh
 | AC-31 | ◐ | 静态部分 ✓（decide 所在 TU 无计时）；`wall_by_rule` 的分项落盘未实现 |
 | AC-32 | ◐ | 分项成本已实测（F5）；未写进 `metrics.json.cost_profile` |
 | AC-33 | ◐ | C13 已用 C++ 实现降档规则并复算 `planned_calls`（与 C10 的 Python 版交叉一致）；尚未接入真实 run 的最终落盘 |
-| AC-34 | ✗ | `replay/` 每数据集一文件未实现（所需的 SHA-256 已由 C14 提供） |
+| AC-34 | **✓** | C15：`replay/` 每数据集一文件（3 个数据集 → 恰好 3 个文件），文件内为小端 f64 + 32 字节 SHA-256，损坏可检出 |
 | AC-35 | ✗ | 双轨门槛（analytic/empirical）未实现 |
 
-**统计：✓ 13 项、◐ 8 项、✗ 14 项。**
+**统计：✓ 14 项、◐ 8 项、✗ 13 项。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。
@@ -131,7 +132,7 @@ tools/run_mc_gate_acceptance.sh
 ```
 cmake -B /tmp/werror -DQBT_ENABLE_PERFORMANCE_ANALYTICS=ON -DQBT_WARNINGS_AS_ERRORS=ON
 cmake --build /tmp/werror -j8   → WERROR_BUILD_ALL_OK
-ctest -R mc_gate                → 12/12 Passed
+ctest -R mc_gate                → 13/13 Passed
 ```
 
 两处需注意（均已在 `performance_analytics/CMakeLists.txt` 里注释说明）：

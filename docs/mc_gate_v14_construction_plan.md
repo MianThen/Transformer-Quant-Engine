@@ -141,9 +141,9 @@ D1 的合同/配置/计数校验并入 C00 + C10，D9–D10 依赖 C12 的产出
 | **C11** | `mc_gate_reduce.py` | **PASS** | 1 | 68.4 s | 137 | 两个乱序假 shard 归并后 `MERGE 12 first=101,0,GATE_Full last=205,2,B0`；`AGG B0 n=6 selected=2 rate=0.333333`、`AGG GATE_Full n=6 selected=3 abstain=1 rate=0.500000`；`DUP 0`；倒序再归并结果相同（`SHUFFLE_EQUALS 1`） |
 | **C12** | `mc_gate_validation.cpp`（集成驱动） | **PASS** | 1（第 2 次运行） | 50.3 s | 89 | 端到端：DGP→baselines→decide→记录→gzip→metrics；`records=1200`（4 cell×50 rep×6 规则）；`GATE_SEL 1001/1002/1003/1004 = 47/7/11/8`（与独立 probe **逐一相同**）；`gzip_size=174167` 实测一致；`gzip -t` 通过、头 `1f8b0800 00000000`、1200 行、两次运行 md5 相同（`3f61d2e7…`） |
 
-### 8.1 卡作者缺陷（二十次失败的真因，必须记录）
+### 8.1 卡作者缺陷（模型侧缺陷单列在 §8.3）
 
-C01–C12 共 20 次失败，**全部**是卡内规格/验收脚本/头文件清单写错，模型代码本身十四次都对（C12 两轮失败均为卡缺陷），另有一次（C06a round 1）原因未留档：
+C01–C15 共 24 次失败，**全部**是卡内规格/验收脚本/头文件清单写错，模型代码在卡作者缺陷场景下全部正确，另有一次（C06a round 1）原因未留档：
 
 | # | 卡 | 缺陷 | 后果 | 修法 |
 |---|---|---|---|---|
@@ -163,8 +163,10 @@ C01–C12 共 20 次失败，**全部**是卡内规格/验收脚本/头文件清
 | 14 | C09 | include 白名单再次漏 `<string>`（第三次同类错误：C06R #10/#11 已踩过两次） | round 1/2 `BUILD_FAIL`（错误信息为 string is not a member of std）；**且模型严格服从白名单、不会自行加头**，所以不修卡必然三连败 | 白名单统一为标准 14 头（见 §8.2 第 2 条），round 3 首轮 `C09_PASS` |
 | 15 | C12 | `build_cmd` 的 `-I` 列表漏了 `/tmp/qgate/C06R`（runner 头放在 C06R 目录，不在 C06） | 3 轮全 `BUILD_FAIL`（`mc_gate_runner.h: 没有那个文件或目录`），且 round 2/3 输出完全相同（模型无法从错误里推断路径） | 补 `-I/tmp/qgate/C06R`；补上后模型原有 round3 源码**一次编译通过** |
 | 16 | C08/C12 | C08 的 `write_decisions_jsonl_gz` 把输出路径**硬编码**成 `/tmp/qgate/C08/out.jsonl.gz`，而 C12 复用它并期望写到 C12 目录 | C12 驱动把 1200 条记录写进了 C08 目录、C12 目录无文件 → `gzip_size=0`、验收失败（**模型代码本身正确**） | 给该函数加 `const char* path` 参数并重跑 C08；C12 传自己的绝对路径 |
+| 17 | C15 | 卡里只说"SHA-256 由 `mc_gate_sha256.h` 提供"，没说明函数在哪个命名空间 | 模型据此推断出不存在的嵌套命名空间 `mc_gate_sha256::sha256_hex(...)` → 3 轮 `BUILD_FAIL` | 卡里写明"声明在 **mc_gate** 命名空间内，直接裸名调用 `sha256_hex(...)`；禁止加 `mc_gate_sha256::` 前缀" |
+| 18 | C15 | 卡要求 `-Werror` 零警告，但没提醒 `std::fread`/`std::fwrite` 带 `warn_unused_result` | 模型忽略 `fread` 返回值 → `-Werror=unused-result` 直接 error | 卡里列出该陷阱并给出 `const std::size_t got = std::fread(...); if (got != want) return false;` 的写法 |
 
-**结论（对 §6 风险的修正）**：C01–C12 共 20 次 `VERIFY_FAIL`/`BUILD_FAIL`，**全部**是卡内
+**结论（对 §6 风险的修正）**：C01–C15 共 24 次 `VERIFY_FAIL`/`BUILD_FAIL`，**全部**是卡内
 规格/验收脚本/头文件清单写错，模型代码本身 14 次都对（C06a 的 round1 构建失败原因未留档，round2 自愈；C06R round2 的验收失败完全是卡的解析规格缺失所致）。该模型在"给准常量 + 给准算法"时**代码一次正确**；真正的
 失败源是**卡作者自己**——常量笔误与验收脚本写错。因此 §3 的验收协议必须补一条：
 
@@ -211,6 +213,7 @@ C01–C12 共 20 次失败，**全部**是卡内规格/验收脚本/头文件清
 | C12 | `mc_gate_validation.cpp` | **PASS** |
 | C13 | `mc_gate_manifest.h` | **PASS** | 1（第 2 次运行） | 85.7 s | 184 | manifest/metrics 四哈希同源一致；降档 8000→4000/2000→1000/1000→500、`N=3` 豁免；阈值 1.0 → planned_calls 9500，阈值 100 → 14000（与 C10 的 Python 版交叉一致） |
 | C14 | `mc_gate_sha256.h` | **PASS** | 1（第 3 次运行） | 159.2 s | 190 | 6 个权威 golden 向量全中（空串 / `abc` / 56 字节 / 1M 个 `a` / 0..255 / 1024 字节）；**带 `-Werror` 零警告** |
+| C15 | `mc_gate_replay.h` | **PASS** | 1（第 2 次运行） | 133.4 s | 274 | 3 个数据集 → 恰好 3 个文件；文件 = 小端 f64 + 32 字节 SHA-256；三个哈希与独立工具一致；翻转第 15 字节后可检出；**-Werror 零警告** |
 
 **13 / 13 PASS。**
 
