@@ -120,7 +120,7 @@ endif()
 # 因此仅对这几个目标关掉 -Wpedantic（其余告警保持开启）。
 # ---------------------------------------------------------------------------
 set(QBT_MC_GATE_HEADER_SELFTESTS
-    rng dgp truth baselines decide adapter runner scorer output onc manifest)
+    rng dgp truth baselines decide adapter runner scorer output onc manifest sha256)
 
 foreach(mc_gate_name IN LISTS QBT_MC_GATE_HEADER_SELFTESTS)
     add_executable(test_mc_gate_${mc_gate_name}
@@ -129,7 +129,12 @@ foreach(mc_gate_name IN LISTS QBT_MC_GATE_HEADER_SELFTESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
     qbt_enable_warnings(test_mc_gate_${mc_gate_name})
-    target_compile_options(test_mc_gate_${mc_gate_name} PRIVATE -Wno-pedantic)
+    # -Wno-pedantic: mc_gate_rng.h 用 unsigned __int128 实现 PCG64
+    # -Wno-unused-variable: C01 的 selftest 内有一个未使用局部变量（模型产物）；
+    #   重新生成该头需要连带重跑它全部 golden 向量，暂以目标级抑制，仅影响 selftest 脚手架，
+    #   库本体（未定义 MC_GATE_*_SELFTEST 时）不会产生该告警。
+    target_compile_options(test_mc_gate_${mc_gate_name} PRIVATE
+        -Wno-pedantic -Wno-unused-variable)
     qbt_static_test_runtime(test_mc_gate_${mc_gate_name})
     add_test(NAME test_mc_gate_${mc_gate_name}
         COMMAND test_mc_gate_${mc_gate_name})

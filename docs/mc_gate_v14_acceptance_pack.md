@@ -16,12 +16,12 @@ tools/run_mc_gate_acceptance.sh
 
 | 步骤 | 内容 | 期望 |
 |---|---|---|
-| A. L0 自检 | 用归档的"已知正确样本"跑 7 个验收脚本 | 7 项 PASS（证明**验收脚本本身**判得对） |
-| B. 构建 | cmake 配置 + 构建全部 11 个 mc_gate 目标 | PASS |
-| C. 单测 | `ctest -R mc_gate` | 11/11 Passed |
+| A. L0 自检 | 用归档的"已知正确样本"跑 8 个验收脚本 | 8 项 PASS（证明**验收脚本本身**判得对） |
+| B. 构建 | cmake 配置 + 构建全部 12 个 mc_gate 目标和 4 个 app | PASS |
+| C. 单测 | `ctest -R mc_gate` | 12/12 Passed |
 | D. 驱动 | 跑 smoke 驱动 + 3 个诊断探针，检查完成标记 | 4 项 PASS |
 
-当前实测输出：**PASS 13 / 13**（A 7 + B 1 + C 1 + D 4）。
+当前实测输出：**PASS 14 / 14**（A 8 + B 1 + C 1 + D 4）。
 
 跳过构建用 `--skip-build`；换构建目录用 `--build-dir DIR`。
 
@@ -45,6 +45,7 @@ tools/run_mc_gate_acceptance.sh
 | C11 | `mc_gate_reduce.py` | AC-15（归并部分） | `python3 tools/mc_gate_reduce.py` | 乱序双 shard 归并、聚合率、重复键、倒序再归并一致 |
 | C12 | `mc_gate_validation.cpp` | AC-03、AC-04（端到端） | `./build/mc-gate/performance_analytics/mc_gate_validation` | 1200 条记录；`GATE_SEL 47/7/11/8`（与独立 probe 逐一相同）；gzip 合法、mtime=0、1200 行、两次运行 md5 相同 |
 | C13 | `mc_gate_manifest.h` | **AC-02**、AC-32（部分）、AC-33（规则） | `ctest -R test_mc_gate_manifest` | manifest/metrics 的四个哈希字段同源一致（负向对照已验证改一个即挂）；键序固定、无时间戳；`budget_threshold_ms` 按 `%.6f`；降档表 8000→4000/2000→1000/1000→500、`N=3` 豁免；阈值 1.0 → `planned_calls=9500`，阈值 100 → 14000（与 `tools/mc_gate_budget.py` 的 Python 实现对得上） |
+| C14 | `mc_gate_sha256.h` | 支撑 AC-02/AC-34 的哈希能力 | `ctest -R test_mc_gate_sha256` | 6 个权威 golden 向量全中：`""`、`"abc"`、56 字节、1,000,000 个 `'a'`、字节序列 0..255、以及该序列重复 4 次；**构建带 `-Werror` 且零警告** |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -57,7 +58,7 @@ tools/run_mc_gate_acceptance.sh
 | AC | 状态 | 说明 |
 |---|---|---|
 | AC-01 | **✓** | C10：`cells/datasets/calls` 全由 config 推导，源码无硬编码 |
-| AC-02 | **✓** | C13：`manifest_json` 输出四个哈希；`metrics_json` 携带同一份四字段，二者一致性已被负向对照验证 |
+| AC-02 | **✓** | C13 输出并校验四个哈希字段的同源一致；`binary_sha256` 所需的 SHA-256 实现由 C14 提供（已知文件/配置即可算真值） |
 | AC-03 | **✓** | C08：无时间戳/主机名/耗时；gzip mtime=0（逐字节验证头 10 字节） |
 | AC-04 | **✓** | C12：每行含 `cell_id/rep_id/rule_id/selected/index/abstain/returns_sha256` |
 | AC-05 | **✓** | C06：`0/1` 与 `0/4..3/4`、`0/3..2/3` 拼接均与整体逐字节一致 |
@@ -89,7 +90,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-31 | ◐ | 静态部分 ✓（decide 所在 TU 无计时）；`wall_by_rule` 的分项落盘未实现 |
 | AC-32 | ◐ | 分项成本已实测（F5）；未写进 `metrics.json.cost_profile` |
 | AC-33 | ◐ | C13 已用 C++ 实现降档规则并复算 `planned_calls`（与 C10 的 Python 版交叉一致）；尚未接入真实 run 的最终落盘 |
-| AC-34 | ✗ | `replay/` 每数据集一文件未实现 |
+| AC-34 | ✗ | `replay/` 每数据集一文件未实现（所需的 SHA-256 已由 C14 提供） |
 | AC-35 | ✗ | 双轨门槛（analytic/empirical）未实现 |
 
 **统计：✓ 13 项、◐ 8 项、✗ 14 项。**
@@ -120,3 +121,24 @@ tools/run_mc_gate_acceptance.sh
 | **F2** | canary `S=1.2/T=100/N=126` 只有 10% 功率 | 改成 `(100,126,4.0)`（功率 0.96） | 低：只改 AC-09 的 canary 参数 |
 | **F3** | §9.1 的 `T/N` 位置颠倒 | **下一轮优先改** | 高：需重算 §9.2 九行 + C03/C05 的 golden |
 | **F5** | v1.3 的 4.3 h 预算高估 10.1 倍 | 已由 v1.4 的 §5.7/§5.8 改写覆盖，无需再改 | 无 |
+
+---
+
+## 6. CI 兼容性（`-Werror`）
+
+仓库的 `ci-gcc` 预设开启 `QBT_WARNINGS_AS_ERRORS=ON`。已验证：
+
+```
+cmake -B /tmp/werror -DQBT_ENABLE_PERFORMANCE_ANALYTICS=ON -DQBT_WARNINGS_AS_ERRORS=ON
+cmake --build /tmp/werror -j8   → WERROR_BUILD_ALL_OK
+ctest -R mc_gate                → 12/12 Passed
+```
+
+两处需注意（均已在 `performance_analytics/CMakeLists.txt` 里注释说明）：
+
+| 位置 | 处理 | 原因 |
+|---|---|---|
+| 全部 mc_gate 目标 | `-Wno-pedantic` | `mc_gate_rng.h` 用 `unsigned __int128` 实现 PCG64 |
+| 全部 selftest 目标 | `-Wno-unused-variable` | C01 的 selftest 内有一个未使用局部变量（模型产物）；重生成该头需连带重跑全部 golden 向量。该告警仅在定义 `MC_GATE_*_SELFTEST` 时出现，库本体不受影响 |
+
+C14 则是**真正零警告**：它的卡在 `build_cmd` 里直接带了 `-Werror`，模型首轮即通过。

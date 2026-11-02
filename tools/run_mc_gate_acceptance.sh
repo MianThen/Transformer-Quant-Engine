@@ -38,6 +38,7 @@ l0 "C09 ONC 四态与择优" "$CARDS/verify/c09_verify.awk" "$CARDS/expected/c09
 l0 "C10 网格推导/分桶降级" "$CARDS/verify/c10_verify.awk" "$CARDS/expected/c10_expected.txt" "C10_PASS"
 l0 "C11 分片归并/聚合" "$CARDS/verify/c11_verify.awk" "$CARDS/expected/c11_expected.txt" "C11_PASS"
 l0 "C13 manifest/降档/metrics" "$CARDS/verify/c13_verify.awk" "$CARDS/expected/c13_expected.txt" "C13_PASS"
+l0 "C14 SHA-256 golden 向量" "$CARDS/verify/c14_verify.awk" "$CARDS/expected/c14_expected.txt" "C14_PASS"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo
@@ -57,7 +58,7 @@ echo
 echo "== C. 单测：ctest -R mc_gate =="
 CT="$(cd "$BUILD_DIR" && ctest -R mc_gate 2>&1 | tail -4)"
 if echo "$CT" | grep -q "100% tests passed"; then
-  ok "11 个 selftest 全过"
+  ok "12 个 selftest 全过"
 else
   bad "selftest"; echo "$CT" | sed 's/^/    /'
 fi
