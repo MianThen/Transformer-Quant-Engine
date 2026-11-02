@@ -84,8 +84,8 @@ run_marker "smoke 驱动（1200 条 + 落盘）" "$APP/mc_gate_validation" "SMOK
 run_marker "COSTP 成本测量（14 点）"       "$APP/mc_gate_costp"      "COSTP_DONE"
 run_marker "FPR 探针（3×3 网格）"          "$APP/mc_gate_fpr"        "FPR_DONE"
 run_marker "功率探针（4×6 曲线）"          "$APP/mc_gate_power"      "POWER_DONE"
-mkdir -p /tmp/qgate/C17/replay
-run_marker "集成驱动 v2（plan/cost/metrics/replay）" "$APP/mc_gate_run"      "RUN_DONE"
+mkdir -p /tmp/qgate/C26/replay
+run_marker "集成驱动 v3（种子树/逐规则墙钟/metrics/replay）" "$APP/mc_gate_run" "RUN_DONE"
 if python3 "$REPO_ROOT/tools/mc_gate_plot.py" 2>/dev/null | grep -qx "PLOT_DONE"; then ok "C20 图追溯（tools/mc_gate_plot.py）"; else bad "C20 图追溯"; fi
 if python3 "$REPO_ROOT/tools/mc_gate_grid_check.py" 2>/dev/null | grep -qx "GRID_MATCH 1"; then ok "AC-01 网格推导（269/202/617000）"; else bad "AC-01 网格推导（269/202/617000）"; fi
 

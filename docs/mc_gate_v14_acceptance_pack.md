@@ -57,6 +57,7 @@ tools/run_mc_gate_acceptance.sh
 | C23 | `mc_gate_panel.h` | **AC-39**（前缀部分） | `ctest -R test_mc_gate_panel` | 把 `seed_of` 接进 `generate`：`SEED` 与 §3.6 派生一致；`HEAD8` 的 8 个 double 位模式与独立 Python 实现**逐位相同**；块 `SHA256` 钉在目标机（跨平台差 1 ulp，见 F4） |
 | C24 | `mc_gate_streams.h` | **AC-17**（子流独立性）、§3.6.4 | `ctest -R test_mc_gate_streams` | `assign` 子流派生的 κ（T=4 时 rep 0..3 → 0/0/0/3，2000 reps 的分布 476/489/514/521 均匀）；`hold` 子流的部署期路径前 8 个 double 位模式与独立 Python **逐位一致**；块 SHA 钉目标机 |
 | C25 | `mc_gate_seedrec.h` | **AC-37** + **AC-40** | `ctest -R test_mc_gate_seedrec` | 5 个子流各打印前 3 个 PCG64 输出指纹（与独立 Python 逐位一致）；`config_canonical_json` 键序/格式逐字符命中；`config_hash` 覆盖 `run_seed`——把 `run_seed` 改 1 后哈希**必变**（AC-40 的负向测试） |
+| C26 | `mc_gate_run.cpp`（驱动 v3） | **AC-32/33/37/39/40** 的接线 | `./mc_gate_run`（runner 的 D 段） | 按计划 reps 实跑 10,000 次 × 6 规则 = **60,000 条**记录；**逐规则墙钟**（GATE 952 ms、B4 841 ms、B0–B3 各约 40 ms）；`metrics.json` 含 `cost_profile` + `wall_by_rule` 六键；`manifest.json` 含 `run_seed` 与 `seed_tree`（5 子流指纹）；`replay/dataset_0.bin` 4064 B |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -99,17 +100,17 @@ tools/run_mc_gate_acceptance.sh
 | AC-29 | ✗ | `收益 ≤ −1.0` 记 ABSTAIN 的处理未实现 |
 | AC-30 | ◐ | C09 实现了 ONC 机制并复现 §5.3；`OCNP` 的 9 单元 × 200 reps 实跑未做 |
 | AC-31 | ◐ | 静态部分 ✓（decide 所在 TU 无计时）；`wall_by_rule` 的分项落盘未实现 |
-| AC-32 | ◐ | `cost_profile` 已能产出并写进 `metrics.json`（C16+C17）；`wall_by_rule` 的**序列化已就绪**（C18），但驱动尚未把六规则墙钟按规则分别累计并落盘 |
-| AC-33 | ◐ | C17 已把 cost_profile → `plan_units` → `planned_calls` 写进 metrics（12000→10000）。但 smoke 实跑的 reps=50 不等于计划 reps，AC-33 的"最终 reps 必须等于推导值"要在真实 run 上才成立 |
+| AC-32 | **✓** | C26：`metrics.json` 同时含 `cost_profile`（单核 9046.800 ms、超阈 2）与 `wall_by_rule` 六键，均为实测 |
+| AC-33 | **✓** | C26：实跑 reps **就是** `plan_units` 推出的 8000/1000/500/500，`planned_calls=10000` 与实跑一致 |
 | AC-34 | **✓** | C15：`replay/` 每数据集一文件（3 个数据集 → 恰好 3 个文件），文件内为小端 f64 + 32 字节 SHA-256，损坏可检出 |
 | AC-35 | ◐ | C19 已实现双轨门槛与 `|drift|>0.05` 的 flag（实测能在同一参数下打出 16.34 SR 的漂移）；尚未并列写进 `metrics.json` |
 | AC-36 | ◐ | C22 已让 §3.6 的 6 个向量逐位对齐；**全量碰撞检查未做** |
-| AC-37 | ◐ | C25 已产出指纹（可跨平台比对）；尚未写进 `manifest.json` |
+| AC-37 | **✓** | C26：`manifest.json` 的 `seed_tree` 为四个 cell 各记录 5 个子流指纹 |
 | AC-39 | ◐ | C23 已让 `replay` 前 8 个 double 与独立实现**逐位一致**；整块 SHA-256 只钉同机（F4 的跨平台限制） |
-| AC-40 | ◐ | C25 已实现 canonical JSON + 覆盖 `run_seed` 的哈希（改 1 位哈希必变）；`configs/mc/mc_gate_core_v1.json` 也已加 `run_config.run_seed`，但驱动尚未读取它 |
+| AC-40 | **✓** | C26：`manifest.config_hash` 由 `config_hash(cfg)` 算出（覆盖 `run_seed`），`run_seed` 也单列进 manifest |
 | AC-41 | ◐ | `dgp` 自检已断言 `trials/obs/corr_dim` 且 `mean|r̂|` 落在 [0.22,0.38]；驱动层未加 |
 
-**统计：✓ 15 项、◐ 9 项、✗ 11 项。**
+**统计：✓ 19 项、◐ 5 项、✗ 10 项。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。
