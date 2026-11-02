@@ -58,6 +58,7 @@ tools/run_mc_gate_acceptance.sh
 | C24 | `mc_gate_streams.h` | **AC-17**（子流独立性）、§3.6.4 | `ctest -R test_mc_gate_streams` | `assign` 子流派生的 κ（T=4 时 rep 0..3 → 0/0/0/3，2000 reps 的分布 476/489/514/521 均匀）；`hold` 子流的部署期路径前 8 个 double 位模式与独立 Python **逐位一致**；块 SHA 钉目标机 |
 | C25 | `mc_gate_seedrec.h` | **AC-37** + **AC-40** | `ctest -R test_mc_gate_seedrec` | 5 个子流各打印前 3 个 PCG64 输出指纹（与独立 Python 逐位一致）；`config_canonical_json` 键序/格式逐字符命中；`config_hash` 覆盖 `run_seed`——把 `run_seed` 改 1 后哈希**必变**（AC-40 的负向测试） |
 | C26 | `mc_gate_run.cpp`（驱动 v3） | **AC-32/33/37/39/40** 的接线 | `./mc_gate_run`（runner 的 D 段） | 按计划 reps 实跑 10,000 次 × 6 规则 = **60,000 条**记录；**逐规则墙钟**（GATE 952 ms、B4 841 ms、B0–B3 各约 40 ms）；`metrics.json` 含 `cost_profile` + `wall_by_rule` 六键；`manifest.json` 含 `run_seed` 与 `seed_tree`（5 子流指纹）；`replay/dataset_0.bin` 4064 B |
+| C27 | `mc_gate_full.cpp` + `mc_gate_grid_cells.inc` | 全网格执行 | `./mc_gate_full --limit N --reps-cap M` | 269 个 cell 编译期化（纯整数编码，`.inc` 自带 `GridCell` 与 guard）；`--limit 8 --reps-cap 20` → 8 个 CELL、48 条聚合、960 条记录，格式与计数逐项校验 |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 

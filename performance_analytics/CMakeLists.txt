@@ -177,3 +177,13 @@ target_include_directories(mc_gate_run PRIVATE
 qbt_enable_warnings(mc_gate_run)
 target_compile_options(mc_gate_run PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_run)
+
+# 全网格驱动（C27）：读 configs/mc/mc_gate_grid_cells.inc 的 269 个 cell
+add_executable(mc_gate_full apps/mc_gate_full.cpp)
+target_include_directories(mc_gate_full PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../configs/mc)
+qbt_enable_warnings(mc_gate_full)
+target_compile_options(mc_gate_full PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_full)
