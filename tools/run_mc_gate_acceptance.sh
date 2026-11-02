@@ -43,6 +43,7 @@ l0 "C15 replay 每数据集一文件" "$CARDS/verify/c15_verify.awk" "$CARDS/exp
 l0 "C16 cost_profile 汇总" "$CARDS/verify/c16_verify.awk" "$CARDS/expected/c16_expected.txt" "C16_PASS"
 l0 "C18 wall_by_rule 序列化" "$CARDS/verify/c18_verify.awk" "$CARDS/expected/c18_expected.txt" "C18_PASS"
 l0 "C19 双轨门槛" "$CARDS/verify/c19_verify.awk" "$CARDS/expected/c19_expected.txt" "C19_PASS"
+l0 "C20 图的可追溯性" "$CARDS/verify/c20_verify.awk" "$CARDS/expected/c20_expected.txt" "C20_PASS"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo
@@ -80,6 +81,7 @@ run_marker "FPR 探针（3×3 网格）"          "$APP/mc_gate_fpr"        "FPR
 run_marker "功率探针（4×6 曲线）"          "$APP/mc_gate_power"      "POWER_DONE"
 mkdir -p /tmp/qgate/C17/replay
 run_marker "集成驱动 v2（plan/cost/metrics/replay）" "$APP/mc_gate_run"      "RUN_DONE"
+if python3 "$REPO_ROOT/tools/mc_gate_plot.py" 2>/dev/null | grep -qx "PLOT_DONE"; then ok "C20 图追溯（tools/mc_gate_plot.py）"; else bad "C20 图追溯"; fi
 
 echo
 echo "---------------------------------------------"

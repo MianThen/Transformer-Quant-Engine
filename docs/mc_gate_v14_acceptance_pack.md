@@ -16,12 +16,12 @@ tools/run_mc_gate_acceptance.sh
 
 | 步骤 | 内容 | 期望 |
 |---|---|---|
-| A. L0 自检 | 用归档的"已知正确样本"跑 10 个验收脚本 | 10 项 PASS（证明**验收脚本本身**判得对） |
+| A. L0 自检 | 用归档的"已知正确样本"跑 12 个验收脚本 | 12 项 PASS（证明**验收脚本本身**判得对） |
 | B. 构建 | cmake 配置 + 构建全部 16 个 mc_gate 目标和 6 个 app | PASS |
 | C. 单测 | `ctest -R mc_gate` | 16/16 Passed |
-| D. 驱动 | 跑 smoke 驱动 + 集成驱动 v2 + 3 个诊断探针 | 5 项 PASS |
+| D. 驱动 | 跑 smoke/集成驱动 + 3 个探针 + 图追溯 | 6 项 PASS |
 
-当前实测输出：**PASS 17 / 17**（A 10 + B 1 + C 1 + D 5）。
+当前实测输出：**PASS 20 / 20**（A 12 + B 1 + C 1 + D 6）。
 
 跳过构建用 `--skip-build`；换构建目录用 `--build-dir DIR`。
 
@@ -51,6 +51,7 @@ tools/run_mc_gate_acceptance.sh
 | C17 | `mc_gate_run.cpp`（集成驱动 v2） | AC-32（cost_profile 部分）、AC-33（链路部分） | `./build/.../mc_gate_run` 或 `ctest` 之外的 app | PLAN 8000/1000/500/500、planned_calls 10000；`COST total 9046.800`、shares 0.530840/0.328359/0.101406/0.039439；`metrics.json` **含 cost_profile**；1200 条 jsonl；`replay/dataset_0.bin` 4064 字节；WALL 非零 |
 | C18 | `mc_gate_wall.h` | AC-32（wall_by_rule 的序列化） | `ctest -R test_mc_gate_wall` | 六条规则键序固定为 GATE_Full/B0..B4；缺失规则补 `0.000`；非法 rule_id 被忽略；单行无空格；8 条负向对照（键序错、缺规则、浮点格式、未补 0、非法规则被输出、有空格、缺 DONE、多一行）全拦 |
 | C19 | `mc_gate_threshold.h` | AC-35（双轨门槛的计算与 flag） | `ctest -R test_mc_gate_threshold` | 同参数下解析门槛 `1.657640`、经验分位 `18.000000`、漂移 `16.342360` → `flagged=1`；换成窄分布后漂移 `0.042360` → `flagged=0`；字段顺序/缺失字段/非法行均被位置化校验拦住（负向 9/9） |
+| C20 | `tools/mc_gate_plot.py` | **AC-22** | `python3 tools/mc_gate_plot.py` | 图只存"取数路径"不存数值；`trace` 逐点比对 metrics 与 spec，2 个 spec × 3 点全通过；把 `fpr.GATE.T20` 从 0.1650 改成 0.1651 后追溯立刻失败并指出是 `fpr_vs_t`（负向 9/9） |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -83,7 +84,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-19 | **✓** | 静态检查：`mc_gate_decide.h`/`mc_gate_adapter.h` 不含 truth 符号 |
 | AC-20 | **✓** | C07：Wilson 区间，判据用 `ci_lower ≤ p ≤ ci_upper` |
 | AC-21 | **✓** | C07：`invalid→V3 / undecided→VU / dominated→V2 / else V1` + 两个 flags |
-| AC-22 | ✗ | 图与"每个数字可追溯到 cell_id"未实现 |
+| AC-22 | **✓** | C20：图只存取数路径、`trace` 逐点比对 metrics；硬编码值会被追溯校验抓住。（`source` 现为 metrics 路径，接真实 run 后应换成 `(rule_id, cell_id)` 复合键） |
 | AC-23 | **✓** | C07：`verdict/flags/abstain_rate/Δ` 全部机械计算，无手填 |
 | AC-24 | ◐ | 已实测单核 25.4 min（发现 F5）；未落成 `metrics.json` 里的正式判据 |
 | AC-25 | ✗ | smoke `--strict` + 60 s 判据未实现 |
@@ -98,7 +99,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-34 | **✓** | C15：`replay/` 每数据集一文件（3 个数据集 → 恰好 3 个文件），文件内为小端 f64 + 32 字节 SHA-256，损坏可检出 |
 | AC-35 | ◐ | C19 已实现双轨门槛与 `|drift|>0.05` 的 flag（实测能在同一参数下打出 16.34 SR 的漂移）；尚未并列写进 `metrics.json` |
 
-**统计：✓ 14 项、◐ 9 项、✗ 12 项。**
+**统计：✓ 15 项、◐ 9 项、✗ 11 项。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。
