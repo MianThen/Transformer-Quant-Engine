@@ -205,3 +205,12 @@ target_include_directories(mc_gate_ocn PRIVATE
 qbt_enable_warnings(mc_gate_ocn)
 target_compile_options(mc_gate_ocn PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_ocn)
+
+# H6 跨族重试探针（K=1 vs K=10 的假阳性率）
+add_executable(mc_gate_retry apps/mc_gate_retry.cpp)
+target_include_directories(mc_gate_retry PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_retry)
+target_compile_options(mc_gate_retry PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_retry)
