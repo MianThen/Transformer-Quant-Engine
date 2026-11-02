@@ -17,8 +17,8 @@ tools/run_mc_gate_acceptance.sh
 | 步骤 | 内容 | 期望 |
 |---|---|---|
 | A. L0 自检 | 用归档的"已知正确样本"跑 10 个验收脚本 | 10 项 PASS（证明**验收脚本本身**判得对） |
-| B. 构建 | cmake 配置 + 构建全部 14 个 mc_gate 目标和 4 个 app | PASS |
-| C. 单测 | `ctest -R mc_gate` | 14/14 Passed |
+| B. 构建 | cmake 配置 + 构建全部 15 个 mc_gate 目标和 6 个 app | PASS |
+| C. 单测 | `ctest -R mc_gate` | 15/15 Passed |
 | D. 驱动 | 跑 smoke 驱动 + 集成驱动 v2 + 3 个诊断探针 | 5 项 PASS |
 
 当前实测输出：**PASS 17 / 17**（A 10 + B 1 + C 1 + D 5）。
@@ -49,6 +49,7 @@ tools/run_mc_gate_acceptance.sh
 | C15 | `mc_gate_replay.h` | **AC-34** | `ctest -R test_mc_gate_replay` | 写 3 个数据集 → 目录里恰好 3 个 `dataset_*.bin`（**不是每 rep 一个**）；文件 = 小端 f64 数据段 + 32 字节 SHA-256；三个数据段的哈希与独立工具计算逐一相同；把数据段第 15 字节翻转后 `verify` 返回 0（损坏能被检出） |
 | C16 | `mc_gate_cost.h` | AC-32（cost_profile 一半）、AC-33（汇总部分） | `ctest -R test_mc_gate_cost` | 由 3 个 (T,N) 点 × 3 个权重复算出单核 `176175.600` ms（与独立 Python 一致）；分项占比 dgp 0.445533 / m 0.464928 / ocn 0.056003 / decide 0.033549；`over_threshold=1`；规范 JSON 键序、`%.3f`/`%.6f` 格式逐字符命中 |
 | C17 | `mc_gate_run.cpp`（集成驱动 v2） | AC-32（cost_profile 部分）、AC-33（链路部分） | `./build/.../mc_gate_run` 或 `ctest` 之外的 app | PLAN 8000/1000/500/500、planned_calls 10000；`COST total 9046.800`、shares 0.530840/0.328359/0.101406/0.039439；`metrics.json` **含 cost_profile**；1200 条 jsonl；`replay/dataset_0.bin` 4064 字节；WALL 非零 |
+| C18 | `mc_gate_wall.h` | AC-32（wall_by_rule 的序列化） | `ctest -R test_mc_gate_wall` | 六条规则键序固定为 GATE_Full/B0..B4；缺失规则补 `0.000`；非法 rule_id 被忽略；单行无空格；8 条负向对照（键序错、缺规则、浮点格式、未补 0、非法规则被输出、有空格、缺 DONE、多一行）全拦 |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -91,7 +92,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-29 | ✗ | `收益 ≤ −1.0` 记 ABSTAIN 的处理未实现 |
 | AC-30 | ◐ | C09 实现了 ONC 机制并复现 §5.3；`OCNP` 的 9 单元 × 200 reps 实跑未做 |
 | AC-31 | ◐ | 静态部分 ✓（decide 所在 TU 无计时）；`wall_by_rule` 的分项落盘未实现 |
-| AC-32 | ◐ | C16 产出规范 `cost_profile`；C17 已把它**写进 `metrics.json`**。仍缺 `wall_by_rule`（驱动只把六规则墙钟打到 stdout，未落盘） |
+| AC-32 | ◐ | `cost_profile` 已能产出并写进 `metrics.json`（C16+C17）；`wall_by_rule` 的**序列化已就绪**（C18），但驱动尚未把六规则墙钟按规则分别累计并落盘 |
 | AC-33 | ◐ | C17 已把 cost_profile → `plan_units` → `planned_calls` 写进 metrics（12000→10000）。但 smoke 实跑的 reps=50 不等于计划 reps，AC-33 的"最终 reps 必须等于推导值"要在真实 run 上才成立 |
 | AC-34 | **✓** | C15：`replay/` 每数据集一文件（3 个数据集 → 恰好 3 个文件），文件内为小端 f64 + 32 字节 SHA-256，损坏可检出 |
 | AC-35 | ✗ | 双轨门槛（analytic/empirical）未实现 |
@@ -134,7 +135,7 @@ tools/run_mc_gate_acceptance.sh
 ```
 cmake -B /tmp/werror -DQBT_ENABLE_PERFORMANCE_ANALYTICS=ON -DQBT_WARNINGS_AS_ERRORS=ON
 cmake --build /tmp/werror -j8   → WERROR_BUILD_ALL_OK
-ctest -R mc_gate                → 14/14 Passed
+ctest -R mc_gate                → 15/15 Passed
 ```
 
 两处需注意（均已在 `performance_analytics/CMakeLists.txt` 里注释说明）：

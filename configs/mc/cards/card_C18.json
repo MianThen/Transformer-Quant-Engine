@@ -1,0 +1,11 @@
+{
+  "id": "C18",
+  "target": "/tmp/qgate/C18/mc_gate_wall.h",
+  "lang": "cpp",
+  "max_rounds": 3,
+  "max_tokens": 8192,
+  "cwd": "/tmp/qgate/C18",
+  "prompt": "请只写一个文件 mc_gate_wall.h（header-only，C++20，namespace mc_gate）。\n\n【硬性约束】\n1. 只允许这些标准头，全部写在最顶部、namespace 之外：\n   <cstddef> <cstdint> <cstdio> <cstring> <cmath> <string> <vector>\n   <algorithm> <utility>\n2. 不包含任何项目头文件。所有符号在 namespace mc_gate 内，namespace 用单独的 } 关闭。\n3. 自检 main 用 #ifdef MC_GATE_WALL_SELFTEST 包住、写在 namespace 关闭之后；\n   main() 第一行写 using namespace mc_gate;。\n4. 只打印规定的行，不打印调试信息，不写 stderr。构建带 -Werror，必须零警告\n   （没用到的参数写 (void)x;，不要留未使用的局部变量）。\n\n【要实现的类型与函数】\n\nstruct RuleWall {\n  const char* rule_id;   // 六条规则之一：\"GATE_Full\" \"B0\" \"B1\" \"B2\" \"B3\" \"B4\"\n  double ms;             // 该规则的累计墙钟毫秒\n};\n\n// 规范化 wall_by_rule JSON。键顺序【固定】为：\n//   GATE_Full, B0, B1, B2, B3, B4\n// 每个值用 \"%.3f\"。形状（单行、无空格）：\n//   {\"GATE_Full\":<%.3f>,\"B0\":<%.3f>,\"B1\":<%.3f>,\"B2\":<%.3f>,\"B3\":<%.3f>,\"B4\":<%.3f>}\n// 规则说明：\n//   · walls 里出现的规则用它的 ms；\n//   · walls 里【缺失】的规则一律填 0.000；\n//   · walls 里出现顺序任意，输出必须按上面的固定键序；\n//   · walls 里若出现不在六条之内的 rule_id，忽略它（不报错、不输出）。\n// 实现建议：先建一个 double acc[6] = {0,0,0,0,0,0};\n//   遍历 walls，用 6 个字符串常量逐个比较决定下标；然后按固定顺序 printf 拼串。\nstd::string wall_by_rule_json(const std::vector<RuleWall>& walls);\n\n【自检 main（#ifdef MC_GATE_WALL_SELFTEST）】\n\n第一组：构造 6 条规则各一条，顺序故意打乱：\n  { \"B2\", 3.456 }\n  { \"GATE_Full\", 12.345 }\n  { \"B0\", 1.234 }\n  { \"B4\", 5.678 }\n  { \"B1\", 2.345 }\n  { \"B3\", 4.567 }\n打印：\n  WALL_JSON <wall_by_rule_json(第一组)>\n\n第二组：只给两条，且含一条非法规则：\n  { \"B0\", 9.999 }\n  { \"UNKNOWN_RULE\", 7.777 }\n打印：\n  WALL_JSON_PARTIAL <wall_by_rule_json(第二组)>\n\n最后打印 WALL_DONE，return 0。\n\n【输出纪律】\n  共 2 行 WALL_JSON* + 1 行 WALL_DONE。全部 printf 到 stdout。\n  要求 -Wall -Wextra -Werror 零警告。\n\n【必须逐行命中的期望输出】\nWALL_JSON {\"GATE_Full\":12.345,\"B0\":1.234,\"B1\":2.345,\"B2\":3.456,\"B3\":4.567,\"B4\":5.678}\nWALL_JSON_PARTIAL {\"GATE_Full\":0.000,\"B0\":9.999,\"B1\":0.000,\"B2\":0.000,\"B3\":0.000,\"B4\":0.000}\nWALL_DONE\n",
+  "build_cmd": "printf '#define MC_GATE_WALL_SELFTEST 1\\n#include \"mc_gate_wall.h\"\\n' > t.cpp && g++ -std=c++20 -O2 -Wall -Wextra -Werror -I. t.cpp -o o.out",
+  "verify_cmd": "timeout 30 ./o.out > out.txt 2>&1; rc=$?; if [ $rc -eq 124 ]; then echo C18_FAIL hang_timeout; exit 1; fi; awk -f c18_verify.awk out.txt"
+}
