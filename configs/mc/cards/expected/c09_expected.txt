@@ -1,0 +1,7 @@
+CASE A status=OK cc=2 assign=0011 cand=4 valid=4 quality=0.666667
+CASE B status=NO_VALID_PARTITION cc=0 assign=- cand=4 valid=0 quality=0.000000
+CASE C status=INVALID_INPUT cc=0 assign=- cand=0 valid=0 quality=0.000000
+CASE D status=OK cc=3 assign=001122 cand=8 valid=8 quality=0.666667
+SEEDMOD 4 1 1 3 3
+SEEDMOD 20 17 9 3 11
+ONC_DONE

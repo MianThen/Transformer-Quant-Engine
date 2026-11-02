@@ -1,0 +1,9 @@
+CRC 0xCBF43926
+GZIP_HDR 1f 8b 08 00 00 00 00 00 00 ff
+GZIP_SIZE 460
+PAYLOAD_SIZE 437
+JSONL {"cell_id":101,"rep_id":0,"rule_id":"GATE_Full","selected":false,"index":1,"abstain":false,"returns_sha256":"92b4f2a290c24fe4","reason":"below_threshold"}
+JSONL {"cell_id":101,"rep_id":0,"rule_id":"B0","selected":true,"index":1,"abstain":false,"returns_sha256":"92b4f2a290c24fe4","reason":"baseline"}
+JSONL {"cell_id":205,"rep_id":2,"rule_id":"B4","selected":true,"index":4,"abstain":true,"returns_sha256":"0123456789abcdef","reason":"ocn_abstain"}
+ESC q\"w\\e
+OUTPUT_DONE
