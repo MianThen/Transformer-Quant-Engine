@@ -151,3 +151,14 @@ target_include_directories(mc_gate_costp PRIVATE
 qbt_enable_warnings(mc_gate_costp)
 target_compile_options(mc_gate_costp PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_costp)
+
+# F1/F2 诊断探针：GATE 的实测 FPR 与功率曲线（用于 α 网格与 canary 定档，不注册 ctest）
+foreach(mc_gate_probe fpr power)
+    add_executable(mc_gate_${mc_gate_probe} apps/mc_gate_${mc_gate_probe}.cpp)
+    target_include_directories(mc_gate_${mc_gate_probe} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+    qbt_enable_warnings(mc_gate_${mc_gate_probe})
+    target_compile_options(mc_gate_${mc_gate_probe} PRIVATE -Wno-pedantic)
+    qbt_static_test_runtime(mc_gate_${mc_gate_probe})
+endforeach()
