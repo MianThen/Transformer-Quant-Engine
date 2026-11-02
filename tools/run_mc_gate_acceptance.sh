@@ -48,6 +48,7 @@ l0 "C21 Python 独立复算" "$CARDS/verify/c21_verify.awk" "$CARDS/expected/c21
 l0 "C22 §3.6 种子树向量" "$CARDS/verify/c22_verify.awk" "$CARDS/expected/c22_expected.txt" "C22_PASS"
 l0 "C23 面板接种子树" "$CARDS/verify/c23_verify.awk" "$CARDS/expected/c23_expected.txt" "C23_PASS"
 l0 "C24 子流 assign/hold" "$CARDS/verify/c24_verify.awk" "$CARDS/expected/c24_expected.txt" "C24_PASS"
+l0 "C25 指纹与 config_hash" "$CARDS/verify/c25_verify.awk" "$CARDS/expected/c25_expected.txt" "C25_PASS"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo
@@ -67,7 +68,7 @@ echo
 echo "== C. 单测：ctest -R mc_gate =="
 CT="$(cd "$BUILD_DIR" && ctest -R mc_gate 2>&1 | tail -4)"
 if echo "$CT" | grep -q "100% tests passed"; then
-  ok "19 个 selftest 全过"
+  ok "20 个 selftest 全过"
 else
   bad "selftest"; echo "$CT" | sed 's/^/    /'
 fi

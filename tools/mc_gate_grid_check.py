@@ -30,9 +30,15 @@ def main():
     with open(path) as f:
         cfg = json.load(f)
     c, d, k = derive(cfg)
+    # AC-40：run_seed 必须在 config 里，且改它就改 config_hash
+    rc = cfg.get("run_config")
+    if not rc or "run_seed" not in rc:
+        print("GRID_NO_RUN_SEED")
+        return 1
     print("GRID cells=%d datasets=%d calls=%d" % (c, d, k))
     ok = (c == EXPECTED["cells"] and d == EXPECTED["datasets"] and k == EXPECTED["calls"])
     print("GRID expect %d / %d / %d" % (EXPECTED["cells"], EXPECTED["datasets"], EXPECTED["calls"]))
+    print("GRID_RUN_SEED %d" % rc["run_seed"])
     print("GRID_MATCH 1" if ok else "GRID_MATCH 0")
     return 0 if ok else 1
 

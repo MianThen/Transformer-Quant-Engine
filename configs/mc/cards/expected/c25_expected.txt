@@ -1,0 +1,10 @@
+SEEDREC_BEGIN
+FP ret c849fb5a38a25ca2 9d4fc1d81aeff5ac 464963e575d48a7a
+FP assign 853aca6fd63317e8 02d6e0fe6c9acb58 57e0ae21d946b4da
+FP hold 60a83a5e1b236d92 bb349715cf615955 e1a80f8e76eb077c
+FP boot 0bd20b9aab82efa3 a76a13e5b9b5a0cc 828bc176edb79059
+FP aux d3b54ecaed619428 0c16b2f891f24d51 08e7cc642673b005
+CANON {"contract_version":"1.4.5","grid":"mc_gate_core_v1","run_seed":20261027,"q":0.050000,"alpha":0.050000,"reps_scale":1}
+CONFIG_HASH 64a6f1bfa3d6a955ef9b64b542795e6ff24f1cbc0ea1409f9dba0910c3090ea6
+TAMPER_HASH c1e40f3dc36d2f1f62c43fb0daa48b16bcbd45ad3871358a44e6c65b9428d07c
+SEEDREC_DONE

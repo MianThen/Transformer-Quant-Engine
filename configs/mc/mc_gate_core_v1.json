@@ -5006,5 +5006,13 @@
    "q": 0.2,
    "K": null
   }
- ]
+ ],
+ "run_config": {
+  "contract_version": "1.4.5",
+  "grid": "mc_gate_core_v1",
+  "run_seed": 20261027,
+  "q": 0.05,
+  "alpha": 0.05,
+  "reps_scale": 1
+ }
 }
