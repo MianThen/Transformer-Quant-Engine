@@ -18,7 +18,7 @@ tools/run_mc_gate_acceptance.sh
 |---|---|---|
 | A. L0 自检 | 用归档的"已知正确样本"跑 13 个验收脚本 | 13 项 PASS（证明**验收脚本本身**判得对） |
 | B. 构建 | cmake 配置 + 构建全部 16 个 mc_gate 目标和 6 个 app | PASS |
-| C. 单测 | `ctest -R mc_gate` | 16/16 Passed |
+| C. 单测 | `ctest -R mc_gate` | 17/17 Passed |
 | D. 驱动 | 跑 smoke/集成驱动 + 3 个探针 + 图追溯 | 6 项 PASS |
 
 当前实测输出：**PASS 21 / 21**（A 13 + B 1 + C 1 + D 6）。
@@ -53,6 +53,7 @@ tools/run_mc_gate_acceptance.sh
 | C19 | `mc_gate_threshold.h` | AC-35（双轨门槛的计算与 flag） | `ctest -R test_mc_gate_threshold` | 同参数下解析门槛 `1.657640`、经验分位 `18.000000`、漂移 `16.342360` → `flagged=1`；换成窄分布后漂移 `0.042360` → `flagged=0`；字段顺序/缺失字段/非法行均被位置化校验拦住（负向 9/9） |
 | C20 | `tools/mc_gate_plot.py` | **AC-22** | `python3 tools/mc_gate_plot.py` | 图只存"取数路径"不存数值；`trace` 逐点比对 metrics 与 spec，2 个 spec × 3 点全通过；把 `fpr.GATE.T20` 从 0.1650 改成 0.1651 后追溯立刻失败并指出是 `fpr_vs_t`（负向 9/9） |
 | C21 | `tools/mc_gate_recheck.py` | AC-14（独立复算的核心） | `python3 tools/mc_gate_recheck.py [replay路径]` | 从 replay 原始字节**独立重算**：`m=0.503583985525`、`teff=1.593148215827`、`thr=1.654834515`、argmax=115（22.260256）、above=53，与 C++ 写出的 `GATE_Full selected=1 index=115` **完全一致** |
+| C22 | `mc_gate_seed.h` | **AC-36**（向量部分） | `ctest -R test_mc_gate_seed` | 合同 §3.6.7 的 6 个种子向量 + 3 个 `fnv1a64` **逐位命中**；`ds` 判别成立（R 与 A 只差 `ds`，`fnv` 与 seed 均不同）；`dataset_key` 的 4/2/1 位定点格式逐字符命中（负向 11/11） |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -99,6 +100,11 @@ tools/run_mc_gate_acceptance.sh
 | AC-33 | ◐ | C17 已把 cost_profile → `plan_units` → `planned_calls` 写进 metrics（12000→10000）。但 smoke 实跑的 reps=50 不等于计划 reps，AC-33 的"最终 reps 必须等于推导值"要在真实 run 上才成立 |
 | AC-34 | **✓** | C15：`replay/` 每数据集一文件（3 个数据集 → 恰好 3 个文件），文件内为小端 f64 + 32 字节 SHA-256，损坏可检出 |
 | AC-35 | ◐ | C19 已实现双轨门槛与 `|drift|>0.05` 的 flag（实测能在同一参数下打出 16.34 SR 的漂移）；尚未并列写进 `metrics.json` |
+| AC-36 | ◐ | C22 已让 §3.6 的 6 个向量逐位对齐；**全量碰撞检查未做** |
+| AC-37 | ✗ | `manifest` 记录每 `(dataset,stream)` 前 3 个 PCG64 指纹：未实现 |
+| AC-39 | ✗ | 抽样顺序的位级对照（replay 前 8 个 double + 整块 SHA-256）：未做 |
+| AC-40 | ✗ | `run_seed` 进 config 且 `config_hash` 覆盖它：未实现 |
+| AC-41 | ◐ | `dgp` 自检已断言 `trials/obs/corr_dim` 且 `mean|r̂|` 落在 [0.22,0.38]；驱动层未加 |
 
 **统计：✓ 15 项、◐ 9 项、✗ 11 项。**
 
@@ -138,7 +144,7 @@ tools/run_mc_gate_acceptance.sh
 ```
 cmake -B /tmp/werror -DQBT_ENABLE_PERFORMANCE_ANALYTICS=ON -DQBT_WARNINGS_AS_ERRORS=ON
 cmake --build /tmp/werror -j8   → WERROR_BUILD_ALL_OK
-ctest -R mc_gate                → 16/16 Passed
+ctest -R mc_gate                → 17/17 Passed
 ```
 
 两处需注意（均已在 `performance_analytics/CMakeLists.txt` 里注释说明）：

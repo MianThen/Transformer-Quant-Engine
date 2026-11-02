@@ -288,7 +288,7 @@ v1.4.5 钉死 `i∈1..T`＝策略、`t∈1..N`＝期，并新增 §3.6 种子树
 | C07 | `mc_gate_scorer.h` | 否 | 合规 | 保留 |
 | C08 | `mc_gate_output.h` | 否 | 合规 | 保留 |
 | C09 | `mc_gate_onc.h` | 否（吃相关矩阵） | 合规 | 保留；需确认调用方给的是 `T×T` |
-| C10 | `tools/mc_gate_budget.py` | 否 | **不符** | 按 v1.4.5 的块表与 `D=202` 重算 |
+| C10 | `tools/mc_gate_budget.py` | 否 | 已更新 | `configs/mc/mc_gate_core_v1.json` 按 v1.4.5 重生成为 `panel_ref` 语义，复算 269/202/617000 命中 |
 | C11 | `tools/mc_gate_reduce.py` | 否 | 合规 | 保留 |
 | C12 | `mc_gate_validation.cpp` | **是** | **不符** | 重做（按新朝向 + 新种子树） |
 | C13 | `mc_gate_manifest.h` | 否 | 合规 | 保留 |
@@ -307,8 +307,8 @@ v1.4.5 钉死 `i∈1..T`＝策略、`t∈1..N`＝期，并新增 §3.6 种子树
 
 | 条款 | 内容 | 状态 |
 |---|---|---|
-| §3.6 种子树 | `dataset_key` + `seed(dataset_key,rep,batch,stream)` + 五子流 | **未实现**（现仍是单一 splitmix64 seed） |
-| AC-36 | 逐位对齐 §3.6.7 的 6 个测试向量 | 未做 |
+| §3.6 种子树 | `dataset_key` + `seed(dataset_key,rep,batch,stream)` + 五子流 | **派生层已实现**（C22，6 个向量逐位命中）；**尚未接进 `generate`** |
+| AC-36 | 逐位对齐 §3.6.7 的 6 个测试向量 | **向量部分已完成**（C22）；全量碰撞检查未做 |
 | AC-37 | `manifest` 记录每 `(dataset,stream)` 前 3 个 PCG64 指纹 | 未做 |
 | AC-39 | `replay/` 前 8 个 double 的十六进制 + 整块 SHA-256 对照 | 未做 |
 | AC-40 | `run_seed` 进 config、`config_hash` 覆盖它 | 未做 |

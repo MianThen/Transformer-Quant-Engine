@@ -45,6 +45,7 @@ l0 "C18 wall_by_rule 序列化" "$CARDS/verify/c18_verify.awk" "$CARDS/expected/
 l0 "C19 双轨门槛" "$CARDS/verify/c19_verify.awk" "$CARDS/expected/c19_expected.txt" "C19_PASS"
 l0 "C20 图的可追溯性" "$CARDS/verify/c20_verify.awk" "$CARDS/expected/c20_expected.txt" "C20_PASS"
 l0 "C21 Python 独立复算" "$CARDS/verify/c21_verify.awk" "$CARDS/expected/c21_expected.txt" "C21_PASS"
+l0 "C22 §3.6 种子树向量" "$CARDS/verify/c22_verify.awk" "$CARDS/expected/c22_expected.txt" "C22_PASS"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo
@@ -64,7 +65,7 @@ echo
 echo "== C. 单测：ctest -R mc_gate =="
 CT="$(cd "$BUILD_DIR" && ctest -R mc_gate 2>&1 | tail -4)"
 if echo "$CT" | grep -q "100% tests passed"; then
-  ok "16 个 selftest 全过"
+  ok "17 个 selftest 全过"
 else
   bad "selftest"; echo "$CT" | sed 's/^/    /'
 fi
@@ -83,6 +84,7 @@ run_marker "功率探针（4×6 曲线）"          "$APP/mc_gate_power"      "P
 mkdir -p /tmp/qgate/C17/replay
 run_marker "集成驱动 v2（plan/cost/metrics/replay）" "$APP/mc_gate_run"      "RUN_DONE"
 if python3 "$REPO_ROOT/tools/mc_gate_plot.py" 2>/dev/null | grep -qx "PLOT_DONE"; then ok "C20 图追溯（tools/mc_gate_plot.py）"; else bad "C20 图追溯"; fi
+if python3 "$REPO_ROOT/tools/mc_gate_grid_check.py" 2>/dev/null | grep -qx "GRID_MATCH 1"; then ok "AC-01 网格推导（269/202/617000）"; else bad "AC-01 网格推导（269/202/617000）"; fi
 
 echo
 echo "---------------------------------------------"
