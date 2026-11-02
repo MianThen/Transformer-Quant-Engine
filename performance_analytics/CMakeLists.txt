@@ -167,3 +167,13 @@ foreach(mc_gate_probe fpr power)
     target_compile_options(mc_gate_${mc_gate_probe} PRIVATE -Wno-pedantic)
     qbt_static_test_runtime(mc_gate_${mc_gate_probe})
 endforeach()
+
+# 集成驱动 v2（C17）：plan -> cost_profile -> metrics(含 cost_profile) -> records -> replay
+# 只构建、不注册 ctest：它会写 /tmp/qgate/C17 下的 smoke 产物，需人工运行。
+add_executable(mc_gate_run apps/mc_gate_run.cpp)
+target_include_directories(mc_gate_run PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_run)
+target_compile_options(mc_gate_run PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_run)
