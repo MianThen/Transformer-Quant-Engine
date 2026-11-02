@@ -142,3 +142,12 @@ target_include_directories(mc_gate_validation PRIVATE
 qbt_enable_warnings(mc_gate_validation)
 target_compile_options(mc_gate_validation PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_validation)
+
+# §5.8 COSTP：在目标机实测 ĉ(T,N) 与分项占比（不注册为 ctest，需人工在目标机跑）
+add_executable(mc_gate_costp apps/mc_gate_costp.cpp)
+target_include_directories(mc_gate_costp PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_costp)
+target_compile_options(mc_gate_costp PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_costp)
