@@ -300,6 +300,7 @@ v1.4.5 钉死 `i∈1..T`＝策略、`t∈1..N`＝期，并新增 §3.6 种子树
 | C19 | `mc_gate_threshold.h` | 否 | 合规 | 保留（其 T 本就是 trials 语义） |
 | C20 | `tools/mc_gate_plot.py` | 否 | 合规 | 保留 |
 | C21 | `tools/mc_gate_recheck.py` | **是** | **不符** | 重做（按 N 期求 SR） |
+| C23 | `mc_gate_panel.h` | 否（新增） | 合规 | 新增；把 §3.6 接进 `generate` |
 
 **汇总：合规保留 12 张；已手改待重验 4 张（C02/C03/C05/C06+C06R 计 5 处）；不符需重做 3 张（C12/C17/C21）；需更新 1 张（C10）。**
 
@@ -307,10 +308,10 @@ v1.4.5 钉死 `i∈1..T`＝策略、`t∈1..N`＝期，并新增 §3.6 种子树
 
 | 条款 | 内容 | 状态 |
 |---|---|---|
-| §3.6 种子树 | `dataset_key` + `seed(dataset_key,rep,batch,stream)` + 五子流 | **派生层已实现**（C22，6 个向量逐位命中）；**尚未接进 `generate`** |
+| §3.6 种子树 | `dataset_key` + `seed(dataset_key,rep,batch,stream)` + 五子流 | **已接进 `generate`**（C22 派生 + C23 面板）；五子流只用了 `ret`，其余四个未接 |
 | AC-36 | 逐位对齐 §3.6.7 的 6 个测试向量 | **向量部分已完成**（C22）；全量碰撞检查未做 |
 | AC-37 | `manifest` 记录每 `(dataset,stream)` 前 3 个 PCG64 指纹 | 未做 |
-| AC-39 | `replay/` 前 8 个 double 的十六进制 + 整块 SHA-256 对照 | 未做 |
+| AC-39 | `replay/` 前 8 个 double 的十六进制 + 整块 SHA-256 对照 | **前缀 8 个已逐位对齐**（C23）；整块只能同机 |
 | AC-40 | `run_seed` 进 config、`config_hash` 覆盖它 | 未做 |
 | AC-41 | 维度绑定断言（`observation_count==N`、`raw_trial_count==T`、相关矩阵 `T×T`） | **dgp 自检已加**，驱动层未加 |
 

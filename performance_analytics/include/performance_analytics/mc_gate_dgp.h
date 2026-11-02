@@ -11,7 +11,10 @@ namespace mc_gate {
 
 constexpr double kP      = 50.4;
 constexpr double kScale  = 7.099295739719547;       // sqrt(50.4)
-constexpr double kSigmaP = 0.014086041373984414;    // = 0.10/kScale，注意是 0.0140 不是 0.0014
+// §3.1：sigma_p = 0.10/scale。**必须由公式算，不要写十进制字面量**——
+// 旧版手写的 0.014086041373984414 与 0.10/kScale = 0.014085904245475263 相差 9.7e-6，
+// 会让每条收益带 1e-5 的相对偏差（2026-11 修正）。
+constexpr double kSigmaP = 0.10 / kScale;
 // 每期均值 mu_i = tau_i * kSigmaP / kScale；这样年化 SR = tau_i 精确成立。
 // 期望每期方差 = kSigmaP^2 = 1.98417e-4
 

@@ -46,6 +46,7 @@ l0 "C19 双轨门槛" "$CARDS/verify/c19_verify.awk" "$CARDS/expected/c19_expect
 l0 "C20 图的可追溯性" "$CARDS/verify/c20_verify.awk" "$CARDS/expected/c20_expected.txt" "C20_PASS"
 l0 "C21 Python 独立复算" "$CARDS/verify/c21_verify.awk" "$CARDS/expected/c21_expected.txt" "C21_PASS"
 l0 "C22 §3.6 种子树向量" "$CARDS/verify/c22_verify.awk" "$CARDS/expected/c22_expected.txt" "C22_PASS"
+l0 "C23 面板接种子树" "$CARDS/verify/c23_verify.awk" "$CARDS/expected/c23_expected.txt" "C23_PASS"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo
@@ -65,7 +66,7 @@ echo
 echo "== C. 单测：ctest -R mc_gate =="
 CT="$(cd "$BUILD_DIR" && ctest -R mc_gate 2>&1 | tail -4)"
 if echo "$CT" | grep -q "100% tests passed"; then
-  ok "17 个 selftest 全过"
+  ok "18 个 selftest 全过"
 else
   bad "selftest"; echo "$CT" | sed 's/^/    /'
 fi
