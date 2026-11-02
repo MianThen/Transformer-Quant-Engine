@@ -40,6 +40,7 @@ l0 "C11 分片归并/聚合" "$CARDS/verify/c11_verify.awk" "$CARDS/expected/c11
 l0 "C13 manifest/降档/metrics" "$CARDS/verify/c13_verify.awk" "$CARDS/expected/c13_expected.txt" "C13_PASS"
 l0 "C14 SHA-256 golden 向量" "$CARDS/verify/c14_verify.awk" "$CARDS/expected/c14_expected.txt" "C14_PASS"
 l0 "C15 replay 每数据集一文件" "$CARDS/verify/c15_verify.awk" "$CARDS/expected/c15_expected.txt" "C15_PASS"
+l0 "C16 cost_profile 汇总" "$CARDS/verify/c16_verify.awk" "$CARDS/expected/c16_expected.txt" "C16_PASS"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo
@@ -59,7 +60,7 @@ echo
 echo "== C. 单测：ctest -R mc_gate =="
 CT="$(cd "$BUILD_DIR" && ctest -R mc_gate 2>&1 | tail -4)"
 if echo "$CT" | grep -q "100% tests passed"; then
-  ok "13 个 selftest 全过"
+  ok "14 个 selftest 全过"
 else
   bad "selftest"; echo "$CT" | sed 's/^/    /'
 fi

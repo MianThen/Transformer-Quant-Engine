@@ -16,12 +16,12 @@ tools/run_mc_gate_acceptance.sh
 
 | 步骤 | 内容 | 期望 |
 |---|---|---|
-| A. L0 自检 | 用归档的"已知正确样本"跑 9 个验收脚本 | 9 项 PASS（证明**验收脚本本身**判得对） |
-| B. 构建 | cmake 配置 + 构建全部 13 个 mc_gate 目标和 4 个 app | PASS |
-| C. 单测 | `ctest -R mc_gate` | 13/13 Passed |
+| A. L0 自检 | 用归档的"已知正确样本"跑 10 个验收脚本 | 10 项 PASS（证明**验收脚本本身**判得对） |
+| B. 构建 | cmake 配置 + 构建全部 14 个 mc_gate 目标和 4 个 app | PASS |
+| C. 单测 | `ctest -R mc_gate` | 14/14 Passed |
 | D. 驱动 | 跑 smoke 驱动 + 3 个诊断探针，检查完成标记 | 4 项 PASS |
 
-当前实测输出：**PASS 15 / 15**（A 9 + B 1 + C 1 + D 4）。
+当前实测输出：**PASS 16 / 16**（A 10 + B 1 + C 1 + D 4）。
 
 跳过构建用 `--skip-build`；换构建目录用 `--build-dir DIR`。
 
@@ -47,6 +47,7 @@ tools/run_mc_gate_acceptance.sh
 | C13 | `mc_gate_manifest.h` | **AC-02**、AC-32（部分）、AC-33（规则） | `ctest -R test_mc_gate_manifest` | manifest/metrics 的四个哈希字段同源一致（负向对照已验证改一个即挂）；键序固定、无时间戳；`budget_threshold_ms` 按 `%.6f`；降档表 8000→4000/2000→1000/1000→500、`N=3` 豁免；阈值 1.0 → `planned_calls=9500`，阈值 100 → 14000（与 `tools/mc_gate_budget.py` 的 Python 实现对得上） |
 | C14 | `mc_gate_sha256.h` | 支撑 AC-02/AC-34 的哈希能力 | `ctest -R test_mc_gate_sha256` | 6 个权威 golden 向量全中：`""`、`"abc"`、56 字节、1,000,000 个 `'a'`、字节序列 0..255、以及该序列重复 4 次；**构建带 `-Werror` 且零警告** |
 | C15 | `mc_gate_replay.h` | **AC-34** | `ctest -R test_mc_gate_replay` | 写 3 个数据集 → 目录里恰好 3 个 `dataset_*.bin`（**不是每 rep 一个**）；文件 = 小端 f64 数据段 + 32 字节 SHA-256；三个数据段的哈希与独立工具计算逐一相同；把数据段第 15 字节翻转后 `verify` 返回 0（损坏能被检出） |
+| C16 | `mc_gate_cost.h` | AC-32（cost_profile 一半）、AC-33（汇总部分） | `ctest -R test_mc_gate_cost` | 由 3 个 (T,N) 点 × 3 个权重复算出单核 `176175.600` ms（与独立 Python 一致）；分项占比 dgp 0.445533 / m 0.464928 / ocn 0.056003 / decide 0.033549；`over_threshold=1`；规范 JSON 键序、`%.3f`/`%.6f` 格式逐字符命中 |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -89,8 +90,8 @@ tools/run_mc_gate_acceptance.sh
 | AC-29 | ✗ | `收益 ≤ −1.0` 记 ABSTAIN 的处理未实现 |
 | AC-30 | ◐ | C09 实现了 ONC 机制并复现 §5.3；`OCNP` 的 9 单元 × 200 reps 实跑未做 |
 | AC-31 | ◐ | 静态部分 ✓（decide 所在 TU 无计时）；`wall_by_rule` 的分项落盘未实现 |
-| AC-32 | ◐ | 分项成本已实测（F5）；未写进 `metrics.json.cost_profile` |
-| AC-33 | ◐ | C13 已用 C++ 实现降档规则并复算 `planned_calls`（与 C10 的 Python 版交叉一致）；尚未接入真实 run 的最终落盘 |
+| AC-32 | ◐ | C16 已产出规范 `cost_profile` JSON（ĉ / 四占比 / 超阈计数）且数值经独立复算；**`wall_by_rule` 未实现**，也未接入 run 的 `metrics.json` |
+| AC-33 | ◐ | C10（Python）与 C13（C++）各实现一遍降档规则且互相一致；尚未接入真实 run —— 缺的是把 cost_profile → plan_units → 实际跑的 reps 串起来的那一步 |
 | AC-34 | **✓** | C15：`replay/` 每数据集一文件（3 个数据集 → 恰好 3 个文件），文件内为小端 f64 + 32 字节 SHA-256，损坏可检出 |
 | AC-35 | ✗ | 双轨门槛（analytic/empirical）未实现 |
 
@@ -132,7 +133,7 @@ tools/run_mc_gate_acceptance.sh
 ```
 cmake -B /tmp/werror -DQBT_ENABLE_PERFORMANCE_ANALYTICS=ON -DQBT_WARNINGS_AS_ERRORS=ON
 cmake --build /tmp/werror -j8   → WERROR_BUILD_ALL_OK
-ctest -R mc_gate                → 13/13 Passed
+ctest -R mc_gate                → 14/14 Passed
 ```
 
 两处需注意（均已在 `performance_analytics/CMakeLists.txt` 里注释说明）：
