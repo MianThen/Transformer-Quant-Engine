@@ -1,3 +1,6 @@
+#ifndef MC_GATE_THRESHOLD_H
+#define MC_GATE_THRESHOLD_H
+
 // mc_gate_threshold.h
 #include <cstddef>
 #include <cstdint>
@@ -88,3 +91,5 @@ int main() {
   return 0;
 }
 #endif
+
+#endif // MC_GATE_THRESHOLD_H

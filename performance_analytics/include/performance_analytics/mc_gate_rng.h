@@ -1,3 +1,6 @@
+#ifndef MC_GATE_RNG_H
+#define MC_GATE_RNG_H
+
 #include <cstdint>
 #include <cmath>
 #include <cstddef>
@@ -187,3 +190,5 @@ int main() {
     return 0;
 }
 #endif
+
+#endif // MC_GATE_RNG_H

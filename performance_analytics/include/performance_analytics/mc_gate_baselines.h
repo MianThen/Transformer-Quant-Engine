@@ -1,3 +1,6 @@
+#ifndef MC_GATE_BASELINES_H
+#define MC_GATE_BASELINES_H
+
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -299,3 +302,5 @@ int main() {
     return 0;
 }
 #endif
+
+#endif // MC_GATE_BASELINES_H

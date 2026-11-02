@@ -1,3 +1,6 @@
+#ifndef MC_GATE_RUNNER_H
+#define MC_GATE_RUNNER_H
+
 #include <cmath>
 #include <cstdio>
 #include <cstddef>
@@ -173,3 +176,5 @@ int main(int argc, char** argv) {
   return 0;
 }
 #endif
+
+#endif // MC_GATE_RUNNER_H
