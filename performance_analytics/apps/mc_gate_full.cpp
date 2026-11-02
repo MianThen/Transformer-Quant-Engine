@@ -44,6 +44,7 @@ int main(int argc, char** argv) {
     }
 
     const int total = static_cast<int>(sizeof(kGridCells) / sizeof(kGridCells[0]));
+    long long ac41_ok = 0;
     if (limit > total) limit = total;
     if (limit < 0) limit = 0;
 
@@ -75,6 +76,13 @@ int main(int argc, char** argv) {
             ResearchWindow w{ std::span<const double>(flat.data(), flat.size()),
                               static_cast<std::size_t>(c.T), static_cast<std::size_t>(c.N), fp };
             WindowStats st = make_window_stats(w, false);
+            // AC-41：维度绑定断言（抓朝向转置）——observations==N、trials==T、sr 长度==T
+            if (st.T != c.T || st.N != c.N || st.sr.size() != static_cast<std::size_t>(c.T)) {
+                std::printf("AC41_FAIL cell=%d stats.T=%d want=%d stats.N=%d want=%d sr=%zu\n",
+                            c.cell_id, st.T, c.T, st.N, c.N, st.sr.size());
+                return 2;
+            }
+            ++ac41_ok;
 
             Decision d = decide_from_stats(st, RuleConfig{ GateMode::Full, 0.05, 0.05 });
             RuleResult r1 = rule_b0(m);
@@ -128,6 +136,7 @@ int main(int argc, char** argv) {
     std::printf("AGG_CELLS %d\n", limit * 6);
     std::printf("RECORDS %zu\n", outs.size());
 
+    std::printf("AC41 ok=%lld\n", ac41_ok);
     std::printf("GRID_DONE\n");
 
     return 0;
