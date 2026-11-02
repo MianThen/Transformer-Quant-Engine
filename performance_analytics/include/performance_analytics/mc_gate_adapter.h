@@ -21,29 +21,31 @@ struct ResearchWindow {
 };
 
 inline WindowStats make_window_stats(const ResearchWindow& w, bool abstain = false) {
-    const std::size_t T = w.observations;
-    const std::size_t N = w.trials;
+    // v1.4.5：w.trials = 策略数（T），w.observations = 期数（N）
+    // 布局 trial-major：data[i * observations + t]
+    const std::size_t TR = w.trials;
+    const std::size_t OB = w.observations;
     const double* data = w.returns.data();
 
-    std::vector<double> sr(N, 0.0);
-    std::vector<double> means(N, 0.0);
-    std::vector<double> sds(N, 0.0);
+    std::vector<double> sr(TR, 0.0);
+    std::vector<double> means(TR, 0.0);
+    std::vector<double> sds(TR, 0.0);
 
     // Step 1: per-strategy mean and sample standard deviation
-    for (std::size_t i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < TR; ++i) {
         double sum = 0.0;
-        for (std::size_t t = 0; t < T; ++t) {
-            sum += data[i * T + t];
+        for (std::size_t t = 0; t < OB; ++t) {
+            sum += data[i * OB + t];
         }
-        double mean_i = sum / static_cast<double>(T);
+        double mean_i = sum / static_cast<double>(OB);
         means[i] = mean_i;
 
         double var_sum = 0.0;
-        for (std::size_t t = 0; t < T; ++t) {
-            double diff = data[i * T + t] - mean_i;
+        for (std::size_t t = 0; t < OB; ++t) {
+            double diff = data[i * OB + t] - mean_i;
             var_sum += diff * diff;
         }
-        double var_i = var_sum / static_cast<double>(T - 1);
+        double var_i = var_sum / static_cast<double>(OB - 1);
         double sd_i = std::sqrt(var_i);
         sds[i] = sd_i;
 
@@ -57,16 +59,16 @@ inline WindowStats make_window_stats(const ResearchWindow& w, bool abstain = fal
     // Step 2: average absolute correlation
     double abs_corr_sum = 0.0;
     std::size_t pairs = 0;
-    for (std::size_t a = 0; a < N; ++a) {
-        for (std::size_t b = a + 1; b < N; ++b) {
+    for (std::size_t a = 0; a < TR; ++a) {
+        for (std::size_t b = a + 1; b < TR; ++b) {
             if (sds[a] <= 0.0 || sds[b] <= 0.0) {
                 continue;
             }
             double cov = 0.0;
-            for (std::size_t t = 0; t < T; ++t) {
-                cov += (data[a * T + t] - means[a]) * (data[b * T + t] - means[b]);
+            for (std::size_t t = 0; t < OB; ++t) {
+                cov += (data[a * OB + t] - means[a]) * (data[b * OB + t] - means[b]);
             }
-            double corr = cov / (static_cast<double>(T - 1) * sds[a] * sds[b]);
+            double corr = cov / (static_cast<double>(OB - 1) * sds[a] * sds[b]);
             corr = std::clamp(corr, -1.0, 1.0);
             abs_corr_sum += std::abs(corr);
             ++pairs;
@@ -78,8 +80,8 @@ inline WindowStats make_window_stats(const ResearchWindow& w, bool abstain = fal
     WindowStats stats;
     stats.sr = std::move(sr);
     stats.m = m;
-    stats.T = static_cast<int>(T);
-    stats.N = static_cast<int>(N);
+    stats.T = static_cast<int>(TR);   // 策略数（trials）—— AC-41 的 raw_trial_count
+    stats.N = static_cast<int>(OB);   // 期数（observations）—— AC-41 的 observation_count
     stats.abstain = abstain;
     return stats;
 }
@@ -134,9 +136,10 @@ int main() {
     // OR the snippet is incomplete. Given the constraint "禁止重新定义 ... 它们全部来自 mc_gate_decide.h",
     // and the self-test explicitly uses them, I must assume they are available.
     
-    double te_m = gate_teff(T, stats.m);
-    double thr_full = gate_threshold_sr(te_m, T, N, kGateQ);
-    double thr_fdr = gate_threshold_sr(1.0, T, N, kGateQ);
+    // 自检里 T=126 是期数、N=20 是策略数；teff/门槛吃的是（trials, observations）
+    double te_m = gate_teff(static_cast<double>(N), stats.m);
+    double thr_full = gate_threshold_sr(te_m, static_cast<double>(N), static_cast<double>(T), kGateQ);
+    double thr_fdr = gate_threshold_sr(1.0, static_cast<double>(N), static_cast<double>(T), kGateQ);
     std::printf("THR %.6f %.6f\n", thr_full, thr_fdr);
 
     RuleConfig cfg_full{GateMode::Full, 0.05, 0.05};

@@ -74,12 +74,14 @@ inline void run_one_task(const CellSpec& c, int rep, std::uint64_t base_seed,
                                             ^ static_cast<std::uint64_t>(rep));
   ReturnMatrix m = generate(c.family, c.comp, c.T, c.N, c.rho, c.S, seed);
   std::uint64_t fp = fnv1a64_bytes(m.r.data(), m.r.size() * sizeof(double));
-  std::vector<double> flat(static_cast<std::size_t>(c.N) * static_cast<std::size_t>(c.T));
-  for (int t = 0; t < c.T; ++t)
-    for (int i = 0; i < c.N; ++i)
-      flat[static_cast<std::size_t>(i) * static_cast<std::size_t>(c.T) + static_cast<std::size_t>(t)] = m.at(t, i);
+  // v1.4.5：c.T = 策略数（trials），c.N = 期数（observations）
+  // ResearchWindow 采用 trial-major：flat[i * N + t]
+  std::vector<double> flat(static_cast<std::size_t>(c.T) * static_cast<std::size_t>(c.N));
+  for (int i = 0; i < c.T; ++i)
+    for (int t = 0; t < c.N; ++t)
+      flat[static_cast<std::size_t>(i) * static_cast<std::size_t>(c.N) + static_cast<std::size_t>(t)] = m.at(i, t);
   ResearchWindow w{ std::span<const double>(flat.data(), flat.size()),
-                    static_cast<std::size_t>(c.N), static_cast<std::size_t>(c.T), fp };
+                    static_cast<std::size_t>(c.T), static_cast<std::size_t>(c.N), fp };
   const RuleSpec* rs = default_rules();
   for (int k = 0; k < 6; ++k) {
     DecisionRecord d{};

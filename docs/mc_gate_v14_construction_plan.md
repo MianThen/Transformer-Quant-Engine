@@ -268,3 +268,51 @@ F3 §9.1 的 `T/N` 位置与教科书 DSR 相反（仅记录，改动会波及�
 但在**需要自己维护循环不变量的地方（如 padding 的边界状态机）会写出死循环**。
 所以：凡是涉及"循环 + 边界条件"的卡，必须把循环结构也写死，不能只给数学定义。
 
+
+---
+
+## 8.4 卡片对 v1.4.5 的合规审计（2026-11，T/N 修正后）
+
+v1.4.5 钉死 `i∈1..T`＝策略、`t∈1..N`＝期，并新增 §3.6 种子树与 AC-36/37/39/40/41。
+逐卡核对 21 张已验收卡：
+
+| 卡 | 产物 | 依赖矩阵朝向 | 结论 | 处置 |
+|---|---|---|---|---|
+| C01 | `mc_gate_rng.h` | 否 | **合规** | 保留（golden 不变） |
+| C02 | `mc_gate_dgp.h` | **是** | 已手改 | 重生成 golden + 重新验收 |
+| C03 | `mc_gate_baselines.h` | **是** | 已手改 | 同上 |
+| C04 | `mc_gate_truth.h` | 否 | 合规 | 保留 |
+| C05 | `mc_gate_decide.h` | **是**（p 值样本量） | 已手改 | 重生成 golden + 重新验收 |
+| C06 | `mc_gate_adapter.h` | **是**（`WindowStats.T/N`） | 已手改 | 同上 |
+| C06R | `mc_gate_runner.h` | **是**（flat 布局） | 已手改 | 同上 |
+| C07 | `mc_gate_scorer.h` | 否 | 合规 | 保留 |
+| C08 | `mc_gate_output.h` | 否 | 合规 | 保留 |
+| C09 | `mc_gate_onc.h` | 否（吃相关矩阵） | 合规 | 保留；需确认调用方给的是 `T×T` |
+| C10 | `tools/mc_gate_budget.py` | 否 | **不符** | 按 v1.4.5 的块表与 `D=202` 重算 |
+| C11 | `tools/mc_gate_reduce.py` | 否 | 合规 | 保留 |
+| C12 | `mc_gate_validation.cpp` | **是** | **不符** | 重做（按新朝向 + 新种子树） |
+| C13 | `mc_gate_manifest.h` | 否 | 合规 | 保留 |
+| C14 | `mc_gate_sha256.h` | 否 | 合规 | 保留 |
+| C15 | `mc_gate_replay.h` | 否 | 合规 | 保留 |
+| C16 | `mc_gate_cost.h` | 否 | 合规 | 保留；成本探针的 (T,N) 标签需重跑 |
+| C17 | `mc_gate_run.cpp` | **是** | **不符** | 重做 |
+| C18 | `mc_gate_wall.h` | 否 | 合规 | 保留 |
+| C19 | `mc_gate_threshold.h` | 否 | 合规 | 保留（其 T 本就是 trials 语义） |
+| C20 | `tools/mc_gate_plot.py` | 否 | 合规 | 保留 |
+| C21 | `tools/mc_gate_recheck.py` | **是** | **不符** | 重做（按 N 期求 SR） |
+
+**汇总：合规保留 12 张；已手改待重验 4 张（C02/C03/C05/C06+C06R 计 5 处）；不符需重做 3 张（C12/C17/C21）；需更新 1 张（C10）。**
+
+### 8.4.1 尚未实现的新合同要求
+
+| 条款 | 内容 | 状态 |
+|---|---|---|
+| §3.6 种子树 | `dataset_key` + `seed(dataset_key,rep,batch,stream)` + 五子流 | **未实现**（现仍是单一 splitmix64 seed） |
+| AC-36 | 逐位对齐 §3.6.7 的 6 个测试向量 | 未做 |
+| AC-37 | `manifest` 记录每 `(dataset,stream)` 前 3 个 PCG64 指纹 | 未做 |
+| AC-39 | `replay/` 前 8 个 double 的十六进制 + 整块 SHA-256 对照 | 未做 |
+| AC-40 | `run_seed` 进 config、`config_hash` 覆盖它 | 未做 |
+| AC-41 | 维度绑定断言（`observation_count==N`、`raw_trial_count==T`、相关矩阵 `T×T`） | **dgp 自检已加**，驱动层未加 |
+
+按合同顺序，下一步应先做 **§3.6 种子树**（它同时解锁 AC-36/37/39/40），再把朝向修好的
+C12/C17 驱动按新种子树重做。

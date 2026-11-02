@@ -20,9 +20,10 @@ int main(){
         std::uint64_t seed=splitmix64(555000ULL ^ ((std::uint64_t)c.T<<40)
                      ^ ((std::uint64_t)c.N<<20) ^ ((std::uint64_t)(S*100)<<8) ^ (std::uint64_t)rep);
         ReturnMatrix m=generate(Family::T5, Composition::OneGood, c.T, c.N, 0.0, S, seed);
-        std::vector<double> flat((std::size_t)c.N*c.T);
-        for(int t=0;t<c.T;++t) for(int i=0;i<c.N;++i) flat[(std::size_t)i*c.T+t]=m.at(t,i);
-        ResearchWindow w{std::span<const double>(flat.data(),flat.size()),(std::size_t)c.N,(std::size_t)c.T,0};
+        // v1.4.5：c.T=策略数(trials)，c.N=期数(observations)；trial-major flat[i*N+t]
+        std::vector<double> flat((std::size_t)c.T*c.N);
+        for(int i=0;i<c.T;++i) for(int t=0;t<c.N;++t) flat[(std::size_t)i*c.N+t]=m.at(i,t);
+        ResearchWindow w{std::span<const double>(flat.data(),flat.size()),(std::size_t)c.T,(std::size_t)c.N,0};
         Decision d=decide_from_stats(make_window_stats(w,false), RuleConfig{GateMode::Full,kGateQ,kGateAlpha});
         if(d.selected) ++sel;
       }

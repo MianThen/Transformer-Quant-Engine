@@ -80,8 +80,9 @@ inline double gate_threshold_sr(double teff, double T, double N, double q) {
 //   One-sided p-value: 1 - Phi(t), t = sr * sqrt(T / kGateP)
 //   1 - Phi(t) = 0.5 * erfc(t / sqrt(2))
 // ---------------------------------------------------------------------------
-inline double gate_p_one_sided(double sr, double T) {
-    double t = sr * std::sqrt(T / kGateP);
+inline double gate_p_one_sided(double sr, double obs) {
+    // obs = 期数（observations）；v1.4.5 前误用 trials，导致 p 值被放大、FDR 误杀
+    double t = sr * std::sqrt(obs / kGateP);
     return 0.5 * std::erfc(t / std::sqrt(2.0));
 }
 
@@ -157,7 +158,7 @@ inline Decision decide_from_stats(const WindowStats& w, const RuleConfig& cfg) {
         std::size_t best = 0;
         bool found = false;
         for (std::size_t i = 0; i < n; ++i) {
-            if (gate_p_one_sided(w.sr[i], static_cast<double>(w.T)) < cfg.alpha) {
+            if (gate_p_one_sided(w.sr[i], static_cast<double>(w.N)) < cfg.alpha) {
                 if (!found || w.sr[i] > w.sr[best]) {
                     best = i;
                     found = true;
@@ -189,7 +190,7 @@ inline Decision decide_from_stats(const WindowStats& w, const RuleConfig& cfg) {
         std::size_t best = 0;
         bool found = false;
         for (std::size_t i : candidates) {
-            if (gate_p_one_sided(w.sr[i], static_cast<double>(w.T)) <= cfg.q) {
+            if (gate_p_one_sided(w.sr[i], static_cast<double>(w.N)) <= cfg.q) {
                 if (!found || w.sr[i] > w.sr[best]) {
                     best = i;
                     found = true;
@@ -207,7 +208,7 @@ inline Decision decide_from_stats(const WindowStats& w, const RuleConfig& cfg) {
     std::vector<std::pair<double, std::size_t>> pidx;
     pidx.reserve(n);
     for (std::size_t i = 0; i < n; ++i) {
-        pidx.emplace_back(gate_p_one_sided(w.sr[i], static_cast<double>(w.T)), i);
+        pidx.emplace_back(gate_p_one_sided(w.sr[i], static_cast<double>(w.N)), i);
     }
 
     // Sort by p ascending; ties broken by original index ascending

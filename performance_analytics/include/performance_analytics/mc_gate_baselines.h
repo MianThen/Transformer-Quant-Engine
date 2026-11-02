@@ -13,16 +13,16 @@ double norm_cdf(double x) {
 }
 
 double strategy_sr(const ReturnMatrix& R, int i) {
-    if (R.T <= 1) return 0.0;
+    if (R.N <= 1) return 0.0;
     double sum = 0.0;
-    for (int t = 0; t < R.T; ++t) sum += R.at(t, i);
-    double mean = sum / R.T;
+    for (int t = 0; t < R.N; ++t) sum += R.at(i, t);
+    double mean = sum / R.N;
     double var = 0.0;
-    for (int t = 0; t < R.T; ++t) {
-        double d = R.at(t, i) - mean;
+    for (int t = 0; t < R.N; ++t) {
+        double d = R.at(i, t) - mean;
         var += d * d;
     }
-    var /= (R.T - 1);
+    var /= (R.N - 1);
     double sd = std::sqrt(var);
     if (sd == 0.0) return 0.0;
     return (mean / sd) * kScale;
@@ -32,11 +32,11 @@ double strategy_sr_window(const ReturnMatrix& R, int i, int t0, int t1) {
     int n = t1 - t0;
     if (n < 2) return 0.0;
     double sum = 0.0;
-    for (int t = t0; t < t1; ++t) sum += R.at(t, i);
+    for (int t = t0; t < t1; ++t) sum += R.at(i, t);
     double mean = sum / n;
     double var = 0.0;
     for (int t = t0; t < t1; ++t) {
-        double d = R.at(t, i) - mean;
+        double d = R.at(i, t) - mean;
         var += d * d;
     }
     var /= (n - 1);
@@ -64,7 +64,7 @@ struct RuleResult {
 RuleResult rule_b0(const ReturnMatrix& R) {
     int best_i = 0;
     double best_sr = strategy_sr(R, 0);
-    for (int i = 1; i < R.N; ++i) {
+    for (int i = 1; i < R.T; ++i) {
         double s = strategy_sr(R, i);
         if (s > best_sr) {
             best_sr = s;
@@ -77,28 +77,28 @@ RuleResult rule_b0(const ReturnMatrix& R) {
 RuleResult rule_b1(const ReturnMatrix& R, double alpha) {
     int best_i = 0;
     double best_sr = strategy_sr(R, 0);
-    for (int i = 1; i < R.N; ++i) {
+    for (int i = 1; i < R.T; ++i) {
         double s = strategy_sr(R, i);
         if (s > best_sr) {
             best_sr = s;
             best_i = i;
         }
     }
-    double p = p_one_sided(best_sr, R.T);
+    double p = p_one_sided(best_sr, R.N);
     return {p < alpha, best_i, best_sr, -1, -1.0};
 }
 
 RuleResult rule_b2(const ReturnMatrix& R) {
     int b0 = 0;
-    int b1 = R.T / 3;
-    int b2 = 2 * R.T / 3;
-    int b3 = R.T;
+    int b1 = R.N / 3;
+    int b2 = 2 * R.N / 3;
+    int b3 = R.N;
     int bnd[4] = {b0, b1, b2, b3};
     int best_i = 0;
     int best_w = 0;
     double best_sr = strategy_sr_window(R, 0, bnd[0], bnd[1]);
     for (int w = 0; w < 3; ++w) {
-        for (int i = 0; i < R.N; ++i) {
+        for (int i = 0; i < R.T; ++i) {
             double s = strategy_sr_window(R, i, bnd[w], bnd[w + 1]);
             if (s > best_sr) {
                 best_sr = s;
@@ -111,22 +111,22 @@ RuleResult rule_b2(const ReturnMatrix& R) {
 }
 
 RuleResult rule_b3(const ReturnMatrix& R) {
-    int mid = R.T / 2;
+    int mid = R.N / 2;
     int best_i = 0;
     double best_sr = strategy_sr_window(R, 0, 0, mid);
-    for (int i = 1; i < R.N; ++i) {
+    for (int i = 1; i < R.T; ++i) {
         double s = strategy_sr_window(R, i, 0, mid);
         if (s > best_sr) {
             best_sr = s;
             best_i = i;
         }
     }
-    double oos_sr = strategy_sr_window(R, best_i, mid, R.T);
+    double oos_sr = strategy_sr_window(R, best_i, mid, R.N);
     return {oos_sr > 0.0, best_i, oos_sr, -1, -1.0};
 }
 
 RuleResult rule_b4_cscv(const ReturnMatrix& R, int S, double pbo_max) {
-    int BS = R.T / S;
+    int BS = R.N / S;
     int half = S / 2;
     int total_combos = 1;
     for (int i = 0; i < S; ++i) {
@@ -156,7 +156,7 @@ RuleResult rule_b4_cscv(const ReturnMatrix& R, int S, double pbo_max) {
         double sumsq_oos[1024] = {0};
         int n_oos[1024] = {0};
         
-        for (int i = 0; i < R.N; ++i) {
+        for (int i = 0; i < R.T; ++i) {
             sum_is[i] = 0.0; sumsq_is[i] = 0.0; n_is[i] = 0;
             sum_oos[i] = 0.0; sumsq_oos[i] = 0.0; n_oos[i] = 0;
         }
@@ -166,8 +166,8 @@ RuleResult rule_b4_cscv(const ReturnMatrix& R, int S, double pbo_max) {
             int end = (b + 1) * BS;
             bool is_is = (mask & (1 << b)) != 0;
             for (int t = start; t < end; ++t) {
-                for (int i = 0; i < R.N; ++i) {
-                    double x = R.at(t, i);
+                for (int i = 0; i < R.T; ++i) {
+                    double x = R.at(i, t);
                     if (is_is) {
                         sum_is[i] += x;
                         sumsq_is[i] += x * x;
@@ -182,7 +182,7 @@ RuleResult rule_b4_cscv(const ReturnMatrix& R, int S, double pbo_max) {
         }
         
         double sr_is[1024];
-        for (int i = 0; i < R.N; ++i) {
+        for (int i = 0; i < R.T; ++i) {
             if (n_is[i] < 2) {
                 sr_is[i] = 0.0;
             } else {
@@ -197,7 +197,7 @@ RuleResult rule_b4_cscv(const ReturnMatrix& R, int S, double pbo_max) {
         
         int best_i = 0;
         double best_sr_is = sr_is[0];
-        for (int i = 1; i < R.N; ++i) {
+        for (int i = 1; i < R.T; ++i) {
             if (sr_is[i] > best_sr_is) {
                 best_sr_is = sr_is[i];
                 best_i = i;
@@ -205,7 +205,7 @@ RuleResult rule_b4_cscv(const ReturnMatrix& R, int S, double pbo_max) {
         }
         
         double sr_oos[1024];
-        for (int i = 0; i < R.N; ++i) {
+        for (int i = 0; i < R.T; ++i) {
             if (n_oos[i] < 2) {
                 sr_oos[i] = 0.0;
             } else {
@@ -220,10 +220,10 @@ RuleResult rule_b4_cscv(const ReturnMatrix& R, int S, double pbo_max) {
         
         double sr_oos_best = sr_oos[best_i];
         int rank = 1;
-        for (int i = 0; i < R.N; ++i) {
+        for (int i = 0; i < R.T; ++i) {
             if (sr_oos[i] < sr_oos_best) ++rank;
         }
-        double omega = static_cast<double>(rank) / (R.N + 1);
+        double omega = static_cast<double>(rank) / (R.T + 1);
         if (std::log(omega / (1.0 - omega)) < 0.0) {
             ++overfit;
         }
@@ -233,7 +233,7 @@ RuleResult rule_b4_cscv(const ReturnMatrix& R, int S, double pbo_max) {
     
     int best_i = 0;
     double best_sr = strategy_sr(R, 0);
-    for (int i = 1; i < R.N; ++i) {
+    for (int i = 1; i < R.T; ++i) {
         double s = strategy_sr(R, i);
         if (s > best_sr) {
             best_sr = s;
@@ -251,9 +251,9 @@ int main() {
     using namespace mc_gate;
     
     ReturnMatrix R;
-    R.T = 12;
-    R.N = 4;
-    R.r.resize(R.T * R.N);
+    R.N = 12;
+    R.T = 4;
+    R.r.resize(R.N * R.T);
     
     double data[12][4] = {
         {-0.0109, -0.0177, 0.0295, 0.0216},
@@ -270,13 +270,13 @@ int main() {
         {0.0151, -0.0170, -0.0053, -0.0094}
     };
     
-    for (int t = 0; t < R.T; ++t) {
-        for (int i = 0; i < R.N; ++i) {
-            R.r[t * R.N + i] = data[t][i];
+    for (int t = 0; t < R.N; ++t) {
+        for (int i = 0; i < R.T; ++i) {
+            R.r[i * R.N + t] = data[t][i];   // trial-major：data 是 [期][策略]
         }
     }
     
-    for (int i = 0; i < R.N; ++i) {
+    for (int i = 0; i < R.T; ++i) {
         std::printf("SR %d %.6f\n", i, strategy_sr(R, i));
     }
     
@@ -284,7 +284,7 @@ int main() {
     std::printf("B0 %d %d %.6f\n", r0.selected ? 1 : 0, r0.index, r0.sr);
     
     RuleResult r1 = rule_b1(R, 0.05);
-    std::printf("B1 %d %d %.6f %.6f\n", r1.selected ? 1 : 0, r1.index, r1.sr, p_one_sided(r1.sr, R.T));
+    std::printf("B1 %d %d %.6f %.6f\n", r1.selected ? 1 : 0, r1.index, r1.sr, p_one_sided(r1.sr, R.N));
     
     RuleResult r2 = rule_b2(R);
     std::printf("B2 %d %d %.6f %d\n", r2.selected ? 1 : 0, r2.index, r2.sr, r2.window);
