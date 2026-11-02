@@ -16,12 +16,12 @@ tools/run_mc_gate_acceptance.sh
 
 | 步骤 | 内容 | 期望 |
 |---|---|---|
-| A. L0 自检 | 用归档的"已知正确样本"跑 12 个验收脚本 | 12 项 PASS（证明**验收脚本本身**判得对） |
+| A. L0 自检 | 用归档的"已知正确样本"跑 13 个验收脚本 | 13 项 PASS（证明**验收脚本本身**判得对） |
 | B. 构建 | cmake 配置 + 构建全部 16 个 mc_gate 目标和 6 个 app | PASS |
 | C. 单测 | `ctest -R mc_gate` | 16/16 Passed |
 | D. 驱动 | 跑 smoke/集成驱动 + 3 个探针 + 图追溯 | 6 项 PASS |
 
-当前实测输出：**PASS 20 / 20**（A 12 + B 1 + C 1 + D 6）。
+当前实测输出：**PASS 21 / 21**（A 13 + B 1 + C 1 + D 6）。
 
 跳过构建用 `--skip-build`；换构建目录用 `--build-dir DIR`。
 
@@ -52,6 +52,7 @@ tools/run_mc_gate_acceptance.sh
 | C18 | `mc_gate_wall.h` | AC-32（wall_by_rule 的序列化） | `ctest -R test_mc_gate_wall` | 六条规则键序固定为 GATE_Full/B0..B4；缺失规则补 `0.000`；非法 rule_id 被忽略；单行无空格；8 条负向对照（键序错、缺规则、浮点格式、未补 0、非法规则被输出、有空格、缺 DONE、多一行）全拦 |
 | C19 | `mc_gate_threshold.h` | AC-35（双轨门槛的计算与 flag） | `ctest -R test_mc_gate_threshold` | 同参数下解析门槛 `1.657640`、经验分位 `18.000000`、漂移 `16.342360` → `flagged=1`；换成窄分布后漂移 `0.042360` → `flagged=0`；字段顺序/缺失字段/非法行均被位置化校验拦住（负向 9/9） |
 | C20 | `tools/mc_gate_plot.py` | **AC-22** | `python3 tools/mc_gate_plot.py` | 图只存"取数路径"不存数值；`trace` 逐点比对 metrics 与 spec，2 个 spec × 3 点全通过；把 `fpr.GATE.T20` 从 0.1650 改成 0.1651 后追溯立刻失败并指出是 `fpr_vs_t`（负向 9/9） |
+| C21 | `tools/mc_gate_recheck.py` | AC-14（独立复算的核心） | `python3 tools/mc_gate_recheck.py [replay路径]` | 从 replay 原始字节**独立重算**：`m=0.503583985525`、`teff=1.593148215827`、`thr=1.654834515`、argmax=115（22.260256）、above=53，与 C++ 写出的 `GATE_Full selected=1 index=115` **完全一致** |
 
 **"验收方式"里的 ctest 名对应 `performance_analytics/tests/mc_gate/test_<name>.cpp`。**
 
@@ -76,7 +77,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-11 | ✗ | 解析锚（B0/B1 的 FPR 带）未实跑比对 |
 | AC-12 | ◐ | C05 的 13 个 `DECIDE` 场景覆盖了四模式分离；"5 布尔全真 ⇒ candidate==winner" 未单列断言 |
 | AC-13 | ✗ | 门槛一致性（ALT 9 点）未跑 |
-| AC-14 | ✗ | Python 独立复算（BH/DSR/T_eff/六规则）+ `replay/` 120 矩阵比对未做 |
+| AC-14 | ◐ | C21 已在**一个真实矩阵**上完成 Python 独立复算并与 C++ 决策比对一致；未做的是"120 个矩阵全量 + 六条规则逐一比对"（需全量 run 产出 replay） |
 | AC-15 | ◐ | C11 提供归并与聚合；"从 jsonl 重算表 1–5 与 metrics 逐格相等"未接 |
 | AC-16 | ✗ | 置换 `N_hold` 后决策不变，未测 |
 | AC-17 | ✗ | 置换 `tau` 后决策不变，未测 |

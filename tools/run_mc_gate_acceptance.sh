@@ -44,6 +44,7 @@ l0 "C16 cost_profile 汇总" "$CARDS/verify/c16_verify.awk" "$CARDS/expected/c16
 l0 "C18 wall_by_rule 序列化" "$CARDS/verify/c18_verify.awk" "$CARDS/expected/c18_expected.txt" "C18_PASS"
 l0 "C19 双轨门槛" "$CARDS/verify/c19_verify.awk" "$CARDS/expected/c19_expected.txt" "C19_PASS"
 l0 "C20 图的可追溯性" "$CARDS/verify/c20_verify.awk" "$CARDS/expected/c20_expected.txt" "C20_PASS"
+l0 "C21 Python 独立复算" "$CARDS/verify/c21_verify.awk" "$CARDS/expected/c21_expected.txt" "C21_PASS"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo
