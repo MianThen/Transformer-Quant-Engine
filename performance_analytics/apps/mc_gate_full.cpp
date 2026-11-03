@@ -32,6 +32,7 @@ int main(int argc, char** argv) {
 
     int limit = 269;
     int cap = 0;
+    int skip = 0;
 
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--limit") == 0 && i + 1 < argc) {
@@ -40,12 +41,17 @@ int main(int argc, char** argv) {
         } else if (std::strcmp(argv[i], "--reps-cap") == 0 && i + 1 < argc) {
             cap = std::atoi(argv[i + 1]);
             ++i;
+        } else if (std::strcmp(argv[i], "--skip") == 0 && i + 1 < argc) {
+            skip = std::atoi(argv[i + 1]);
+            ++i;
         }
     }
 
     const int total = static_cast<int>(sizeof(kGridCells) / sizeof(kGridCells[0]));
     long long ac41_ok = 0;
-    if (limit > total) limit = total;
+    if (skip < 0) skip = 0;
+    if (skip > total) skip = total;
+    if (limit > total - skip) limit = total - skip;
     if (limit < 0) limit = 0;
 
     std::printf("GRID total=%d limit=%d\n", total, limit);
@@ -53,7 +59,7 @@ int main(int argc, char** argv) {
     FILE* fa = std::fopen("/tmp/qgate/C27/aggregates.jsonl", "wb");
     std::vector<OutputRecord> outs;
 
-    for (int k = 0; k < limit; ++k) {
+    for (int k = skip; k < skip + limit; ++k) {
         const GridCell& c = kGridCells[k];
         int reps = (cap > 0 && c.reps > cap) ? cap : c.reps;
         int sel[6] = {0, 0, 0, 0, 0, 0};
@@ -84,7 +90,9 @@ int main(int argc, char** argv) {
             }
             ++ac41_ok;
 
-            Decision d = decide_from_stats(st, RuleConfig{ GateMode::Full, 0.05, 0.05 });
+            // ABL 消融：按 cell 的 mode 分派（0=Full 1=DsrOnly 2=FdrOnly 3=RawT）
+            const GateMode gm = static_cast<GateMode>(c.mode);
+            Decision d = decide_from_stats(st, RuleConfig{ gm, 0.05, 0.05 });
             RuleResult r1 = rule_b0(m);
             RuleResult r2 = rule_b1(m, 0.05);
             RuleResult r3 = rule_b2(m);
