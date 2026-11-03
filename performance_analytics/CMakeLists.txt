@@ -259,3 +259,13 @@ target_include_directories(mc_gate_smoke_strict PRIVATE
 qbt_enable_warnings(mc_gate_smoke_strict)
 target_compile_options(mc_gate_smoke_strict PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_smoke_strict)
+
+# AC-08 τ 回收检查（202 个独立面板）
+add_executable(mc_gate_truth_check apps/mc_gate_truth_check.cpp)
+target_include_directories(mc_gate_truth_check PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics
+    ${CMAKE_CURRENT_SOURCE_DIR}/../configs/mc)
+qbt_enable_warnings(mc_gate_truth_check)
+target_compile_options(mc_gate_truth_check PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_truth_check)
