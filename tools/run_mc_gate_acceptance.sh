@@ -86,6 +86,17 @@ run_marker "FPR 探针（3×3 网格）"          "$APP/mc_gate_fpr"        "FPR
 run_marker "功率探针（4×6 曲线）"          "$APP/mc_gate_power"      "POWER_DONE"
 mkdir -p /tmp/qgate/C26/replay
 run_marker "集成驱动 v3（种子树/逐规则墙钟/metrics/replay）" "$APP/mc_gate_run" "RUN_DONE"
+if grep -q '"thresholds"' /tmp/qgate/C26/metrics.json 2>/dev/null && \
+   grep -q '"analytic_threshold_drift"' /tmp/qgate/C26/metrics.json 2>/dev/null; then
+  ok "AC-35 双轨门槛落盘 + 漂移 flag"
+else
+  bad "AC-35 双轨门槛落盘"
+fi
+if grep -q '"budget"' /tmp/qgate/C26/metrics.json 2>/dev/null; then
+  ok "AC-24 预算字段落盘"
+else
+  bad "AC-24 预算字段落盘"
+fi
 if python3 "$REPO_ROOT/tools/mc_gate_plot.py" 2>/dev/null | grep -qx "PLOT_DONE"; then ok "C20 图追溯（tools/mc_gate_plot.py）"; else bad "C20 图追溯"; fi
 if python3 "$REPO_ROOT/tools/mc_gate_grid_check.py" 2>/dev/null | grep -qx "GRID_MATCH 1"; then ok "AC-01 网格推导（269/202/617000）"; else bad "AC-01 网格推导（269/202/617000）"; fi
 if python3 "$REPO_ROOT/tools/mc_gate_panel_ref_check.py" 2>/dev/null | grep -qx "PANELREF_MATCH 1"; then ok "AC-27 复用块 panel_ref 指向父块"; else bad "AC-27 panel_ref 复用"; fi

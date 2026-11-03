@@ -18,6 +18,8 @@
 #include <vector>
 #include <span>
 #include <chrono>
+#include <algorithm>
+#include <cmath>
 
 using namespace mc_gate;
 
@@ -92,6 +94,11 @@ int main() {
     std::vector<OutputRecord> outs;
     double wall[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
+    // AC-35：逐 cell 收集 m 与最大样本 SR，用于双轨门槛
+    double m_sum[4] = {0.0, 0.0, 0.0, 0.0};
+    long long n_rep[4] = {0, 0, 0, 0};
+    std::vector<std::vector<double>> maxsr(4);
+
     for (int k = 0; k < 4; ++k) {
         const auto& c = cells[k];
         for (int rep = 0; rep < planned[k].reps; ++rep) {
@@ -113,6 +120,11 @@ int main() {
                 WindowStats ws = make_window_stats(w, false);
                 Decision d = decide_from_stats(ws, RuleConfig{GateMode::Full, 0.05, 0.05});
                 auto t1 = std::chrono::steady_clock::now();
+                m_sum[k] += ws.m;
+                ++n_rep[k];
+                if (!ws.sr.empty()) {
+                    maxsr[k].push_back(*std::max_element(ws.sr.begin(), ws.sr.end()));
+                }
                 wall[0] += std::chrono::duration<double, std::milli>(t1 - t0).count();
 
                 OutputRecord rec;
@@ -275,7 +287,62 @@ int main() {
         std::snprintf(buf, sizeof(buf), "\"%s\":%.3f", rule_names[i], wall[i]);
         mjs += buf;
     }
-    mjs += "}}";
+    mjs += "}";
+
+    // AC-35：双轨门槛（解析 vs 经验），偏差 > 0.05 SR 记 analytic_threshold_drift
+    mjs += ",\"thresholds\":{";
+    int drift_flags = 0;
+    for (int k = 0; k < 4; ++k) {
+        const auto& c = cells[k];
+        const double mean_m = (n_rep[k] > 0) ? m_sum[k] / static_cast<double>(n_rep[k]) : 0.0;
+        const double analytic = gate_threshold_sr(gate_teff(static_cast<double>(c.T), mean_m),
+                                                  static_cast<double>(c.T), static_cast<double>(c.N), 0.05);
+        double empirical = 0.0;
+        int flagged = 0;
+        const bool is_null = (c.comp == Composition::Null);
+        if (is_null && maxsr[k].size() >= 2) {
+            std::vector<double> v = maxsr[k];
+            std::sort(v.begin(), v.end());
+            const std::size_t idx = static_cast<std::size_t>(
+                std::floor(0.95 * static_cast<double>(v.size() - 1)));
+            empirical = v[idx];
+            flagged = (std::fabs(empirical - analytic) > 0.05) ? 1 : 0;
+            drift_flags += flagged;
+        }
+        char tb[256];
+        std::snprintf(tb, sizeof(tb),
+                      "%s\"%lld\":{\"kind\":\"%s\",\"analytic\":%.6f,\"empirical\":%.6f,\"drift\":%.6f,\"flagged\":%d}",
+                      (k > 0 ? "," : ""), c.cell_id, (is_null ? "null" : "signal"),
+                      analytic, empirical, empirical - analytic, flagged);
+        mjs += tb;
+    }
+    mjs += "}";
+
+    // AC-35：偏差超限时把 analytic_threshold_drift 写进 flags
+    mjs += ",\"flags\":[";
+    if (drift_flags > 0) mjs += "\"analytic_threshold_drift\"";
+    mjs += "]";
+
+    // AC-24：预算守约（单核总量 vs 45 min 预算；降档后同样核对）
+    {
+        double degraded_ms = 0.0;
+        for (const auto& pu : planned) {
+            for (const auto& cp : cost_pts) {
+                if (cp.T == pu.T && cp.N == pu.N) {
+                    degraded_ms += cp.ch_ms * static_cast<double>(pu.reps) * static_cast<double>(pu.calls_per_rep);
+                }
+            }
+        }
+        const double budget_ms = 45.0 * 60.0 * 1000.0;   // AC-24 的 45 分钟
+        char bb[320];
+        std::snprintf(bb, sizeof(bb),
+                      ",\"budget\":{\"single_core_ms\":%.3f,\"degraded_ms\":%.3f,"
+                      "\"budget_ms\":%.1f,\"over_budget\":%d,\"drift_flags\":%d}",
+                      prof.single_core_ms, degraded_ms, budget_ms,
+                      (degraded_ms > budget_ms) ? 1 : 0, drift_flags);
+        mjs += bb;
+    }
+    mjs += "}";
 
     {
         FILE* f = std::fopen("/tmp/qgate/C26/metrics.json", "wb");

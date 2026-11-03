@@ -93,7 +93,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-21 | **✓** | C07：`invalid→V3 / undecided→VU / dominated→V2 / else V1` + 两个 flags |
 | AC-22 | **✓** | C20：图只存取数路径、`trace` 逐点比对 metrics；硬编码值会被追溯校验抓住。（`source` 现为 metrics 路径，接真实 run 后应换成 `(rule_id, cell_id)` 复合键） |
 | AC-23 | **✓** | C07：`verdict/flags/abstain_rate/Δ` 全部机械计算，无手填 |
-| AC-24 | ◐ | 已实测单核 25.4 min（发现 F5）；未落成 `metrics.json` 里的正式判据 |
+| AC-24 | **✓** | `metrics.budget` 已落盘：`single_core_ms=9046.8`、`degraded_ms=5073.4`、`budget_ms=2,700,000`（45 min）、`over_budget=0`。**作用域说明**：该字段覆盖驱动自身计划（10,000 次调用），全网格 617,000 次的预算是 25.2 min 单核（`cost_profile` 实测 + 墙钟）；且 `cost_profile` 只实测了 **3/6** 个 (T,N) 桶 |
 | AC-25 | **✓** | `mc_gate_smoke_strict`：3 单元 × 50 reps × 6 规则 = **900 条**，canary（S=50, κ=7）选中且下标正确，**0.14 s** ≪ 60 s 判据；含 AC-41 维度断言 |
 | AC-26 | **✓** | 全部头文件只依赖标准库（零第三方） |
 | AC-27 | **✓** | `tools/mc_gate_panel_ref_check.py`：76 个复用格（`BYA`/`SWP`/`ABL`/`RET-K1`/`RET-K10-ds0`）的 `panel_ref` **全部**能在 `NUL`/`ALT` 的集合里找到（76/76）；面板是 `dataset_key` 的纯函数，故 `returns_sha256` 必同 |
@@ -104,14 +104,14 @@ tools/run_mc_gate_acceptance.sh
 | AC-32 | **✓** | C26：`metrics.json` 同时含 `cost_profile`（单核 9046.800 ms、超阈 2）与 `wall_by_rule` 六键，均为实测 |
 | AC-33 | **✓** | C26：实跑 reps **就是** `plan_units` 推出的 8000/1000/500/500，`planned_calls=10000` 与实跑一致 |
 | AC-34 | **✓** | C15：`replay/` 每数据集一文件（3 个数据集 → 恰好 3 个文件），文件内为小端 f64 + 32 字节 SHA-256，损坏可检出 |
-| AC-35 | ◐ | C19 已实现双轨门槛与 `|drift|>0.05` 的 flag（实测能在同一参数下打出 16.34 SR 的漂移）；尚未并列写进 `metrics.json` |
+| AC-35 | **✓** | `metrics.thresholds` 并列写入双轨门槛：cell 2001（T=4）analytic **1.8175** vs empirical **1.4011**（drift −0.416，flagged=1）；cell 2003（T=100）analytic **2.0811** vs empirical **2.0276**（drift −0.053，flagged=1）。偏差 >0.05 时 `flags` 含 **`analytic_threshold_drift`**；判据未变 |
 | AC-36 | **✓** | 6 个测试向量由 C22 逐位对齐；碰撞检查由 `tools/mc_gate_seed_collision.py` 负责——**202 个数据集 × 200 rep × 5 子流 = 202,000 个 seed，零碰撞** |
 | AC-37 | **✓** | C26：`manifest.json` 的 `seed_tree` 为四个 cell 各记录 5 个子流指纹 |
 | AC-39 | ◐ | C23 已让 `replay` 前 8 个 double 与独立实现**逐位一致**；整块 SHA-256 只钉同机（F4 的跨平台限制） |
 | AC-40 | **✓** | C26：`manifest.config_hash` 由 `config_hash(cfg)` 算出（覆盖 `run_seed`），`run_seed` 也单列进 manifest |
 | AC-41 | **✓** | 全网格驱动每 rep 断言 `stats.T==T`、`stats.N==N`、`sr.size()==T`（`--limit 8 --reps-cap 20` 下 160/160 通过），失败即 `AC41_FAIL` 并退出码 2；相关矩阵的 `T×T` 尺寸由 C28 的 `corr_of` 构造保证；网格本身含 `(4,520)` 与 `(100,126)` 两格 |
 
-**统计：✓ 30 项、◐ 10 项、✗ 0 项（共 40 项）。**
+**统计：✓ 32 项、◐ 8 项、✗ 0 项（共 40 项）。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。
