@@ -31,6 +31,14 @@ inline WindowStats make_window_stats(const ResearchWindow& w, bool abstain = fal
     std::vector<double> means(TR, 0.0);
     std::vector<double> sds(TR, 0.0);
 
+    // AC-29：任一收益 ≤ −1.0 ⇒ DSR 的 log(1+r) 无定义 ⇒ 记 ABSTAIN（进程不崩、不丢 rep）
+    for (std::size_t k = 0; k < w.returns.size(); ++k) {
+        if (w.returns[k] <= -1.0) {
+            abstain = true;
+            break;
+        }
+    }
+
     // Step 1: per-strategy mean and sample standard deviation
     for (std::size_t i = 0; i < TR; ++i) {
         double sum = 0.0;

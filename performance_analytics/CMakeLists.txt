@@ -232,3 +232,12 @@ target_include_directories(mc_gate_invariance PRIVATE
 qbt_enable_warnings(mc_gate_invariance)
 target_compile_options(mc_gate_invariance PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_invariance)
+
+# AC-29 探针（收益 ≤ -1.0 ⇒ ABSTAIN）
+add_executable(mc_gate_invalid apps/mc_gate_invalid.cpp)
+target_include_directories(mc_gate_invalid PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_invalid)
+target_compile_options(mc_gate_invalid PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_invalid)
