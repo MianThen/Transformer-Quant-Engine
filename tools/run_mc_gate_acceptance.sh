@@ -92,6 +92,11 @@ if grep -q '"thresholds"' /tmp/qgate/C26/metrics.json 2>/dev/null && \
 else
   bad "AC-35 双轨门槛落盘"
 fi
+if python3 "$REPO_ROOT/tools/mc_gate_trace_check.py" /tmp/qgate/C26 2>/dev/null | grep -qx "TRACE_OK 1"; then
+  ok "AC-18 六规则同 rep 同指纹且等于 manifest"
+else
+  bad "AC-18 追溯"
+fi
 if grep -q '"budget"' /tmp/qgate/C26/metrics.json 2>/dev/null; then
   ok "AC-24 预算字段落盘"
 else

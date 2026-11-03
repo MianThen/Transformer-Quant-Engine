@@ -9,6 +9,7 @@
 #include "mc_gate_cost.h"
 #include "mc_gate_output.h"
 #include "mc_gate_replay.h"
+#include "mc_gate_sha256.h"
 
 #include <cstdint>
 #include <cstddef>
@@ -95,6 +96,7 @@ int main() {
     double wall[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     // AC-35：逐 cell 收集 m 与最大样本 SR，用于双轨门槛
+    std::string ds_hash[4];
     double m_sum[4] = {0.0, 0.0, 0.0, 0.0};
     long long n_rep[4] = {0, 0, 0, 0};
     std::vector<std::vector<double>> maxsr(4);
@@ -113,6 +115,11 @@ int main() {
                 }
             }
             ResearchWindow w{std::span<const double>(flat.data(), flat.size()), (std::size_t)c.T, (std::size_t)c.N, 0};
+
+            // AC-18：每个 rep 的真实数据指纹（SHA-256 前 16 个 hex，即 64 位）
+            const std::string h16 = sha256_hex(flat.data(), flat.size() * sizeof(double)).substr(0, 16);
+            const std::uint64_t rec_hash = std::strtoull(h16.c_str(), nullptr, 16);
+            if (rep == 0) { ds_hash[k] = h16; }
 
             // Rule 0: GATE
             {
@@ -134,7 +141,7 @@ int main() {
                 rec.selected = d.selected;
                 rec.index = (long long)d.index;
                 rec.abstain = d.abstain;
-                rec.returns_sha256 = 0;
+                rec.returns_sha256 = rec_hash;
                 rec.reason = d.reason ? d.reason : "selected";
                 outs.push_back(rec);
             }
@@ -153,7 +160,7 @@ int main() {
                 rec.selected = rr.selected;
                 rec.index = (long long)rr.index;
                 rec.abstain = false;
-                rec.returns_sha256 = 0;
+                rec.returns_sha256 = rec_hash;
                 rec.reason = "baseline";
                 outs.push_back(rec);
             }
@@ -172,7 +179,7 @@ int main() {
                 rec.selected = rr.selected;
                 rec.index = (long long)rr.index;
                 rec.abstain = false;
-                rec.returns_sha256 = 0;
+                rec.returns_sha256 = rec_hash;
                 rec.reason = "baseline";
                 outs.push_back(rec);
             }
@@ -191,7 +198,7 @@ int main() {
                 rec.selected = rr.selected;
                 rec.index = (long long)rr.index;
                 rec.abstain = false;
-                rec.returns_sha256 = 0;
+                rec.returns_sha256 = rec_hash;
                 rec.reason = "baseline";
                 outs.push_back(rec);
             }
@@ -210,7 +217,7 @@ int main() {
                 rec.selected = rr.selected;
                 rec.index = (long long)rr.index;
                 rec.abstain = false;
-                rec.returns_sha256 = 0;
+                rec.returns_sha256 = rec_hash;
                 rec.reason = "baseline";
                 outs.push_back(rec);
             }
@@ -229,7 +236,7 @@ int main() {
                 rec.selected = rr.selected;
                 rec.index = (long long)rr.index;
                 rec.abstain = false;
-                rec.returns_sha256 = 0;
+                rec.returns_sha256 = rec_hash;
                 rec.reason = "baseline";
                 outs.push_back(rec);
             }
@@ -266,9 +273,18 @@ int main() {
         }
         mjson += "}";
     }
-    mjson += "}}";
+    mjson += "}";
 
     {
+        mjson += ",\"dataset_sha256\":{";
+        for (int k = 0; k < 4; ++k) {
+            char hb[64];
+            std::snprintf(hb, sizeof(hb), "%s\"%lld\":\"%s\"", (k > 0 ? "," : ""),
+                          (long long)cells[k].cell_id, ds_hash[k].c_str());
+            mjson += hb;
+        }
+        mjson += "}";
+        mjson += "}";
         FILE* f = std::fopen("/tmp/qgate/C26/manifest.json", "wb");
         if (f) {
             std::fwrite(mjson.data(), 1, mjson.size(), f);
