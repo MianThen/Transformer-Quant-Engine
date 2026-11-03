@@ -89,6 +89,8 @@ run_marker "集成驱动 v3（种子树/逐规则墙钟/metrics/replay）" "$APP
 if python3 "$REPO_ROOT/tools/mc_gate_plot.py" 2>/dev/null | grep -qx "PLOT_DONE"; then ok "C20 图追溯（tools/mc_gate_plot.py）"; else bad "C20 图追溯"; fi
 if python3 "$REPO_ROOT/tools/mc_gate_grid_check.py" 2>/dev/null | grep -qx "GRID_MATCH 1"; then ok "AC-01 网格推导（269/202/617000）"; else bad "AC-01 网格推导（269/202/617000）"; fi
 if python3 "$REPO_ROOT/tools/mc_gate_panel_ref_check.py" 2>/dev/null | grep -qx "PANELREF_MATCH 1"; then ok "AC-27 复用块 panel_ref 指向父块"; else bad "AC-27 panel_ref 复用"; fi
+if python3 "$REPO_ROOT/tools/mc_gate_seed_collision.py" 200 2>/dev/null | grep -qx "SEEDCOLL_OK 1"; then ok "AC-36 种子碰撞（202 数据集 × 200 rep × 5 流）"; else bad "AC-36 种子碰撞"; fi
+if python3 "$REPO_ROOT/tools/mc_gate_timing_check.py" 2>/dev/null | grep -qx "TIMING_CORE_CLEAN 1"; then ok "AC-31 计时纪律（核心头零计时）"; else bad "AC-31 计时纪律"; fi
 run_marker "AC-29 收益≤−1.0 记 ABSTAIN" "$APP/mc_gate_invalid" "INVALID_DONE"
 if "$APP/mc_gate_h4_sweep" 2>/dev/null | grep -qx "AC13_OK 1"; then ok "AC-13 门槛一致性（ALT 9 点）"; else bad "AC-13 门槛一致性"; fi
 if "$APP/mc_gate_smoke_strict" 2>/dev/null | grep -qx "STRICT_OK 1"; then ok "AC-25 严格冒烟（3×50 + canary，<60s）"; else bad "AC-25 严格冒烟"; fi

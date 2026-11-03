@@ -100,18 +100,18 @@ tools/run_mc_gate_acceptance.sh
 | AC-28 | ◐ | 已补跑 ABL 消融（40 格 × 1000 reps）：`G_full ≈ G_dsr_only ≈ G_fdr_only`（9/10 点逐位相同），`G_raw_t` 高出 18–75pp（null 上 72.5%）。**仍缺**：`G_full` 与**生产侧**门控的 `artifact_hash` 比对（需要生产参照），以及换 T/N 后等价性是否保持 |
 | AC-29 | **✓** | `mc_gate_invalid` 探针：注入一条 `−1.5` 收益后 `abstain=1、selected=0`，进程正常退出；对照（正常收益）`abstain=0、selected=1`。**注**：`reason` 仍复用了共享字符串 `ocn_abstain` |
 | AC-30 | ◐ | C09 实现了 ONC 机制并复现 §5.3；`OCNP` 的 9 单元 × 200 reps 实跑未做 |
-| AC-31 | ◐ | 静态部分 ✓（decide 所在 TU 无计时）；`wall_by_rule` 的分项落盘未实现 |
+| AC-31 | **✓** | `tools/mc_gate_timing_check.py`：`decide`/`adapter`/`onc`/`baselines`/`dgp`/`truth` 六个核心头**零计时**（`steady_clock`/`chrono::now` 出现次数为 0）；驱动的计时为 **6 对**（每条规则一对），符合 `(cell,rep,rule)` 粒度 |
 | AC-32 | **✓** | C26：`metrics.json` 同时含 `cost_profile`（单核 9046.800 ms、超阈 2）与 `wall_by_rule` 六键，均为实测 |
 | AC-33 | **✓** | C26：实跑 reps **就是** `plan_units` 推出的 8000/1000/500/500，`planned_calls=10000` 与实跑一致 |
 | AC-34 | **✓** | C15：`replay/` 每数据集一文件（3 个数据集 → 恰好 3 个文件），文件内为小端 f64 + 32 字节 SHA-256，损坏可检出 |
 | AC-35 | ◐ | C19 已实现双轨门槛与 `|drift|>0.05` 的 flag（实测能在同一参数下打出 16.34 SR 的漂移）；尚未并列写进 `metrics.json` |
-| AC-36 | ◐ | C22 已让 §3.6 的 6 个向量逐位对齐；**全量碰撞检查未做** |
+| AC-36 | **✓** | 6 个测试向量由 C22 逐位对齐；碰撞检查由 `tools/mc_gate_seed_collision.py` 负责——**202 个数据集 × 200 rep × 5 子流 = 202,000 个 seed，零碰撞** |
 | AC-37 | **✓** | C26：`manifest.json` 的 `seed_tree` 为四个 cell 各记录 5 个子流指纹 |
 | AC-39 | ◐ | C23 已让 `replay` 前 8 个 double 与独立实现**逐位一致**；整块 SHA-256 只钉同机（F4 的跨平台限制） |
 | AC-40 | **✓** | C26：`manifest.config_hash` 由 `config_hash(cfg)` 算出（覆盖 `run_seed`），`run_seed` 也单列进 manifest |
 | AC-41 | **✓** | 全网格驱动每 rep 断言 `stats.T==T`、`stats.N==N`、`sr.size()==T`（`--limit 8 --reps-cap 20` 下 160/160 通过），失败即 `AC41_FAIL` 并退出码 2；相关矩阵的 `T×T` 尺寸由 C28 的 `corr_of` 构造保证；网格本身含 `(4,520)` 与 `(100,126)` 两格 |
 
-**统计：✓ 28 项、◐ 12 项、✗ 0 项（共 40 项）。**
+**统计：✓ 30 项、◐ 10 项、✗ 0 项（共 40 项）。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。
