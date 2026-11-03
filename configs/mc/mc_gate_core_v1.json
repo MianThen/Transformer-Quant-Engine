@@ -5008,7 +5008,7 @@
   }
  ],
  "run_config": {
-  "contract_version": "1.4.5",
+  "contract_version": "1.5.0",
   "grid": "mc_gate_core_v1",
   "run_seed": 20261027,
   "q": 0.05,

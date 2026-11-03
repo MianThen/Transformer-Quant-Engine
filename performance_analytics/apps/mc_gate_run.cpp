@@ -23,7 +23,7 @@ using namespace mc_gate;
 
 int main() {
     // Smoke config
-    RunConfig cfg{"1.4.5", "mc_gate_core_v1", 20261027ULL, 0.05, 0.05, 1};
+    RunConfig cfg{"1.5.0", "mc_gate_core_v1", 20261027ULL, 0.05, 0.05, 1};
 
     // Cell definitions
     struct CellDef {
