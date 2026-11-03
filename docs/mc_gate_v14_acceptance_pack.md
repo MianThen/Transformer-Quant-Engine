@@ -84,7 +84,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-12 | ◐ | C05 的 13 个 `DECIDE` 场景覆盖了四模式分离；"5 布尔全真 ⇒ candidate==winner" 未单列断言 |
 | AC-13 | **✓** | `mc_gate_h4_sweep`：ALT 的 **9 个 S 点**全部满足 `\|threshold−SR_req\| ≤ 0.10`（实测最大偏差 `lo 0.0036 / hi 0.0365`）；`T_eff` 稳定在 3.30–3.35 |
 | AC-14 | ◐ | C21 已在**一个真实矩阵**上完成 Python 独立复算并与 C++ 决策比对一致；未做的是"120 个矩阵全量 + 六条规则逐一比对"（需全量 run 产出 replay） |
-| AC-15 | ◐ | C11 提供归并与聚合；"从 jsonl 重算表 1–5 与 metrics 逐格相等"未接 |
+| AC-15 | **✓** | `tools/mc_gate_recompute_check.py`：从 `decisions.jsonl.gz` 的 **3,594,000 条**原始记录重算逐格聚合，与 `aggregates.jsonl` 的 **1,614 行**逐格比对，**零不符**（目标机 10.4 s）。注：本实验的"表"是聚合文件而非 `metrics.json`（全网格驱动不产 metrics） |
 | AC-16 | **✓** | C32：先生成 `hold` 部署期路径、再重新生成同一面板，20 万字节**逐字节相同**（10/10）；证明 `hold` 子流不污染 `ret` 数据 |
 | AC-17 | **✓** | C32：把策略顺序反序后重跑，选中下标由 7 变 92 = `T−1−κ`（10/10）；证明决策跟随策略**身份**而非位置 |
 | AC-18 | **✓** | `tools/mc_gate_trace_check.py`：60,000 条记录 / 10,000 个 rep 上，**同 rep 的六条规则 `returns_sha256` 全部相等**，且 rep 0 的指纹等于 `manifest.dataset_sha256`（0 处不符）。**注**：这是本轮修的一个真实缺口——此前驱动把该字段一律写成 `0000…0`，等于空断言 |
@@ -111,7 +111,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-40 | **✓** | C26：`manifest.config_hash` 由 `config_hash(cfg)` 算出（覆盖 `run_seed`），`run_seed` 也单列进 manifest |
 | AC-41 | **✓** | 全网格驱动每 rep 断言 `stats.T==T`、`stats.N==N`、`sr.size()==T`（`--limit 8 --reps-cap 20` 下 160/160 通过），失败即 `AC41_FAIL` 并退出码 2；相关矩阵的 `T×T` 尺寸由 C28 的 `corr_of` 构造保证；网格本身含 `(4,520)` 与 `(100,126)` 两格 |
 
-**统计：✓ 33 项、◐ 7 项、✗ 0 项（共 40 项）。**
+**统计：✓ 34 项、◐ 6 项、✗ 0 项（共 40 项）。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。
