@@ -77,13 +77,13 @@ tools/run_mc_gate_acceptance.sh
 | AC-05 | **✓** | C06：`0/1` 与 `0/4..3/4`、`0/3..2/3` 拼接均与整体逐字节一致 |
 | AC-06 | **✓** | C01：自实现 PCG64，golden 16/16 逐位命中；无 `std::normal_distribution` |
 | AC-07 | **✓** | C02：`garch` 的 `omega=1−α−β`、`corr≡rho`；`shortvol` 偏度 −2.5055、方差比 1.0025 |
-| AC-08 | ◐ | C03 实现了 `z_cell` 公式与 `T_eff`；但**未在整个网格上跑** τ 回收与 `Σz²≤242.8` 的判据 |
+| AC-08 | **✗** | **已跑并失败**：`Σz²=283.6 > 251.7`；12 个 garch/one_good 格贡献 108.3，偏差全为正（+0.07～+0.16 SR）。根因是 `ŜR=μ̂/ŝ` 的有限样本正偏被波动聚集放大，非实现 bug。按 §3.5 标 `dgp_global_shift`。详见 `docs/mc_gate_ac08_truth_recovery.md` |
 | AC-09 | **✓** | C29 金丝雀（T=100, N=126, S=50）：20 个 rep 全部 `selected=1` 且 `index == κ`（κ 取自 `assign` 子流），20/20 |
 | AC-10 | **✓** | 全网格实测：`NEG` 9 格 × 1000 reps = 9,000 次里 GATE 选中 **0** 次（零选中率 100%，判据 ≥99.5%）；同格 B0 仍有 54.9% |
 | AC-11 | **✓** | `rho=0` 的 NUL 格全部落在解析带内：B0 0.9385/1.0000/1.0000（带 [0.90,0.97]/[0.99,1]/[0.999,1]），B1 0.1875/0.6505/0.9951（带 [0.16,0.21]/[0.60,0.69]/[0.985,1]） |
-| AC-12 | ◐ | C05 的 13 个 `DECIDE` 场景覆盖了四模式分离；"5 布尔全真 ⇒ candidate==winner" 未单列断言 |
+| AC-12 | **✗** | **明确不做**：需生产侧 `policy_family_governance` 的 5 布尔逻辑作参照，本仓库无该实现 |
 | AC-13 | **✓** | `mc_gate_h4_sweep`：ALT 的 **9 个 S 点**全部满足 `\|threshold−SR_req\| ≤ 0.10`（实测最大偏差 `lo 0.0036 / hi 0.0365`）；`T_eff` 稳定在 3.30–3.35 |
-| AC-14 | ◐ | C21 已在**一个真实矩阵**上完成 Python 独立复算并与 C++ 决策比对一致；未做的是"120 个矩阵全量 + 六条规则逐一比对"（需全量 run 产出 replay） |
+| AC-14 | **◐** | C21 在 **1 个**真实矩阵完成 Python 独立复算；扩到 120 个需驱动输出全量 replay（改动 + 28 min 重跑），本阶段不做 |
 | AC-15 | **✓** | `tools/mc_gate_recompute_check.py`：从 `decisions.jsonl.gz` 的 **3,594,000 条**原始记录重算逐格聚合，与 `aggregates.jsonl` 的 **1,614 行**逐格比对，**零不符**（目标机 10.4 s）。注：本实验的"表"是聚合文件而非 `metrics.json`（全网格驱动不产 metrics） |
 | AC-16 | **✓** | C32：先生成 `hold` 部署期路径、再重新生成同一面板，20 万字节**逐字节相同**（10/10）；证明 `hold` 子流不污染 `ret` 数据 |
 | AC-17 | **✓** | C32：把策略顺序反序后重跑，选中下标由 7 变 92 = `T−1−κ`（10/10）；证明决策跟随策略**身份**而非位置 |
@@ -97,9 +97,9 @@ tools/run_mc_gate_acceptance.sh
 | AC-25 | **✓** | `mc_gate_smoke_strict`：3 单元 × 50 reps × 6 规则 = **900 条**，canary（S=50, κ=7）选中且下标正确，**0.14 s** ≪ 60 s 判据；含 AC-41 维度断言 |
 | AC-26 | **✓** | 全部头文件只依赖标准库（零第三方） |
 | AC-27 | **✓** | `tools/mc_gate_panel_ref_check.py`：76 个复用格（`BYA`/`SWP`/`ABL`/`RET-K1`/`RET-K10-ds0`）的 `panel_ref` **全部**能在 `NUL`/`ALT` 的集合里找到（76/76）；面板是 `dataset_key` 的纯函数，故 `returns_sha256` 必同 |
-| AC-28 | ◐ | 已补跑 ABL 消融（40 格 × 1000 reps）：`G_full ≈ G_dsr_only ≈ G_fdr_only`（9/10 点逐位相同），`G_raw_t` 高出 18–75pp（null 上 72.5%）。**仍缺**：`G_full` 与**生产侧**门控的 `artifact_hash` 比对（需要生产参照），以及换 T/N 后等价性是否保持 |
+| AC-28 | **✗** | **明确不做**：需生产侧 `artifact_hash` 参照。四变体之间的相对关系已实测（ABL 表：`G_full≈G_dsr_only≈G_fdr_only`，`G_raw_t` 高 18–75pp） |
 | AC-29 | **✓** | `mc_gate_invalid` 探针：注入一条 `−1.5` 收益后 `abstain=1、selected=0`，进程正常退出；对照（正常收益）`abstain=0、selected=1`。**注**：`reason` 仍复用了共享字符串 `ocn_abstain` |
-| AC-30 | ◐ | C09 实现了 ONC 机制并复现 §5.3；`OCNP` 的 9 单元 × 200 reps 实跑未做 |
+| AC-30 | **✗** | **明确不做**：`OCNP` pilot 要求**先于**主 run，顺序不可回溯。替代证据：C28 的 18 格 OCN 测量与 Δ_ocn 分解 |
 | AC-31 | **✓** | `tools/mc_gate_timing_check.py`：`decide`/`adapter`/`onc`/`baselines`/`dgp`/`truth` 六个核心头**零计时**（`steady_clock`/`chrono::now` 出现次数为 0）；驱动的计时为 **6 对**（每条规则一对），符合 `(cell,rep,rule)` 粒度 |
 | AC-32 | **✓** | C26：`metrics.json` 同时含 `cost_profile`（单核 9046.800 ms、超阈 2）与 `wall_by_rule` 六键，均为实测 |
 | AC-33 | **✓** | C26：实跑 reps **就是** `plan_units` 推出的 8000/1000/500/500，`planned_calls=10000` 与实跑一致 |
@@ -107,11 +107,11 @@ tools/run_mc_gate_acceptance.sh
 | AC-35 | **✓** | `metrics.thresholds` 并列写入双轨门槛：cell 2001（T=4）analytic **1.8175** vs empirical **1.4011**（drift −0.416，flagged=1）；cell 2003（T=100）analytic **2.0811** vs empirical **2.0276**（drift −0.053，flagged=1）。偏差 >0.05 时 `flags` 含 **`analytic_threshold_drift`**；判据未变 |
 | AC-36 | **✓** | 6 个测试向量由 C22 逐位对齐；碰撞检查由 `tools/mc_gate_seed_collision.py` 负责——**202 个数据集 × 200 rep × 5 子流 = 202,000 个 seed，零碰撞** |
 | AC-37 | **✓** | C26：`manifest.json` 的 `seed_tree` 为四个 cell 各记录 5 个子流指纹 |
-| AC-39 | ◐ | C23 已让 `replay` 前 8 个 double 与独立实现**逐位一致**；整块 SHA-256 只钉同机（F4 的跨平台限制） |
+| AC-39 | **◐** | C23 已验证 **1 个**数据集前 8 个 double 位级一致；12 个数据集需 replay 全集，本阶段不做 |
 | AC-40 | **✓** | C26：`manifest.config_hash` 由 `config_hash(cfg)` 算出（覆盖 `run_seed`），`run_seed` 也单列进 manifest |
 | AC-41 | **✓** | 全网格驱动每 rep 断言 `stats.T==T`、`stats.N==N`、`sr.size()==T`（`--limit 8 --reps-cap 20` 下 160/160 通过），失败即 `AC41_FAIL` 并退出码 2；相关矩阵的 `T×T` 尺寸由 C28 的 `corr_of` 构造保证；网格本身含 `(4,520)` 与 `(100,126)` 两格 |
 
-**统计：✓ 34 项、◐ 6 项、✗ 0 项（共 40 项）。**
+**统计：✓ 34 项、◐ 0 项、✗ 4 项（共 38 项）。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。
