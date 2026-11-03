@@ -241,3 +241,12 @@ target_include_directories(mc_gate_invalid PRIVATE
 qbt_enable_warnings(mc_gate_invalid)
 target_compile_options(mc_gate_invalid PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_invalid)
+
+# AC-13 门槛一致性（ALT 9 个 S 点）
+add_executable(mc_gate_h4_sweep apps/mc_gate_h4_sweep.cpp)
+target_include_directories(mc_gate_h4_sweep PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_h4_sweep)
+target_compile_options(mc_gate_h4_sweep PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_h4_sweep)
