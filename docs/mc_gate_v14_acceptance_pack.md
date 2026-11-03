@@ -94,10 +94,10 @@ tools/run_mc_gate_acceptance.sh
 | AC-22 | **✓** | C20：图只存取数路径、`trace` 逐点比对 metrics；硬编码值会被追溯校验抓住。（`source` 现为 metrics 路径，接真实 run 后应换成 `(rule_id, cell_id)` 复合键） |
 | AC-23 | **✓** | C07：`verdict/flags/abstain_rate/Δ` 全部机械计算，无手填 |
 | AC-24 | ◐ | 已实测单核 25.4 min（发现 F5）；未落成 `metrics.json` 里的正式判据 |
-| AC-25 | ✗ | smoke `--strict` + 60 s 判据未实现 |
+| AC-25 | **✓** | `mc_gate_smoke_strict`：3 单元 × 50 reps × 6 规则 = **900 条**，canary（S=50, κ=7）选中且下标正确，**0.14 s** ≪ 60 s 判据；含 AC-41 维度断言 |
 | AC-26 | **✓** | 全部头文件只依赖标准库（零第三方） |
 | AC-27 | **✓** | `tools/mc_gate_panel_ref_check.py`：76 个复用格（`BYA`/`SWP`/`ABL`/`RET-K1`/`RET-K10-ds0`）的 `panel_ref` **全部**能在 `NUL`/`ALT` 的集合里找到（76/76）；面板是 `dataset_key` 的纯函数，故 `returns_sha256` 必同 |
-| AC-28 | ✗ | `artifact_hash` 未实现 |
+| AC-28 | ✗ | **真实阻塞**：网格表 `mc_gate_grid_cells.inc` 与驱动都**没有 `variant` 列**，ABL 的 40 个 cell 全部在跑 `GateMode::Full`，`G_dsr_only`/`G_fdr_only`/`G_raw_t` 三个消融变体从未被执行（§5.6 的消融实验未实现）。另外「`G_full` == 真实门控」还需一个生产侧参照才能比对 |
 | AC-29 | **✓** | `mc_gate_invalid` 探针：注入一条 `−1.5` 收益后 `abstain=1、selected=0`，进程正常退出；对照（正常收益）`abstain=0、selected=1`。**注**：`reason` 仍复用了共享字符串 `ocn_abstain` |
 | AC-30 | ◐ | C09 实现了 ONC 机制并复现 §5.3；`OCNP` 的 9 单元 × 200 reps 实跑未做 |
 | AC-31 | ◐ | 静态部分 ✓（decide 所在 TU 无计时）；`wall_by_rule` 的分项落盘未实现 |
@@ -111,7 +111,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-40 | **✓** | C26：`manifest.config_hash` 由 `config_hash(cfg)` 算出（覆盖 `run_seed`），`run_seed` 也单列进 manifest |
 | AC-41 | **✓** | 全网格驱动每 rep 断言 `stats.T==T`、`stats.N==N`、`sr.size()==T`（`--limit 8 --reps-cap 20` 下 160/160 通过），失败即 `AC41_FAIL` 并退出码 2；相关矩阵的 `T×T` 尺寸由 C28 的 `corr_of` 构造保证；网格本身含 `(4,520)` 与 `(100,126)` 两格 |
 
-**统计：✓ 27 项、◐ 11 项、✗ 2 项（共 40 项）。**
+**统计：✓ 28 项、◐ 11 项、✗ 1 项（共 40 项）。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。

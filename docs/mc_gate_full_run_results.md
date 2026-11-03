@@ -249,3 +249,18 @@
 
 > 合同里 `T*∈[60,80]` 这一项在本测量里无法对应（`T_eff` 实测 3.33）。
 > 若 `T*` 指的是"门槛达到 50% 检出所需的试验数"，需要另建一条 S 扫描才能回答。
+
+## 全网格运行的一个重要局限：ABL 消融未被执行
+
+`mc_gate_grid_cells.inc`（由 config 生成）与 `mc_gate_full.cpp` **都没有 `variant` 列**，
+因此 `ABL` 的 40 个 cell 全部在跑 `GateMode::Full`——`G_dsr_only` / `G_fdr_only` / `G_raw_t`
+三个消融变体**从未被执行**。
+
+影响：
+- 上表 `ABL` 那一行的 16.01% 只是"`G_full` 在 `S=全10, T=100, N=266` 上的选中率"，
+  **不是消融对比结果**；
+- §5.6 的"G_full vs 三个变体"在本次运行中没有数据；
+- AC-28（`G_full` 与真实门控 `artifact_hash` 相同）因此无法判定。
+
+要补齐需要：给网格表加 `mode` 列（0=Full/1=DsrOnly/2=FdrOnly/3=RawT）、
+驱动按 `mode` 分派、并重跑 `ABL` 的 40 格（约 1 分钟，不需要全网格）。

@@ -91,6 +91,7 @@ if python3 "$REPO_ROOT/tools/mc_gate_grid_check.py" 2>/dev/null | grep -qx "GRID
 if python3 "$REPO_ROOT/tools/mc_gate_panel_ref_check.py" 2>/dev/null | grep -qx "PANELREF_MATCH 1"; then ok "AC-27 复用块 panel_ref 指向父块"; else bad "AC-27 panel_ref 复用"; fi
 run_marker "AC-29 收益≤−1.0 记 ABSTAIN" "$APP/mc_gate_invalid" "INVALID_DONE"
 if "$APP/mc_gate_h4_sweep" 2>/dev/null | grep -qx "AC13_OK 1"; then ok "AC-13 门槛一致性（ALT 9 点）"; else bad "AC-13 门槛一致性"; fi
+if "$APP/mc_gate_smoke_strict" 2>/dev/null | grep -qx "STRICT_OK 1"; then ok "AC-25 严格冒烟（3×50 + canary，<60s）"; else bad "AC-25 严格冒烟"; fi
 
 echo
 echo "---------------------------------------------"

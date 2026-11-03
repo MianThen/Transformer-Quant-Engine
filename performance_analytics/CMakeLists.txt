@@ -250,3 +250,12 @@ target_include_directories(mc_gate_h4_sweep PRIVATE
 qbt_enable_warnings(mc_gate_h4_sweep)
 target_compile_options(mc_gate_h4_sweep PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_h4_sweep)
+
+# AC-25 严格冒烟（3 单元 × 50 reps + canary，60 s 内）
+add_executable(mc_gate_smoke_strict apps/mc_gate_smoke_strict.cpp)
+target_include_directories(mc_gate_smoke_strict PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_smoke_strict)
+target_compile_options(mc_gate_smoke_strict PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_smoke_strict)
