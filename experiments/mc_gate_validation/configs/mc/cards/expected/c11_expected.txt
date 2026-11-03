@@ -1,0 +1,6 @@
+MERGE 12 first=101,0,GATE_Full last=205,2,B0
+AGG B0 n=6 selected=2 abstain=0 rate=0.333333
+AGG GATE_Full n=6 selected=3 abstain=1 rate=0.500000
+DUP 0
+SHUFFLE_EQUALS 1
+REDUCE_DONE

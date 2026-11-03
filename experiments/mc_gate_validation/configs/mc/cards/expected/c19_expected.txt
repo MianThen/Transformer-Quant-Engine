@@ -1,0 +1,3 @@
+DUAL A analytic=1.657640 empirical=18.000000 drift=16.342360 flagged=1
+DUAL B analytic=1.657640 empirical=1.700000 drift=0.042360 flagged=0
+THRESHOLD_DONE

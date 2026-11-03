@@ -1,0 +1,8 @@
+MANIFEST {"contract_hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","config_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","binary_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","git_commit":"dddddddddddddddddddddddddddddddddddddddd"}
+LADDER 8000->4000 2000->1000 1000->500 4000->4000 500->500
+PLAN 4000 2000 2000 500 1000
+CALLS 9500
+PLAN2 8000 2000 2000 1000 1000
+CALLS2 14000
+METRICS {"contract_hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","config_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","binary_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","git_commit":"dddddddddddddddddddddddddddddddddddddddd","records":1200,"cells":4,"reps_per_cell":50,"rules":6,"gzip_mtime":0,"budget_threshold_ms":1.000000,"planned_calls":9500}
+MANIFEST_DONE

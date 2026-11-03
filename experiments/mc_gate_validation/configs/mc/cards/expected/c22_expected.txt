@@ -1,0 +1,13 @@
+KEY A v1|null|S=0.0000|N=266|T=20|rho=0.30|t5|p=50.4|ds=0
+KEY B v1|one_good|S=1.2000|N=266|T=4|rho=0.30|t5|p=50.4|ds=0
+KEY R v1|null|S=0.0000|N=266|T=20|rho=0.30|t5|p=50.4|ds=3
+FNV A 5f3b4addd9acb0cf
+FNV B d9a272f6fee531f3
+FNV R 5f3b4bddd9acb282
+SEED A 0 0 ret 3a775d5bafd53f18
+SEED A 0 0 hold c88d231ba9400851
+SEED A 0 0 assign 6aacbb86eec5b5bb
+SEED B 123 0 ret 07807e7eeeb76b0c
+SEED A 7 1 ret fc35ba2f810bc1f6
+SEED R 0 0 ret a39697b8c6e3a35b
+SEED_TREE_DONE

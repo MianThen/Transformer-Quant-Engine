@@ -61,6 +61,8 @@ experiments/*
 !experiments/phase5/**
 !experiments/phase4ab/
 !experiments/phase4ab/**
+!experiments/mc_gate_validation/
+!experiments/mc_gate_validation/**
 
 # Secrets
 .env
