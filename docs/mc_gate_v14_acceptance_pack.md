@@ -85,8 +85,8 @@ tools/run_mc_gate_acceptance.sh
 | AC-13 | ✗ | 门槛一致性（ALT 9 点）未跑 |
 | AC-14 | ◐ | C21 已在**一个真实矩阵**上完成 Python 独立复算并与 C++ 决策比对一致；未做的是"120 个矩阵全量 + 六条规则逐一比对"（需全量 run 产出 replay） |
 | AC-15 | ◐ | C11 提供归并与聚合；"从 jsonl 重算表 1–5 与 metrics 逐格相等"未接 |
-| AC-16 | ✗ | 置换 `N_hold` 后决策不变，未测 |
-| AC-17 | ✗ | 置换 `tau` 后决策不变，未测 |
+| AC-16 | **✓** | C32：先生成 `hold` 部署期路径、再重新生成同一面板，20 万字节**逐字节相同**（10/10）；证明 `hold` 子流不污染 `ret` 数据 |
+| AC-17 | **✓** | C32：把策略顺序反序后重跑，选中下标由 7 变 92 = `T−1−κ`（10/10）；证明决策跟随策略**身份**而非位置 |
 | AC-18 | ◐ | C06 已断言"同 rep 六规则同指纹"；与 manifest 的比对随 AC-02 一起未做 |
 | AC-19 | **✓** | 静态检查：`mc_gate_decide.h`/`mc_gate_adapter.h` 不含 truth 符号 |
 | AC-20 | **✓** | C07：Wilson 区间，判据用 `ci_lower ≤ p ≤ ci_upper` |
@@ -111,7 +111,7 @@ tools/run_mc_gate_acceptance.sh
 | AC-40 | **✓** | C26：`manifest.config_hash` 由 `config_hash(cfg)` 算出（覆盖 `run_seed`），`run_seed` 也单列进 manifest |
 | AC-41 | **✓** | 全网格驱动每 rep 断言 `stats.T==T`、`stats.N==N`、`sr.size()==T`（`--limit 8 --reps-cap 20` 下 160/160 通过），失败即 `AC41_FAIL` 并退出码 2；相关矩阵的 `T×T` 尺寸由 C28 的 `corr_of` 构造保证；网格本身含 `(4,520)` 与 `(100,126)` 两格 |
 
-**统计：✓ 23 项、◐ 4 项、✗ 7 项。**
+**统计：✓ 24 项、◐ 11 项、✗ 5 项（共 40 项）。**
 
 结论：**算法核心（RNG/DGP/真值/基线/决策/适配/编排/Wilson-McNemar/ONC/gzip 落盘/预算推导）已实现并逐卡验过**；
 **报告与运行层（manifest、metrics 聚合、replay、图、canary、置换检验、双轨门槛）尚未实现**。

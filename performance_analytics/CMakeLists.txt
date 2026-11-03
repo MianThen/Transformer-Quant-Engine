@@ -223,3 +223,12 @@ target_include_directories(mc_gate_h4 PRIVATE
 qbt_enable_warnings(mc_gate_h4)
 target_compile_options(mc_gate_h4 PRIVATE -Wno-pedantic)
 qbt_static_test_runtime(mc_gate_h4)
+
+# AC-16/AC-17 不变性探针（置换 + 部署期路径隔离）
+add_executable(mc_gate_invariance apps/mc_gate_invariance.cpp)
+target_include_directories(mc_gate_invariance PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+qbt_enable_warnings(mc_gate_invariance)
+target_compile_options(mc_gate_invariance PRIVATE -Wno-pedantic)
+qbt_static_test_runtime(mc_gate_invariance)
