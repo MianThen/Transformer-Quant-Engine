@@ -137,6 +137,7 @@ def _backtest_artifact(
         "policy": {
             "max_positions", "max_position_weight", "minimum_expected_return",
             "minimum_ranking_score", "minimum_confidence",
+            "minimum_holding_bars", "sell_rank_buffer",
         },
         "risk": {"kill_switch", "require_trusted_market", "max_order_quantity"},
         "runtime": {
@@ -226,8 +227,8 @@ def _backtest_artifact(
         "total_return": float(engine.get_total_return()),
         "sharpe_ratio": float(engine.get_sharpe_ratio()),
         "max_drawdown": float(engine.get_max_drawdown()),
-        "orders": int(engine.get_order_count()),
-        "trades": int(engine.get_trade_count()),
+        "orders": len(engine.get_order_history()),
+        "trades": len(engine.get_trade_history()),
     }
     if output_path is not None:
         destination = Path(output_path)

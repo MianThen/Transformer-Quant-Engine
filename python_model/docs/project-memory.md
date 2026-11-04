@@ -115,6 +115,32 @@ year/month/symbol_bucket
 - Python/C++ 后端一致性已验证。
 - `game` 目录和相关构建配置已完全删除。
 
+### 虚拟盘（paper trading）
+
+- `python/paper/`：日频虚拟盘，C++ 引擎（ML/ONNX 构建）逐日 replay，结果落
+  `runs/paper/paper.db`；双会话 `registered`（登记口径）/`observed`（放宽 confidence）。
+- 行情双源：scrapy baostock 日线（权威，含 PIT 状态）+ akShare 新浪回补（`bars_staging`），
+  主键冲突以 scrapy 为准。
+- 每日一条命令 `.venv/bin/python -m python.paper daily`：
+  scrapy 刷新 → 回补缺口 → 同步双会话 → 概要；建议 **18:00 后**（BaoStock 日线发布晚于收盘）。
+- `health`：逐源新鲜度 + warmup 覆盖自检；`backfill` / `sync` / `status` 可分步执行。
+- 上游边界取 `max(scrapy 末尾, staging 水位)`，成交量系数持久化在 `staging_meta`，
+  保证同一 source 整列单位恒定。
+- **交易成本已登记**（`python/paper/costs.py`，留痕于 `sessions.cost_profile`）：
+  佣金/印花税(point-in-time 千一→万五)/过户费/滑点 + 最低佣金 5 元。
+  成本对照实测（2025-04-24 ~ 2026-09-21，同策略同行情）：毛收益 +15.80% →
+  显性费用 +14.45%（拖累 1.35pp）→ 加 14bp 滑点 +12.12%（累计拖累 3.67pp）。
+  年化单边换手约 4.4x，每 1bp 单边成本 ≈ 年化拖累 0.04%。
+- 已知边界：`bars_staging` 无 `tradestatus/isST`，回补段证券状态退化为乐观假设；
+  滑点为固定 bp 近似，无历史盘口可校准。
+- 运行时目录可用 `QBT_PAPER_DIR` 覆盖（2026-10-24 起）：`store.connect()` 原先用
+  `DB_PATH` 做默认参数在 import 期绑定，环境变量形同虚设，已改为运行时解析。
+  沙箱/只读工作区把 `QBT_PAPER_DIR` 指向分册目录即可推进，不污染主库。
+- 回补水位陷阱：`backfill_staging` 的水位取 `bars_staging` 自身，而引擎边界取
+  `max(scrapy, staging)`；scrapy 停更时若只按水位补，会漏掉"scrapy 末尾↔staging 水位"
+  之间的交易日（本次 10-12~10-14 三天即如此）。回补前先 `health` 对边界，
+  或显式传 `--from-date` 早于 scrapy 末尾。
+
 ## 5. 当前完成度
 
 ```text

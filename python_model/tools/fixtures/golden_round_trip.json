@@ -1,0 +1,46 @@
+{
+  "initial_cash": 10000.0,
+  "execution": {
+    "max_volume_participation": 0.25,
+    "slippage_bps": 10.0,
+    "commission_rate": 0.0005
+  },
+  "bars": [
+    {"timestamp": 1, "price": 10.0, "volume": 40},
+    {"timestamp": 2, "price": 11.0, "volume": 40},
+    {"timestamp": 3, "price": 12.0, "volume": 40},
+    {"timestamp": 4, "price": 13.0, "volume": 40},
+    {"timestamp": 5, "price": 14.0, "volume": 40}
+  ],
+  "orders": [
+    {"timestamp": 1, "side": "BUY", "quantity": 15},
+    {"timestamp": 3, "side": "SELL", "quantity": 15}
+  ],
+  "expected": {
+    "trade_quantities": [10, 5, 10, 5],
+    "trade_prices": [11.011, 12.012, 12.987, 13.986],
+    "cash": 10029.445015,
+    "equity": 10029.445015,
+    "total_return": 0.0029445015,
+    "max_drawdown": 0.0000165055,
+    "win_rate": 1.0,
+    "round_trips": [
+      {
+        "quantity": 10,
+        "entry_price": 11.344666666666667,
+        "exit_price": 12.987,
+        "gross_pnl": 16.423333333333332,
+        "commission": 0.12165833333333333,
+        "net_pnl": 16.301675
+      },
+      {
+        "quantity": 5,
+        "entry_price": 11.344666666666667,
+        "exit_price": 13.986,
+        "gross_pnl": 13.206666666666665,
+        "commission": 0.06332666666666667,
+        "net_pnl": 13.14334
+      }
+    ]
+  }
+}
