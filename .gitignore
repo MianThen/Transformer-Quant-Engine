@@ -34,9 +34,9 @@ CMakeCache.txt
 *.sqlite
 *.sqlite3
 data/lake/
-python_model/data/lake/
-python_model/data/research/
-python_model/runs/
+python_model/data/lake
+python_model/data/research
+python_model/runs
 python_model/*.db
 python_model/*.db-*
 python_model/*.zip
@@ -74,3 +74,6 @@ credentials*.json
 cpp_engine/runs/
 cpp_engine/build-live*/
 *.replay
+# 运行态经软链接指向 /mnt/fdisk/quant/state，链接本身不入库
+python_model/data/lake_compact
+python_model/models
