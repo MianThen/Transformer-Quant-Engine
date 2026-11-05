@@ -1,0 +1,5 @@
+COST total 176175.600
+COST over 1
+COST unmatched 0
+COST json {"single_core_ms":176175.600,"over_threshold":1,"buckets":[{"T":3,"N":3,"ch_ms":0.027800},{"T":4,"N":126,"ch_ms":0.137500},{"T":100,"N":266,"ch_ms":7.015500}],"shares":{"dgp":0.445533,"m":0.464928,"ocn":0.056003,"decide":0.033549}}
+COST_DONE

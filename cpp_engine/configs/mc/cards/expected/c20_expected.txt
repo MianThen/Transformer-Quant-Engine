@@ -1,0 +1,5 @@
+PLOT 0 fpr_vs_t 3
+PLOT 1 abstain_vs_t 3
+TRACE_OK 1
+TRACE_BAD 0 fpr_vs_t
+PLOT_DONE

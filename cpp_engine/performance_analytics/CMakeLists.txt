@@ -109,3 +109,48 @@ if(QBT_ENABLE_PORTFOLIO_MATH)
         COMMAND phase4a_posterior_direct_reference --output
             "${CMAKE_CURRENT_BINARY_DIR}/phase4a-posterior-direct-reference/phase4a_posterior_direct_reference.json")
 endif()
+
+# ---------------------------------------------------------------------------
+# MC-GATE-VALIDATION v1.4 施工产物（移植自 main-mac-archive）
+#   · 20 个 header-only 自检：每卡一个可执行文件，各自一个 selftest 宏
+#   · 若干驱动/探针：DGP -> baselines -> decide -> 记录 -> 落盘
+# 全部零第三方依赖，仅用 C++ 标准库。头文件之间用同目录裸名互相包含，
+# 故统一把 include/performance_analytics 加入包含路径。
+# mc_gate_rng.h 用 unsigned __int128 实现 PCG64，会触发 -Wpedantic，
+# 因此仅对这几个目标关闭该告警。
+# ---------------------------------------------------------------------------
+set(QBT_MC_GATE_HEADER_SELFTESTS
+    rng dgp truth baselines decide adapter runner scorer output onc
+    manifest sha256 replay cost wall threshold seed panel streams seedrec)
+
+foreach(mc_gate_name IN LISTS QBT_MC_GATE_HEADER_SELFTESTS)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/mc_gate/test_mc_gate_${mc_gate_name}.cpp")
+        add_executable(test_mc_gate_${mc_gate_name}
+            tests/mc_gate/test_mc_gate_${mc_gate_name}.cpp)
+        target_include_directories(test_mc_gate_${mc_gate_name} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics)
+        qbt_enable_warnings(test_mc_gate_${mc_gate_name})
+        target_compile_options(test_mc_gate_${mc_gate_name} PRIVATE
+            -Wno-pedantic -Wno-unused-variable)
+        qbt_static_test_runtime(test_mc_gate_${mc_gate_name})
+        add_test(NAME test_mc_gate_${mc_gate_name}
+            COMMAND test_mc_gate_${mc_gate_name})
+    endif()
+endforeach()
+
+# 驱动与探针：只构建，不注册 ctest（需人工按 docs 的复现命令运行）
+foreach(mc_gate_app
+        validation costp fpr power run full canary ocn h4 h4_sweep
+        retry invariance truth_check invalid smoke_strict)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/mc_gate_${mc_gate_app}.cpp")
+        add_executable(mc_gate_${mc_gate_app} apps/mc_gate_${mc_gate_app}.cpp)
+        target_include_directories(mc_gate_${mc_gate_app} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/performance_analytics
+            ${CMAKE_CURRENT_SOURCE_DIR}/../configs/mc)
+        qbt_enable_warnings(mc_gate_${mc_gate_app})
+        target_compile_options(mc_gate_${mc_gate_app} PRIVATE -Wno-pedantic)
+        qbt_static_test_runtime(mc_gate_${mc_gate_app})
+    endif()
+endforeach()
